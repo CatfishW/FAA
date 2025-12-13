@@ -27,6 +27,7 @@ namespace CompassBarSystem
         [Header("References")]
         [SerializeField] private RectTransform compassTape;
         [SerializeField] private TMP_Text headingReadout;
+        [SerializeField] private CompassTapeGenerator tapeGenerator;
 
         [Header("Heading Source")]
         [SerializeField] private HeadingMode headingMode = HeadingMode.TransformYaw;
@@ -35,6 +36,8 @@ namespace CompassBarSystem
         [SerializeField] private float manualHeading;
 
         [Header("Motion")]
+        [Tooltip("Auto pull pixels-per-degree from the tape generator if assigned.")]
+        [SerializeField] private bool autoFromGenerator = true;
         [Tooltip("Pixels moved per heading degree.")]
         [SerializeField] private float pixelsPerDegree = 4f;
         [Tooltip("Width in pixels of a full 360° cycle of your tape artwork (e.g., 360 * pixelsPerDegree, or wider if you stacked repeats).")]
@@ -51,6 +54,12 @@ namespace CompassBarSystem
 
         void Awake()
         {
+            if (autoFromGenerator && tapeGenerator != null)
+            {
+                pixelsPerDegree = tapeGenerator.PixelsPerDegree;
+                cycleWidthPixels = tapeGenerator.CycleWidth;
+            }
+
             if (headingTarget == null && Camera.main != null)
             {
                 // Default to camera transform only if nothing else is set; user should assign aircraft/root to decouple from camera orbiting.
@@ -75,6 +84,8 @@ namespace CompassBarSystem
                 float lerpFactor = 1f - Mathf.Pow(1f - smoothing, Time.deltaTime * 60f);
                 displayedHeading = Mathf.LerpAngle(displayedHeading, targetHeading, lerpFactor);
             }
+
+            displayedHeading = Normalize360(displayedHeading);
 
             ApplyTapePosition();
             ApplyReadout();
@@ -111,14 +122,14 @@ namespace CompassBarSystem
         void ApplyTapePosition()
         {
             if (compassTape == null) return;
+            float headingNormalized = displayedHeading / 360f;
+            float anchorX = 0.5f - headingNormalized; // heading east (90) shifts tape left so east appears centered
+            anchorX = Wrap01(anchorX);
 
-            float offsetPixels = displayedHeading * pixelsPerDegree;
-            // Keep values bounded to avoid floating drift in long sessions.
-            float wrapped = Mathf.Repeat(offsetPixels, Mathf.Max(1f, cycleWidthPixels));
-            float x = -wrapped; // Heading increases -> tape moves left, keeping the referenced heading centered.
-            Vector2 pos = compassTape.anchoredPosition;
-            pos.x = x;
-            compassTape.anchoredPosition = pos;
+            compassTape.pivot = new Vector2(0.5f, 0.5f);
+            compassTape.anchorMin = new Vector2(anchorX, 0.5f);
+            compassTape.anchorMax = new Vector2(anchorX, 0.5f);
+            compassTape.anchoredPosition = Vector2.zero;
         }
 
         void ApplyReadout()
@@ -133,6 +144,13 @@ namespace CompassBarSystem
             degrees %= 360f;
             if (degrees < 0f) degrees += 360f;
             return degrees;
+        }
+
+        static float Wrap01(float v)
+        {
+            v %= 1f;
+            if (v < 0f) v += 1f;
+            return v;
         }
     }
 }

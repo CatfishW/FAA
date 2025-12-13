@@ -3,13 +3,13 @@
 Lightweight, camera-independent compass bar controller for UI tapes.
 
 ## Quick setup
-1. Create a UI Image (RectTransform) for your compass tape. Use a horizontally repeating sprite/tile. Set anchors/pivot to center.
-2. Add `CompassBarController` to a GameObject and assign the tape RectTransform.
-3. Set `Pixels Per Degree` to match your artwork. Set `Cycle Width Pixels` to the length of one full 360° pass of the tape (e.g., `360 * pixelsPerDegree` if the tape contains exactly one 0-360 cycle; larger if you stacked repeats for seamless wrap).
-4. Set `Heading Mode` to `TransformYaw` and assign your aircraft/body transform to `Heading Target`. This keeps the bar stable if the camera orbits.
-5. (Optional) Assign a `TMP_Text` to `Heading Readout` and tweak the format.
+1. Add `CompassTapeGenerator` to your tape RectTransform and click **Generate Tape** to get ticks/labels. Set pixels-per-degree and style there.
+2. Add `CompassBarController` to a parent (or same object) and assign the tape RectTransform (and heading readout if desired).
+3. Leave `Auto From Generator` on so the controller reads pixels-per-degree and cycle width from the generator.
+4. Set `Heading Mode` to `TransformYaw` and assign your aircraft/body transform to `Heading Target` (not the orbiting camera) so the bar stays stable when the camera moves.
+5. Play. The tape scrolls via anchor shifting (wrap-safe) and the readout updates from the heading source.
 
 ## Notes
-- The controller ignores camera motion unless the camera is explicitly set as the heading target.
+- Tape generator builds repeated 360° copies for seamless scrolling and shows major/minor ticks plus labels (cardinals and degree labels every N degrees).
+- Controller ignores camera motion unless the camera is the heading target. Use `Manual Degrees` mode or `SetHeadingDegrees` if you drive heading from another system.
 - Smoothing uses exponential interpolation scaled by frame time; set smoothing to `0` for instant snapping.
-- Manual heading mode lets other systems feed a heading via `SetHeadingDegrees`.
