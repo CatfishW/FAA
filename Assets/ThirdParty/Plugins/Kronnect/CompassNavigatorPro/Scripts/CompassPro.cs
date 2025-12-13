@@ -83,6 +83,23 @@ namespace CompassNavigatorPro {
             }
         }
 
+        [Tooltip("Keeps the compass bar aligned to the follow transform heading instead of the camera heading (useful for orbit/FOF cameras).")]
+        [SerializeField]
+        bool _lockCompassToFollowHeading;
+
+        /// <summary>
+        /// When true, the compass orientation uses the follow transform yaw, so camera-only rotations won't scroll the bar.
+        /// </summary>
+        public bool lockCompassToFollowHeading {
+            get { return _lockCompassToFollowHeading; }
+            set {
+                if (value != _lockCompassToFollowHeading) {
+                    _lockCompassToFollowHeading = value;
+                    Refresh();
+                }
+            }
+        }
+
         [Tooltip("Contents are always updated if camera moves or rotates. If not, this property specifies the interval between POI change checks")]
         [SerializeField]
         UpdateMode _updateMode = UpdateMode.NumberOfFrames;

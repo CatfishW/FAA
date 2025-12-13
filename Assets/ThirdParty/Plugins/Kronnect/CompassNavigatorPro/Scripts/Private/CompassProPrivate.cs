@@ -390,6 +390,42 @@ namespace CompassNavigatorPro {
         }
 
 
+        Quaternion GetHeadingRotation() {
+            if (_lockCompassToFollowHeading && _follow != null) {
+                Vector3 forward = _follow.forward;
+                forward.y = 0f;
+                if (forward.sqrMagnitude > 0.0001f) {
+                    return Quaternion.LookRotation(forward);
+                }
+            }
+            return currentCamRot;
+        }
+
+        Vector3 GetHeadingForward() {
+            if (_lockCompassToFollowHeading && _follow != null) {
+                Vector3 forward = _follow.forward;
+                forward.y = 0f;
+                if (forward.sqrMagnitude > 0.0001f) return forward.normalized;
+            }
+
+            if (_cameraMain != null) {
+                Vector3 forward = _cameraMain.transform.forward;
+                forward.y = 0f;
+                return forward;
+            }
+
+            return Vector3.forward;
+        }
+
+        Vector3 GetHeadingOrigin() {
+            if (_lockCompassToFollowHeading && _follow != null) {
+                return followPos;
+            }
+
+            return lastCamPos;
+        }
+
+
         void EnableCompass() {
             if (compassBackRT != null) {
                 compassBackRT.gameObject.SetActive(true);
@@ -916,17 +952,15 @@ namespace CompassNavigatorPro {
                     screenPos = poi.viewportPos;
                     break;
                 case WorldMappingMode.Full180Degrees: {
-                        Vector3 v2poi = poi.transform.position - lastCamPos;
-                        Vector3 forward = _cameraMain.transform.forward;
-                        forward.y = 0;
+                        Vector3 v2poi = poi.transform.position - GetHeadingOrigin();
+                        Vector3 forward = GetHeadingForward();
                         float angle = (Quaternion.FromToRotation(forward, v2poi).eulerAngles.y + 180f) / 180f;
                         screenPos.x = 0.5f + (angle % 2.0f - 1.0f) * (_width - _endCapsWidth / _cameraMain.pixelWidth) * 0.9f;
                     }
                     break;
                 case WorldMappingMode.Full360Degrees: {
-                        Vector3 v2poi = poi.transform.position - lastCamPos;
-                        Vector3 forward = _cameraMain.transform.forward;
-                        forward.y = 0;
+                        Vector3 v2poi = poi.transform.position - GetHeadingOrigin();
+                        Vector3 forward = GetHeadingForward();
                         float angle = (Quaternion.FromToRotation(forward, v2poi).eulerAngles.y + 180f) / 180f;
                         screenPos.x = 0.5f + (angle % 2.0f - 1f) * 0.5f * (_width - _endCapsWidth / _cameraMain.pixelWidth) * 0.9f;
                     }
@@ -951,17 +985,15 @@ namespace CompassNavigatorPro {
                     screenPos = _cameraMain.WorldToViewportPoint(position);
                     break;
                 case WorldMappingMode.Full180Degrees: {
-                        Vector3 v2poi = position - lastCamPos;
-                        Vector3 forward = _cameraMain.transform.forward;
-                        forward.y = 0;
+                        Vector3 v2poi = position - GetHeadingOrigin();
+                        Vector3 forward = GetHeadingForward();
                         float angle = (Quaternion.FromToRotation(forward, v2poi).eulerAngles.y + 180f) / 180f;
                         screenPos.x = 0.5f + (angle % 2.0f - 1.0f) * (_width - _endCapsWidth / _cameraMain.pixelWidth) * 0.9f;
                     }
                     break;
                 case WorldMappingMode.Full360Degrees: {
-                        Vector3 v2poi = position - lastCamPos;
-                        Vector3 forward = _cameraMain.transform.forward;
-                        forward.y = 0;
+                        Vector3 v2poi = position - GetHeadingOrigin();
+                        Vector3 forward = GetHeadingForward();
                         float angle = (Quaternion.FromToRotation(forward, v2poi).eulerAngles.y + 180f) / 180f;
                         screenPos.x = 0.5f + (angle % 2.0f - 1f) * 0.5f * (_width - _endCapsWidth / _cameraMain.pixelWidth) * 0.9f;
                     }
@@ -997,7 +1029,7 @@ namespace CompassNavigatorPro {
             }
             Vector3 pos;
             for (int k = 0; k < compassPointsLength; k++) {
-                pos = lastCamPos;
+                pos = GetHeadingOrigin();
                 pos.x += compassPoints[k].cos;
                 pos.z += compassPoints[k].sin;
                 compassPoints[k].position = pos;
@@ -1242,7 +1274,8 @@ namespace CompassNavigatorPro {
         /// </summary>
         void UpdateHalfWinds(float barMax) {
             if (compassBarMat == null) return;
-            compassBarMat.SetFloat(ShaderParams.CompassAngle, currentCamRot.eulerAngles.y - _northDegrees);
+            float headingYaw = GetHeadingRotation().eulerAngles.y;
+            compassBarMat.SetFloat(ShaderParams.CompassAngle, headingYaw - _northDegrees);
             if (_worldMappingMode == WorldMappingMode.LimitedToBarWidth || _worldMappingMode == WorldMappingMode.CameraFrustum) {
                 compassBarMat.SetMatrix(ShaderParams.CompassIP, _cameraMain.projectionMatrix.inverse);
             }
