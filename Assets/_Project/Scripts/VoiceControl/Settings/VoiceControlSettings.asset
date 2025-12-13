@@ -1,0 +1,37 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: c87474a1b8e90774bb7a84f6e2bcd256, type: 3}
+  m_Name: VoiceControlSettings
+  m_EditorClassIdentifier: Assembly-CSharp::VoiceControl.Manager.VoiceControlSettings
+  sttServerUrl: https://game.agaii.org/stt
+  sttTimeout: 5
+  llmServerUrl: https://game.agaii.org/llm
+  llmModelName: Qwen/Qwen3-VL-4B-Instruct-FP8
+  llmApiKey: 
+  llmTimeout: 5
+  llmTemperature: 0.3
+  sampleRate: 16000
+  maxRecordingDuration: 30
+  minRecordingDuration: 0.5
+  silenceThreshold: 0.02
+  silenceDuration: 5
+  primaryColor: {r: 0.118537776, g: 1, b: 0.028301716, a: 1}
+  secondaryColor: {r: 0.1, g: 0.12, b: 0.15, a: 0.95}
+  recordingColor: {r: 1, g: 0.3, b: 0.3, a: 1}
+  successColor: {r: 0.3, g: 0.9, b: 0.4, a: 1}
+  errorColor: {r: 1, g: 0.3, b: 0.3, a: 1}
+  animationDuration: 0.25
+  feedbackDisplayDuration: 3
+  uiPosition: 5
+  uiOffset: {x: 0, y: 0}
+  panelSize: {x: 50, y: 50}
+  verboseLogging: 1

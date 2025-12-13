@@ -1,0 +1,753 @@
+fileFormatVersion: 2
+guid: 4c74b3a0ef25176439a218898507e12c
+TextureImporter:
+  internalIDToNameTable: []
+  externalObjects: {}
+  serializedVersion: 13
+  mipmaps:
+    mipMapMode: 0
+    enableMipMap: 0
+    sRGBTexture: 1
+    linearTexture: 0
+    fadeOut: 0
+    borderMipMap: 0
+    mipMapsPreserveCoverage: 0
+    alphaTestReferenceValue: 0.5
+    mipMapFadeDistanceStart: 1
+    mipMapFadeDistanceEnd: 3
+  bumpmap:
+    convertToNormalMap: 0
+    externalNormalMap: 0
+    heightScale: 0.25
+    normalMapFilter: 0
+    flipGreenChannel: 0
+  isReadable: 1
+  streamingMipmaps: 0
+  streamingMipmapsPriority: 0
+  vTOnly: 0
+  ignoreMipmapLimit: 0
+  grayScaleToAlpha: 0
+  generateCubemap: 6
+  cubemapConvolution: 0
+  seamlessCubemap: 0
+  textureFormat: 1
+  maxTextureSize: 2048
+  textureSettings:
+    serializedVersion: 2
+    filterMode: 1
+    aniso: 1
+    mipBias: 0
+    wrapU: 1
+    wrapV: 1
+    wrapW: 0
+  nPOTScale: 0
+  lightmap: 0
+  compressionQuality: 50
+  spriteMode: 2
+  spriteExtrude: 1
+  spriteMeshType: 1
+  alignment: 0
+  spritePivot: {x: 0.5, y: 0.5}
+  spritePixelsToUnits: 100
+  spriteBorder: {x: 0, y: 0, z: 0, w: 0}
+  spriteGenerateFallbackPhysicsShape: 1
+  alphaUsage: 1
+  alphaIsTransparency: 1
+  spriteTessellationDetail: -1
+  textureType: 8
+  textureShape: 1
+  singleChannelComponent: 0
+  flipbookRows: 1
+  flipbookColumns: 1
+  maxTextureSizeSet: 0
+  compressionQualitySet: 0
+  textureFormatSet: 0
+  ignorePngGamma: 0
+  applyGammaDecoding: 0
+  swizzle: 50462976
+  cookieLightType: 0
+  platformSettings:
+  - serializedVersion: 4
+    buildTarget: DefaultTexturePlatform
+    maxTextureSize: 2048
+    resizeAlgorithm: 0
+    textureFormat: -1
+    textureCompression: 1
+    compressionQuality: 50
+    crunchedCompression: 0
+    allowsAlphaSplitting: 0
+    overridden: 0
+    ignorePlatformSupport: 0
+    androidETC2FallbackOverride: 0
+    forceMaximumCompressionQuality_BC6H_BC7: 0
+  - serializedVersion: 4
+    buildTarget: Standalone
+    maxTextureSize: 2048
+    resizeAlgorithm: 0
+    textureFormat: -1
+    textureCompression: 1
+    compressionQuality: 50
+    crunchedCompression: 0
+    allowsAlphaSplitting: 0
+    overridden: 0
+    ignorePlatformSupport: 0
+    androidETC2FallbackOverride: 0
+    forceMaximumCompressionQuality_BC6H_BC7: 0
+  - serializedVersion: 4
+    buildTarget: WebGL
+    maxTextureSize: 2048
+    resizeAlgorithm: 0
+    textureFormat: -1
+    textureCompression: 1
+    compressionQuality: 50
+    crunchedCompression: 0
+    allowsAlphaSplitting: 0
+    overridden: 0
+    ignorePlatformSupport: 0
+    androidETC2FallbackOverride: 0
+    forceMaximumCompressionQuality_BC6H_BC7: 0
+  spriteSheet:
+    serializedVersion: 2
+    sprites:
+    - serializedVersion: 2
+      name: PitchScale_Design2_White_0
+      rect:
+        serializedVersion: 2
+        x: 2011
+        y: 2252
+        width: 497
+        height: 52
+      alignment: 0
+      pivot: {x: 0.5, y: 0.5}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      customData: 
+      outline: []
+      physicsShape: []
+      tessellationDetail: 0
+      bones: []
+      spriteID: e858c3ca9c1fa5e419433af8a13c161f
+      internalID: 4132964764838598193
+      vertices: []
+      indices: 
+      edges: []
+      weights: []
+    - serializedVersion: 2
+      name: PitchScale_Design2_White_1
+      rect:
+        serializedVersion: 2
+        x: 2602
+        y: 2234
+        width: 44
+        height: 96
+      alignment: 0
+      pivot: {x: 0.5, y: 0.5}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      customData: 
+      outline: []
+      physicsShape: []
+      tessellationDetail: 0
+      bones: []
+      spriteID: 9fe953f2d31cfc641a2874861c47bb70
+      internalID: -8102068804893755297
+      vertices: []
+      indices: 
+      edges: []
+      weights: []
+    - serializedVersion: 2
+      name: PitchScale_Design2_White_2
+      rect:
+        serializedVersion: 2
+        x: 2667
+        y: 2233
+        width: 73
+        height: 100
+      alignment: 0
+      pivot: {x: 0.5, y: 0.5}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      customData: 
+      outline: []
+      physicsShape: []
+      tessellationDetail: 0
+      bones: []
+      spriteID: 2de67543150c37b4caff1ea0cacaa0a2
+      internalID: 8117024559870301942
+      vertices: []
+      indices: 
+      edges: []
+      weights: []
+    - serializedVersion: 2
+      name: PitchScale_Design2_White_3
+      rect:
+        serializedVersion: 2
+        x: 2819
+        y: 2249
+        width: 523
+        height: 52
+      alignment: 0
+      pivot: {x: 0.5, y: 0.5}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      customData: 
+      outline: []
+      physicsShape: []
+      tessellationDetail: 0
+      bones: []
+      spriteID: 52125c12fccfe8d4f9ce0ee82b37db17
+      internalID: -7937307266035889476
+      vertices: []
+      indices: 
+      edges: []
+      weights: []
+    - serializedVersion: 2
+      name: PitchScale_Design2_White_4
+      rect:
+        serializedVersion: 2
+        x: 2011
+        y: 1913
+        width: 520
+        height: 53
+      alignment: 0
+      pivot: {x: 0.5, y: 0.5}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      customData: 
+      outline: []
+      physicsShape: []
+      tessellationDetail: 0
+      bones: []
+      spriteID: e3f5f5cf5d0c97046b0f55ec55b16427
+      internalID: -8921727487816331093
+      vertices: []
+      indices: 
+      edges: []
+      weights: []
+    - serializedVersion: 2
+      name: PitchScale_Design2_White_5
+      rect:
+        serializedVersion: 2
+        x: 2636
+        y: 1901
+        width: 65
+        height: 102
+      alignment: 0
+      pivot: {x: 0.5, y: 0.5}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      customData: 
+      outline: []
+      physicsShape: []
+      tessellationDetail: 0
+      bones: []
+      spriteID: 19d9d0f312d4dc040a598c40a7ab3ef3
+      internalID: -6884213713049114320
+      vertices: []
+      indices: 
+      edges: []
+      weights: []
+    - serializedVersion: 2
+      name: PitchScale_Design2_White_6
+      rect:
+        serializedVersion: 2
+        x: 2843
+        y: 1914
+        width: 499
+        height: 50
+      alignment: 0
+      pivot: {x: 0.5, y: 0.5}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      customData: 
+      outline: []
+      physicsShape: []
+      tessellationDetail: 0
+      bones: []
+      spriteID: 9cc2c87792c03c64392837d5efad861c
+      internalID: 8729048860580167606
+      vertices: []
+      indices: 
+      edges: []
+      weights: []
+    - serializedVersion: 2
+      name: PitchScale_Design2_White_7
+      rect:
+        serializedVersion: 2
+        x: 2016
+        y: 1603
+        width: 518
+        height: 60
+      alignment: 0
+      pivot: {x: 0.5, y: 0.5}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      customData: 
+      outline: []
+      physicsShape: []
+      tessellationDetail: 0
+      bones: []
+      spriteID: 7d0e2166df4f6e048a93485323f1979e
+      internalID: -1947471296088409261
+      vertices: []
+      indices: 
+      edges: []
+      weights: []
+    - serializedVersion: 2
+      name: PitchScale_Design2_White_8
+      rect:
+        serializedVersion: 2
+        x: 2816
+        y: 1603
+        width: 526
+        height: 60
+      alignment: 0
+      pivot: {x: 0.5, y: 0.5}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      customData: 
+      outline: []
+      physicsShape: []
+      tessellationDetail: 0
+      bones: []
+      spriteID: e9c99a89933cac24ead752029949f0e6
+      internalID: 3859377382074939133
+      vertices: []
+      indices: 
+      edges: []
+      weights: []
+    - serializedVersion: 2
+      name: PitchScale_Design2_White_9
+      rect:
+        serializedVersion: 2
+        x: 2011
+        y: 1331
+        width: 154
+        height: 55
+      alignment: 0
+      pivot: {x: 0.5, y: 0.5}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      customData: 
+      outline: []
+      physicsShape: []
+      tessellationDetail: 0
+      bones: []
+      spriteID: 3aca63110fb6ece4880b46531c2704e4
+      internalID: -3333936297088431497
+      vertices: []
+      indices: 
+      edges: []
+      weights: []
+    - serializedVersion: 2
+      name: PitchScale_Design2_White_10
+      rect:
+        serializedVersion: 2
+        x: 2217
+        y: 1365
+        width: 123
+        height: 21
+      alignment: 0
+      pivot: {x: 0.5, y: 0.5}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      customData: 
+      outline: []
+      physicsShape: []
+      tessellationDetail: 0
+      bones: []
+      spriteID: 3b8c495580bc0d0439a80a59243c3755
+      internalID: -378455221070557455
+      vertices: []
+      indices: 
+      edges: []
+      weights: []
+    - serializedVersion: 2
+      name: PitchScale_Design2_White_11
+      rect:
+        serializedVersion: 2
+        x: 2390
+        y: 1365
+        width: 123
+        height: 21
+      alignment: 0
+      pivot: {x: 0.5, y: 0.5}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      customData: 
+      outline: []
+      physicsShape: []
+      tessellationDetail: 0
+      bones: []
+      spriteID: ee3f5f469cbbaa74b94b9e0840fff010
+      internalID: 2925119657612439950
+      vertices: []
+      indices: 
+      edges: []
+      weights: []
+    - serializedVersion: 2
+      name: PitchScale_Design2_White_12
+      rect:
+        serializedVersion: 2
+        x: 2610
+        y: 1359
+        width: 39
+        height: 16
+      alignment: 0
+      pivot: {x: 0.5, y: 0.5}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      customData: 
+      outline: []
+      physicsShape: []
+      tessellationDetail: 0
+      bones: []
+      spriteID: 5ab9f5bfc8ceff141a6df2c1b934f3a6
+      internalID: 1185630240562197634
+      vertices: []
+      indices: 
+      edges: []
+      weights: []
+    - serializedVersion: 2
+      name: PitchScale_Design2_White_13
+      rect:
+        serializedVersion: 2
+        x: 2657
+        y: 1325
+        width: 65
+        height: 102
+      alignment: 0
+      pivot: {x: 0.5, y: 0.5}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      customData: 
+      outline: []
+      physicsShape: []
+      tessellationDetail: 0
+      bones: []
+      spriteID: d61b72473014f9c439b243b7a3861e39
+      internalID: -5181319554030256953
+      vertices: []
+      indices: 
+      edges: []
+      weights: []
+    - serializedVersion: 2
+      name: PitchScale_Design2_White_14
+      rect:
+        serializedVersion: 2
+        x: 2837
+        y: 1365
+        width: 123
+        height: 21
+      alignment: 0
+      pivot: {x: 0.5, y: 0.5}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      customData: 
+      outline: []
+      physicsShape: []
+      tessellationDetail: 0
+      bones: []
+      spriteID: 4d0c579075613694984a1787fd705403
+      internalID: -2247083383925256401
+      vertices: []
+      indices: 
+      edges: []
+      weights: []
+    - serializedVersion: 2
+      name: PitchScale_Design2_White_15
+      rect:
+        serializedVersion: 2
+        x: 3013
+        y: 1365
+        width: 122
+        height: 21
+      alignment: 0
+      pivot: {x: 0.5, y: 0.5}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      customData: 
+      outline: []
+      physicsShape: []
+      tessellationDetail: 0
+      bones: []
+      spriteID: e79c5c2368bad3c4d8c919b09b187b4b
+      internalID: 7741903658304564196
+      vertices: []
+      indices: 
+      edges: []
+      weights: []
+    - serializedVersion: 2
+      name: PitchScale_Design2_White_16
+      rect:
+        serializedVersion: 2
+        x: 3185
+        y: 1331
+        width: 157
+        height: 55
+      alignment: 0
+      pivot: {x: 0.5, y: 0.5}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      customData: 
+      outline: []
+      physicsShape: []
+      tessellationDetail: 0
+      bones: []
+      spriteID: 4a407df89f18d7d42b1b1896e1ca0266
+      internalID: 1217706938354453525
+      vertices: []
+      indices: 
+      edges: []
+      weights: []
+    - serializedVersion: 2
+      name: PitchScale_Design2_White_17
+      rect:
+        serializedVersion: 2
+        x: 2011
+        y: 996
+        width: 154
+        height: 52
+      alignment: 0
+      pivot: {x: 0.5, y: 0.5}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      customData: 
+      outline: []
+      physicsShape: []
+      tessellationDetail: 0
+      bones: []
+      spriteID: e67259a59a18a7e4aa2ddea04e80ea16
+      internalID: 7887004385869759031
+      vertices: []
+      indices: 
+      edges: []
+      weights: []
+    - serializedVersion: 2
+      name: PitchScale_Design2_White_18
+      rect:
+        serializedVersion: 2
+        x: 2217
+        y: 1027
+        width: 123
+        height: 21
+      alignment: 0
+      pivot: {x: 0.5, y: 0.5}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      customData: 
+      outline: []
+      physicsShape: []
+      tessellationDetail: 0
+      bones: []
+      spriteID: 8ea829efc1984044cb12aa0fffb3af8b
+      internalID: -1109882641888942505
+      vertices: []
+      indices: 
+      edges: []
+      weights: []
+    - serializedVersion: 2
+      name: PitchScale_Design2_White_19
+      rect:
+        serializedVersion: 2
+        x: 2390
+        y: 1030
+        width: 123
+        height: 18
+      alignment: 0
+      pivot: {x: 0.5, y: 0.5}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      customData: 
+      outline: []
+      physicsShape: []
+      tessellationDetail: 0
+      bones: []
+      spriteID: 1a557709d58643849bdc93a858dbcad5
+      internalID: -7894252138786068875
+      vertices: []
+      indices: 
+      edges: []
+      weights: []
+    - serializedVersion: 2
+      name: PitchScale_Design2_White_20
+      rect:
+        serializedVersion: 2
+        x: 2571
+        y: 1017
+        width: 39
+        height: 15
+      alignment: 0
+      pivot: {x: 0.5, y: 0.5}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      customData: 
+      outline: []
+      physicsShape: []
+      tessellationDetail: 0
+      bones: []
+      spriteID: f80882206730692499f25b3a58e32a4a
+      internalID: 308423365588725567
+      vertices: []
+      indices: 
+      edges: []
+      weights: []
+    - serializedVersion: 2
+      name: PitchScale_Design2_White_21
+      rect:
+        serializedVersion: 2
+        x: 2620
+        y: 985
+        width: 47
+        height: 100
+      alignment: 0
+      pivot: {x: 0.5, y: 0.5}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      customData: 
+      outline: []
+      physicsShape: []
+      tessellationDetail: 0
+      bones: []
+      spriteID: a3cabe4b8740a584b8b89a00d024bd46
+      internalID: 1811382800205064721
+      vertices: []
+      indices: 
+      edges: []
+      weights: []
+    - serializedVersion: 2
+      name: PitchScale_Design2_White_22
+      rect:
+        serializedVersion: 2
+        x: 2691
+        y: 983
+        width: 76
+        height: 104
+      alignment: 0
+      pivot: {x: 0.5, y: 0.5}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      customData: 
+      outline: []
+      physicsShape: []
+      tessellationDetail: 0
+      bones: []
+      spriteID: 16719132c4bf8d04e8cd11532328dd58
+      internalID: 5634093622331675481
+      vertices: []
+      indices: 
+      edges: []
+      weights: []
+    - serializedVersion: 2
+      name: PitchScale_Design2_White_23
+      rect:
+        serializedVersion: 2
+        x: 2837
+        y: 1030
+        width: 123
+        height: 18
+      alignment: 0
+      pivot: {x: 0.5, y: 0.5}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      customData: 
+      outline: []
+      physicsShape: []
+      tessellationDetail: 0
+      bones: []
+      spriteID: 42b6a2f24f22b0c4ca9dab07a17aaa0a
+      internalID: -1923829593581210053
+      vertices: []
+      indices: 
+      edges: []
+      weights: []
+    - serializedVersion: 2
+      name: PitchScale_Design2_White_24
+      rect:
+        serializedVersion: 2
+        x: 3013
+        y: 1027
+        width: 122
+        height: 21
+      alignment: 0
+      pivot: {x: 0.5, y: 0.5}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      customData: 
+      outline: []
+      physicsShape: []
+      tessellationDetail: 0
+      bones: []
+      spriteID: 8d2edbde076928c4ea4bbfb6440bda99
+      internalID: -8317472634381942708
+      vertices: []
+      indices: 
+      edges: []
+      weights: []
+    - serializedVersion: 2
+      name: PitchScale_Design2_White_25
+      rect:
+        serializedVersion: 2
+        x: 3185
+        y: 996
+        width: 157
+        height: 52
+      alignment: 0
+      pivot: {x: 0.5, y: 0.5}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      customData: 
+      outline: []
+      physicsShape: []
+      tessellationDetail: 0
+      bones: []
+      spriteID: 0b3fc9f2b8814bc43a5743bca16de2d0
+      internalID: 7966649692074030267
+      vertices: []
+      indices: 
+      edges: []
+      weights: []
+    - serializedVersion: 2
+      name: PitchScale_Design2_White_26
+      rect:
+        serializedVersion: 2
+        x: 1975
+        y: 959
+        width: 1402
+        height: 1408
+      alignment: 0
+      pivot: {x: 0, y: 0}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      customData: 
+      outline: []
+      physicsShape: []
+      tessellationDetail: 0
+      bones: []
+      spriteID: 62b04bf2eb4fc174a8389f58ccad863f
+      internalID: 1734530590
+      vertices: []
+      indices: 
+      edges: []
+      weights: []
+    outline: []
+    customData: 
+    physicsShape: []
+    bones: []
+    spriteID: 777cb9eea81e25c46aec1b1ee56933a5
+    internalID: 0
+    vertices: []
+    indices: 
+    edges: []
+    weights: []
+    secondaryTextures: []
+    spriteCustomMetadata:
+      entries:
+      - key: SpriteEditor.SliceSettings
+        value: '{"sliceOnImport":false,"gridCellCount":{"x":1.0,"y":1.0},"gridSpriteSize":{"x":64.0,"y":64.0},"gridSpriteOffset":{"x":0.0,"y":0.0},"gridSpritePadding":{"x":0.0,"y":0.0},"pivot":{"x":0.5,"y":0.5},"pivotPixels":{"x":0.0,"y":0.0},"autoSlicingMethod":0,"spriteAlignment":0,"pivotUnitMode":0,"slicingType":0,"keepEmptyRects":false,"isAlternate":false}'
+    nameFileIdTable:
+      PitchScale_Design2_White_0: 4132964764838598193
+      PitchScale_Design2_White_1: -8102068804893755297
+      PitchScale_Design2_White_10: -378455221070557455
+      PitchScale_Design2_White_11: 2925119657612439950
+      PitchScale_Design2_White_12: 1185630240562197634
+      PitchScale_Design2_White_13: -5181319554030256953
+      PitchScale_Design2_White_14: -2247083383925256401
+      PitchScale_Design2_White_15: 7741903658304564196
+      PitchScale_Design2_White_16: 1217706938354453525
+      PitchScale_Design2_White_17: 7887004385869759031
+      PitchScale_Design2_White_18: -1109882641888942505
+      PitchScale_Design2_White_19: -7894252138786068875
+      PitchScale_Design2_White_2: 8117024559870301942
+      PitchScale_Design2_White_20: 308423365588725567
+      PitchScale_Design2_White_21: 1811382800205064721
+      PitchScale_Design2_White_22: 5634093622331675481
+      PitchScale_Design2_White_23: -1923829593581210053
+      PitchScale_Design2_White_24: -8317472634381942708
+      PitchScale_Design2_White_25: 7966649692074030267
+      PitchScale_Design2_White_26: 1734530590
+      PitchScale_Design2_White_3: -7937307266035889476
+      PitchScale_Design2_White_4: -8921727487816331093
+      PitchScale_Design2_White_5: -6884213713049114320
+      PitchScale_Design2_White_6: 8729048860580167606
+      PitchScale_Design2_White_7: -1947471296088409261
+      PitchScale_Design2_White_8: 3859377382074939133
+      PitchScale_Design2_White_9: -3333936297088431497
+  mipmapLimitGroupName: 
+  pSDRemoveMatte: 0
+  userData: 
+  assetBundleName: 
+  assetBundleVariant: 

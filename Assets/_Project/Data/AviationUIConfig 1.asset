@@ -1,0 +1,43 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 169e848c68f750a489c69efd18cb91ad, type: 3}
+  m_Name: AviationUIConfig 1
+  m_EditorClassIdentifier: Assembly-CSharp::AviationUI.AviationUIConfig
+  primaryColor: {r: 0.2, g: 1, b: 0.4, a: 1}
+  warningColor: {r: 1, g: 0.92, b: 0.016, a: 1}
+  dangerColor: {r: 1, g: 0.2, b: 0.2, a: 1}
+  backgroundColor: {r: 0, g: 0, b: 0, a: 0.5}
+  textColor: {r: 1, g: 1, b: 1, a: 1}
+  uiScale: 1
+  primaryFontSize: 72
+  secondaryFontSize: 48
+  labelFontSize: 32
+  showHeadingTape: 1
+  showAttitudeIndicator: 1
+  showAirspeedTape: 1
+  showAltitudeTape: 1
+  showVerticalSpeed: 1
+  showEngineGauges: 1
+  showCompassRose: 1
+  showRadar: 1
+  showModeButtons: 1
+  airspeedWarningThreshold: 140
+  airspeedDangerThreshold: 160
+  altitudeWarningThreshold: 10000
+  altitudeDangerThreshold: 19000
+  verticalSpeedWarningThreshold: 1000
+  verticalSpeedDangerThreshold: 2500
+  torqueWarningThreshold: 100
+  torqueDangerThreshold: 110
+  smoothingFactor: 0.1
+  enableAnimations: 1
+  layoutPreset: 1

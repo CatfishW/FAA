@@ -1,0 +1,1537 @@
+fileFormatVersion: 2
+guid: dd58e006abac43d45ae1ec0724150637
+TextureImporter:
+  internalIDToNameTable: []
+  externalObjects: {}
+  serializedVersion: 13
+  mipmaps:
+    mipMapMode: 0
+    enableMipMap: 0
+    sRGBTexture: 1
+    linearTexture: 0
+    fadeOut: 0
+    borderMipMap: 0
+    mipMapsPreserveCoverage: 0
+    alphaTestReferenceValue: 0.5
+    mipMapFadeDistanceStart: 1
+    mipMapFadeDistanceEnd: 3
+  bumpmap:
+    convertToNormalMap: 0
+    externalNormalMap: 0
+    heightScale: 0.25
+    normalMapFilter: 0
+    flipGreenChannel: 0
+  isReadable: 1
+  streamingMipmaps: 0
+  streamingMipmapsPriority: 0
+  vTOnly: 0
+  ignoreMipmapLimit: 0
+  grayScaleToAlpha: 0
+  generateCubemap: 6
+  cubemapConvolution: 0
+  seamlessCubemap: 0
+  textureFormat: 1
+  maxTextureSize: 2048
+  textureSettings:
+    serializedVersion: 2
+    filterMode: 1
+    aniso: 1
+    mipBias: 0
+    wrapU: 1
+    wrapV: 1
+    wrapW: 0
+  nPOTScale: 0
+  lightmap: 0
+  compressionQuality: 50
+  spriteMode: 2
+  spriteExtrude: 1
+  spriteMeshType: 1
+  alignment: 0
+  spritePivot: {x: 0.5, y: 0.5}
+  spritePixelsToUnits: 100
+  spriteBorder: {x: 0, y: 0, z: 0, w: 0}
+  spriteGenerateFallbackPhysicsShape: 1
+  alphaUsage: 1
+  alphaIsTransparency: 1
+  spriteTessellationDetail: -1
+  textureType: 8
+  textureShape: 1
+  singleChannelComponent: 0
+  flipbookRows: 1
+  flipbookColumns: 1
+  maxTextureSizeSet: 0
+  compressionQualitySet: 0
+  textureFormatSet: 0
+  ignorePngGamma: 0
+  applyGammaDecoding: 0
+  swizzle: 50462976
+  cookieLightType: 0
+  platformSettings:
+  - serializedVersion: 4
+    buildTarget: DefaultTexturePlatform
+    maxTextureSize: 2048
+    resizeAlgorithm: 0
+    textureFormat: -1
+    textureCompression: 1
+    compressionQuality: 50
+    crunchedCompression: 0
+    allowsAlphaSplitting: 0
+    overridden: 0
+    ignorePlatformSupport: 0
+    androidETC2FallbackOverride: 0
+    forceMaximumCompressionQuality_BC6H_BC7: 0
+  - serializedVersion: 4
+    buildTarget: Standalone
+    maxTextureSize: 2048
+    resizeAlgorithm: 0
+    textureFormat: -1
+    textureCompression: 1
+    compressionQuality: 50
+    crunchedCompression: 0
+    allowsAlphaSplitting: 0
+    overridden: 0
+    ignorePlatformSupport: 0
+    androidETC2FallbackOverride: 0
+    forceMaximumCompressionQuality_BC6H_BC7: 0
+  - serializedVersion: 4
+    buildTarget: WebGL
+    maxTextureSize: 2048
+    resizeAlgorithm: 0
+    textureFormat: -1
+    textureCompression: 1
+    compressionQuality: 50
+    crunchedCompression: 0
+    allowsAlphaSplitting: 0
+    overridden: 0
+    ignorePlatformSupport: 0
+    androidETC2FallbackOverride: 0
+    forceMaximumCompressionQuality_BC6H_BC7: 0
+  spriteSheet:
+    serializedVersion: 2
+    sprites:
+    - serializedVersion: 2
+      name: AircraftLocation_Design2_White_0
+      rect:
+        serializedVersion: 2
+        x: 1042
+        y: 911
+        width: 10
+        height: 13
+      alignment: 0
+      pivot: {x: 0.5, y: 0.5}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      customData: 
+      outline: []
+      physicsShape: []
+      tessellationDetail: 0
+      bones: []
+      spriteID: fcfb23c86da37bd4aaa2b1426dee109c
+      internalID: 336608325
+      vertices: []
+      indices: 
+      edges: []
+      weights: []
+    - serializedVersion: 2
+      name: AircraftLocation_Design2_White_1
+      rect:
+        serializedVersion: 2
+        x: 968
+        y: 904
+        width: 9
+        height: 13
+      alignment: 0
+      pivot: {x: 0.5, y: 0.5}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      customData: 
+      outline: []
+      physicsShape: []
+      tessellationDetail: 0
+      bones: []
+      spriteID: 08b5a83d6c7179d42b5a72e61c4761c6
+      internalID: 385740388
+      vertices: []
+      indices: 
+      edges: []
+      weights: []
+    - serializedVersion: 2
+      name: AircraftLocation_Design2_White_2
+      rect:
+        serializedVersion: 2
+        x: 976
+        y: 904
+        width: 17
+        height: 13
+      alignment: 0
+      pivot: {x: 0.5, y: 0.5}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      customData: 
+      outline: []
+      physicsShape: []
+      tessellationDetail: 0
+      bones: []
+      spriteID: a8bfa49d940857049b4b494274b1c117
+      internalID: 501869512
+      vertices: []
+      indices: 
+      edges: []
+      weights: []
+    - serializedVersion: 2
+      name: AircraftLocation_Design2_White_3
+      rect:
+        serializedVersion: 2
+        x: 1100
+        y: 904
+        width: 7
+        height: 13
+      alignment: 0
+      pivot: {x: 0.5, y: 0.5}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      customData: 
+      outline: []
+      physicsShape: []
+      tessellationDetail: 0
+      bones: []
+      spriteID: db2632d919bfb1343b71b00f30b36819
+      internalID: -1798073468
+      vertices: []
+      indices: 
+      edges: []
+      weights: []
+    - serializedVersion: 2
+      name: AircraftLocation_Design2_White_4
+      rect:
+        serializedVersion: 2
+        x: 1107
+        y: 904
+        width: 10
+        height: 13
+      alignment: 0
+      pivot: {x: 0.5, y: 0.5}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      customData: 
+      outline: []
+      physicsShape: []
+      tessellationDetail: 0
+      bones: []
+      spriteID: c5ba34b11507edd46bf311dc522d3d34
+      internalID: -578558821
+      vertices: []
+      indices: 
+      edges: []
+      weights: []
+    - serializedVersion: 2
+      name: AircraftLocation_Design2_White_5
+      rect:
+        serializedVersion: 2
+        x: 1158
+        y: 889
+        width: 17
+        height: 13
+      alignment: 0
+      pivot: {x: 0.5, y: 0.5}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      customData: 
+      outline: []
+      physicsShape: []
+      tessellationDetail: 0
+      bones: []
+      spriteID: 45262fee5a9ea884e92e6d4131f43c8c
+      internalID: 2023044121
+      vertices: []
+      indices: 
+      edges: []
+      weights: []
+    - serializedVersion: 2
+      name: AircraftLocation_Design2_White_6
+      rect:
+        serializedVersion: 2
+        x: 910
+        y: 887
+        width: 24
+        height: 13
+      alignment: 0
+      pivot: {x: 0.5, y: 0.5}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      customData: 
+      outline: []
+      physicsShape: []
+      tessellationDetail: 0
+      bones: []
+      spriteID: dab7c247db38c674199d89f95009e5e8
+      internalID: -1742653271
+      vertices: []
+      indices: 
+      edges: []
+      weights: []
+    - serializedVersion: 2
+      name: AircraftLocation_Design2_White_7
+      rect:
+        serializedVersion: 2
+        x: 1213
+        y: 865
+        width: 17
+        height: 13
+      alignment: 0
+      pivot: {x: 0.5, y: 0.5}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      customData: 
+      outline: []
+      physicsShape: []
+      tessellationDetail: 0
+      bones: []
+      spriteID: 08b9169b961a8c04cafd64654ddbb533
+      internalID: -1297484485
+      vertices: []
+      indices: 
+      edges: []
+      weights: []
+    - serializedVersion: 2
+      name: AircraftLocation_Design2_White_8
+      rect:
+        serializedVersion: 2
+        x: 1041
+        y: 864
+        width: 13
+        height: 16
+      alignment: 0
+      pivot: {x: 0.5, y: 0.5}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      customData: 
+      outline: []
+      physicsShape: []
+      tessellationDetail: 0
+      bones: []
+      spriteID: 3fc5fbaeb2ffd6d4f8e7c4361b8e0ad8
+      internalID: -842554140
+      vertices: []
+      indices: 
+      edges: []
+      weights: []
+    - serializedVersion: 2
+      name: AircraftLocation_Design2_White_9
+      rect:
+        serializedVersion: 2
+        x: 853
+        y: 863
+        width: 25
+        height: 13
+      alignment: 0
+      pivot: {x: 0.5, y: 0.5}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      customData: 
+      outline: []
+      physicsShape: []
+      tessellationDetail: 0
+      bones: []
+      spriteID: a68af15b9b31cd64893eeac90b4068ac
+      internalID: 827998162
+      vertices: []
+      indices: 
+      edges: []
+      weights: []
+    - serializedVersion: 2
+      name: AircraftLocation_Design2_White_10
+      rect:
+        serializedVersion: 2
+        x: 805
+        y: 829
+        width: 9
+        height: 12
+      alignment: 0
+      pivot: {x: 0.5, y: 0.5}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      customData: 
+      outline: []
+      physicsShape: []
+      tessellationDetail: 0
+      bones: []
+      spriteID: 6723e0e2bb6f4d5429929a256235e6e8
+      internalID: 1002179461
+      vertices: []
+      indices: 
+      edges: []
+      weights: []
+    - serializedVersion: 2
+      name: AircraftLocation_Design2_White_11
+      rect:
+        serializedVersion: 2
+        x: 813
+        y: 829
+        width: 16
+        height: 12
+      alignment: 0
+      pivot: {x: 0.5, y: 0.5}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      customData: 
+      outline: []
+      physicsShape: []
+      tessellationDetail: 0
+      bones: []
+      spriteID: 89071c4447cee7344a520938b89bbeb6
+      internalID: 190824280
+      vertices: []
+      indices: 
+      edges: []
+      weights: []
+    - serializedVersion: 2
+      name: AircraftLocation_Design2_White_12
+      rect:
+        serializedVersion: 2
+        x: 1265
+        y: 829
+        width: 18
+        height: 12
+      alignment: 0
+      pivot: {x: 0.5, y: 0.5}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      customData: 
+      outline: []
+      physicsShape: []
+      tessellationDetail: 0
+      bones: []
+      spriteID: 62b2990686d139a4eb6ca05fd27b2f36
+      internalID: 850823805
+      vertices: []
+      indices: 
+      edges: []
+      weights: []
+    - serializedVersion: 2
+      name: AircraftLocation_Design2_White_13
+      rect:
+        serializedVersion: 2
+        x: 768
+        y: 787
+        width: 7
+        height: 13
+      alignment: 0
+      pivot: {x: 0.5, y: 0.5}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      customData: 
+      outline: []
+      physicsShape: []
+      tessellationDetail: 0
+      bones: []
+      spriteID: 31d4314222c86c64b80107d1bf3fdbad
+      internalID: 239085283
+      vertices: []
+      indices: 
+      edges: []
+      weights: []
+    - serializedVersion: 2
+      name: AircraftLocation_Design2_White_14
+      rect:
+        serializedVersion: 2
+        x: 775
+        y: 787
+        width: 10
+        height: 13
+      alignment: 0
+      pivot: {x: 0.5, y: 0.5}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      customData: 
+      outline: []
+      physicsShape: []
+      tessellationDetail: 0
+      bones: []
+      spriteID: 8cf5ec375fd9b3542b87df4f8c6b283f
+      internalID: -814458049
+      vertices: []
+      indices: 
+      edges: []
+      weights: []
+    - serializedVersion: 2
+      name: AircraftLocation_Design2_White_15
+      rect:
+        serializedVersion: 2
+        x: 1307
+        y: 786
+        width: 17
+        height: 13
+      alignment: 0
+      pivot: {x: 0.5, y: 0.5}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      customData: 
+      outline: []
+      physicsShape: []
+      tessellationDetail: 0
+      bones: []
+      spriteID: 03757d5810e9ec749bb12364654e24dc
+      internalID: 1209768543
+      vertices: []
+      indices: 
+      edges: []
+      weights: []
+    - serializedVersion: 2
+      name: AircraftLocation_Design2_White_16
+      rect:
+        serializedVersion: 2
+        x: 726
+        y: 735
+        width: 24
+        height: 13
+      alignment: 0
+      pivot: {x: 0.5, y: 0.5}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      customData: 
+      outline: []
+      physicsShape: []
+      tessellationDetail: 0
+      bones: []
+      spriteID: 85c6dca3803264b42868f703a9bd96b0
+      internalID: 330109726
+      vertices: []
+      indices: 
+      edges: []
+      weights: []
+    - serializedVersion: 2
+      name: AircraftLocation_Design2_White_17
+      rect:
+        serializedVersion: 2
+        x: 1345
+        y: 735
+        width: 17
+        height: 13
+      alignment: 0
+      pivot: {x: 0.5, y: 0.5}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      customData: 
+      outline: []
+      physicsShape: []
+      tessellationDetail: 0
+      bones: []
+      spriteID: 506efa1eb1c868c43972fa8e00d88edd
+      internalID: -1397433173
+      vertices: []
+      indices: 
+      edges: []
+      weights: []
+    - serializedVersion: 2
+      name: AircraftLocation_Design2_White_18
+      rect:
+        serializedVersion: 2
+        x: 1372
+        y: 681
+        width: 17
+        height: 13
+      alignment: 0
+      pivot: {x: 0.5, y: 0.5}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      customData: 
+      outline: []
+      physicsShape: []
+      tessellationDetail: 0
+      bones: []
+      spriteID: dd416417e828ba242a82634474ba04d2
+      internalID: -984200649
+      vertices: []
+      indices: 
+      edges: []
+      weights: []
+    - serializedVersion: 2
+      name: AircraftLocation_Design2_White_19
+      rect:
+        serializedVersion: 2
+        x: 702
+        y: 679
+        width: 24
+        height: 13
+      alignment: 0
+      pivot: {x: 0.5, y: 0.5}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      customData: 
+      outline: []
+      physicsShape: []
+      tessellationDetail: 0
+      bones: []
+      spriteID: 909fde89f8e38994db0d762426df8d4f
+      internalID: -1066369673
+      vertices: []
+      indices: 
+      edges: []
+      weights: []
+    - serializedVersion: 2
+      name: AircraftLocation_Design2_White_20
+      rect:
+        serializedVersion: 2
+        x: 1386
+        y: 621
+        width: 17
+        height: 13
+      alignment: 0
+      pivot: {x: 0.5, y: 0.5}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      customData: 
+      outline: []
+      physicsShape: []
+      tessellationDetail: 0
+      bones: []
+      spriteID: dd9c4c4d66be64e4ea36f67d1b6ad15b
+      internalID: 1964135021
+      vertices: []
+      indices: 
+      edges: []
+      weights: []
+    - serializedVersion: 2
+      name: AircraftLocation_Design2_White_21
+      rect:
+        serializedVersion: 2
+        x: 685
+        y: 619
+        width: 24
+        height: 13
+      alignment: 0
+      pivot: {x: 0.5, y: 0.5}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      customData: 
+      outline: []
+      physicsShape: []
+      tessellationDetail: 0
+      bones: []
+      spriteID: 18637b15ce2a46d44ad10956c4981a14
+      internalID: 731023263
+      vertices: []
+      indices: 
+      edges: []
+      weights: []
+    - serializedVersion: 2
+      name: AircraftLocation_Design2_White_22
+      rect:
+        serializedVersion: 2
+        x: 725
+        y: 564
+        width: 17
+        height: 16
+      alignment: 0
+      pivot: {x: 0.5, y: 0.5}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      customData: 
+      outline: []
+      physicsShape: []
+      tessellationDetail: 0
+      bones: []
+      spriteID: fa25ebb1532ca5d41ad2fa1efd805f3f
+      internalID: -370110447
+      vertices: []
+      indices: 
+      edges: []
+      weights: []
+    - serializedVersion: 2
+      name: AircraftLocation_Design2_White_23
+      rect:
+        serializedVersion: 2
+        x: 1357
+        y: 558
+        width: 12
+        height: 16
+      alignment: 0
+      pivot: {x: 0.5, y: 0.5}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      customData: 
+      outline: []
+      physicsShape: []
+      tessellationDetail: 0
+      bones: []
+      spriteID: 416dbc4782ec63d43ad88e5acffb954e
+      internalID: 1648404286
+      vertices: []
+      indices: 
+      edges: []
+      weights: []
+    - serializedVersion: 2
+      name: AircraftLocation_Design2_White_24
+      rect:
+        serializedVersion: 2
+        x: 1393
+        y: 558
+        width: 17
+        height: 12
+      alignment: 0
+      pivot: {x: 0.5, y: 0.5}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      customData: 
+      outline: []
+      physicsShape: []
+      tessellationDetail: 0
+      bones: []
+      spriteID: 5b357139685cc8842a314daaffd949e7
+      internalID: 198086508
+      vertices: []
+      indices: 
+      edges: []
+      weights: []
+    - serializedVersion: 2
+      name: AircraftLocation_Design2_White_25
+      rect:
+        serializedVersion: 2
+        x: 1027
+        y: 552
+        width: 45
+        height: 46
+      alignment: 0
+      pivot: {x: 0.5, y: 0.5}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      customData: 
+      outline: []
+      physicsShape: []
+      tessellationDetail: 0
+      bones: []
+      spriteID: 1eae5fde815c40945afb9b494c70a9c4
+      internalID: -457870452
+      vertices: []
+      indices: 
+      edges: []
+      weights: []
+    - serializedVersion: 2
+      name: AircraftLocation_Design2_White_26
+      rect:
+        serializedVersion: 2
+        x: 685
+        y: 505
+        width: 24
+        height: 13
+      alignment: 0
+      pivot: {x: 0.5, y: 0.5}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      customData: 
+      outline: []
+      physicsShape: []
+      tessellationDetail: 0
+      bones: []
+      spriteID: 79d8d40bac7d66345800d76685163ebf
+      internalID: 1978220463
+      vertices: []
+      indices: 
+      edges: []
+      weights: []
+    - serializedVersion: 2
+      name: AircraftLocation_Design2_White_27
+      rect:
+        serializedVersion: 2
+        x: 1386
+        y: 497
+        width: 7
+        height: 13
+      alignment: 0
+      pivot: {x: 0.5, y: 0.5}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      customData: 
+      outline: []
+      physicsShape: []
+      tessellationDetail: 0
+      bones: []
+      spriteID: 45f724eb76797c54b9dce8e518c8cac8
+      internalID: 558276190
+      vertices: []
+      indices: 
+      edges: []
+      weights: []
+    - serializedVersion: 2
+      name: AircraftLocation_Design2_White_28
+      rect:
+        serializedVersion: 2
+        x: 1392
+        y: 497
+        width: 18
+        height: 13
+      alignment: 0
+      pivot: {x: 0.5, y: 0.5}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      customData: 
+      outline: []
+      physicsShape: []
+      tessellationDetail: 0
+      bones: []
+      spriteID: 79f9dce44ea4f2e4c850b87465bdf71a
+      internalID: 1441143969
+      vertices: []
+      indices: 
+      edges: []
+      weights: []
+    - serializedVersion: 2
+      name: AircraftLocation_Design2_White_29
+      rect:
+        serializedVersion: 2
+        x: 702
+        y: 446
+        width: 24
+        height: 13
+      alignment: 0
+      pivot: {x: 0.5, y: 0.5}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      customData: 
+      outline: []
+      physicsShape: []
+      tessellationDetail: 0
+      bones: []
+      spriteID: 8337b70fa1ad0c049b232fb21a27da9b
+      internalID: 411349929
+      vertices: []
+      indices: 
+      edges: []
+      weights: []
+    - serializedVersion: 2
+      name: AircraftLocation_Design2_White_30
+      rect:
+        serializedVersion: 2
+        x: 1369
+        y: 436
+        width: 7
+        height: 12
+      alignment: 0
+      pivot: {x: 0.5, y: 0.5}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      customData: 
+      outline: []
+      physicsShape: []
+      tessellationDetail: 0
+      bones: []
+      spriteID: a7f243b9a9dd2fa48822a27ad5ad520e
+      internalID: -2028715566
+      vertices: []
+      indices: 
+      edges: []
+      weights: []
+    - serializedVersion: 2
+      name: AircraftLocation_Design2_White_31
+      rect:
+        serializedVersion: 2
+        x: 1376
+        y: 436
+        width: 7
+        height: 12
+      alignment: 0
+      pivot: {x: 0.5, y: 0.5}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      customData: 
+      outline: []
+      physicsShape: []
+      tessellationDetail: 0
+      bones: []
+      spriteID: b0d020486bc6c1048a32af9c3875495d
+      internalID: 1224516906
+      vertices: []
+      indices: 
+      edges: []
+      weights: []
+    - serializedVersion: 2
+      name: AircraftLocation_Design2_White_32
+      rect:
+        serializedVersion: 2
+        x: 1383
+        y: 436
+        width: 10
+        height: 13
+      alignment: 0
+      pivot: {x: 0.5, y: 0.5}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      customData: 
+      outline: []
+      physicsShape: []
+      tessellationDetail: 0
+      bones: []
+      spriteID: affea31911886da43a5a6898fa15cf62
+      internalID: 2009303252
+      vertices: []
+      indices: 
+      edges: []
+      weights: []
+    - serializedVersion: 2
+      name: AircraftLocation_Design2_White_33
+      rect:
+        serializedVersion: 2
+        x: 726
+        y: 391
+        width: 9
+        height: 13
+      alignment: 0
+      pivot: {x: 0.5, y: 0.5}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      customData: 
+      outline: []
+      physicsShape: []
+      tessellationDetail: 0
+      bones: []
+      spriteID: 40f14e6a3bd36384a967951e3ed1bc1f
+      internalID: -1616545575
+      vertices: []
+      indices: 
+      edges: []
+      weights: []
+    - serializedVersion: 2
+      name: AircraftLocation_Design2_White_34
+      rect:
+        serializedVersion: 2
+        x: 733
+        y: 391
+        width: 17
+        height: 13
+      alignment: 0
+      pivot: {x: 0.5, y: 0.5}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      customData: 
+      outline: []
+      physicsShape: []
+      tessellationDetail: 0
+      bones: []
+      spriteID: 935948ea8494c544bb6cf8b792f8bdc2
+      internalID: -1265604419
+      vertices: []
+      indices: 
+      edges: []
+      weights: []
+    - serializedVersion: 2
+      name: AircraftLocation_Design2_White_35
+      rect:
+        serializedVersion: 2
+        x: 1345
+        y: 380
+        width: 7
+        height: 12
+      alignment: 0
+      pivot: {x: 0.5, y: 0.5}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      customData: 
+      outline: []
+      physicsShape: []
+      tessellationDetail: 0
+      bones: []
+      spriteID: 9dbabde79e2ce5e4db6ae23584cdfbbc
+      internalID: 1971098860
+      vertices: []
+      indices: 
+      edges: []
+      weights: []
+    - serializedVersion: 2
+      name: AircraftLocation_Design2_White_36
+      rect:
+        serializedVersion: 2
+        x: 1352
+        y: 380
+        width: 17
+        height: 12
+      alignment: 0
+      pivot: {x: 0.5, y: 0.5}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      customData: 
+      outline: []
+      physicsShape: []
+      tessellationDetail: 0
+      bones: []
+      spriteID: 46e5d8ffd5cedb64398c539f8e1d3f4f
+      internalID: 1480655815
+      vertices: []
+      indices: 
+      edges: []
+      weights: []
+    - serializedVersion: 2
+      name: AircraftLocation_Design2_White_37
+      rect:
+        serializedVersion: 2
+        x: 863
+        y: 371
+        width: 378
+        height: 377
+      alignment: 0
+      pivot: {x: 0.5, y: 0.5}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      customData: 
+      outline: []
+      physicsShape: []
+      tessellationDetail: 0
+      bones: []
+      spriteID: 00253e720dcc783409648c3499d89295
+      internalID: 1860313287
+      vertices: []
+      indices: 
+      edges: []
+      weights: []
+    - serializedVersion: 2
+      name: AircraftLocation_Design2_White_38
+      rect:
+        serializedVersion: 2
+        x: 761
+        y: 340
+        width: 25
+        height: 13
+      alignment: 0
+      pivot: {x: 0.5, y: 0.5}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      customData: 
+      outline: []
+      physicsShape: []
+      tessellationDetail: 0
+      bones: []
+      spriteID: b2e9c5ba7505164408aa61fbafb3ccab
+      internalID: 1597095165
+      vertices: []
+      indices: 
+      edges: []
+      weights: []
+    - serializedVersion: 2
+      name: AircraftLocation_Design2_White_39
+      rect:
+        serializedVersion: 2
+        x: 1310
+        y: 333
+        width: 7
+        height: 12
+      alignment: 0
+      pivot: {x: 0.5, y: 0.5}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      customData: 
+      outline: []
+      physicsShape: []
+      tessellationDetail: 0
+      bones: []
+      spriteID: 394efab0bffedcb48b2c80547a685d76
+      internalID: -1400922255
+      vertices: []
+      indices: 
+      edges: []
+      weights: []
+    - serializedVersion: 2
+      name: AircraftLocation_Design2_White_40
+      rect:
+        serializedVersion: 2
+        x: 1317
+        y: 333
+        width: 17
+        height: 12
+      alignment: 0
+      pivot: {x: 0.5, y: 0.5}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      customData: 
+      outline: []
+      physicsShape: []
+      tessellationDetail: 0
+      bones: []
+      spriteID: 854977eecf8379340939f0700b716950
+      internalID: 378869906
+      vertices: []
+      indices: 
+      edges: []
+      weights: []
+    - serializedVersion: 2
+      name: AircraftLocation_Design2_White_41
+      rect:
+        serializedVersion: 2
+        x: 806
+        y: 296
+        width: 24
+        height: 13
+      alignment: 0
+      pivot: {x: 0.5, y: 0.5}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      customData: 
+      outline: []
+      physicsShape: []
+      tessellationDetail: 0
+      bones: []
+      spriteID: c1ae769b703528b4da8f70eeb0ac9415
+      internalID: -1412051929
+      vertices: []
+      indices: 
+      edges: []
+      weights: []
+    - serializedVersion: 2
+      name: AircraftLocation_Design2_White_42
+      rect:
+        serializedVersion: 2
+        x: 1265
+        y: 290
+        width: 8
+        height: 13
+      alignment: 0
+      pivot: {x: 0.5, y: 0.5}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      customData: 
+      outline: []
+      physicsShape: []
+      tessellationDetail: 0
+      bones: []
+      spriteID: 725b700b48342fc48a5db026f0de6d44
+      internalID: -780023068
+      vertices: []
+      indices: 
+      edges: []
+      weights: []
+    - serializedVersion: 2
+      name: AircraftLocation_Design2_White_43
+      rect:
+        serializedVersion: 2
+        x: 1272
+        y: 290
+        width: 18
+        height: 13
+      alignment: 0
+      pivot: {x: 0.5, y: 0.5}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      customData: 
+      outline: []
+      physicsShape: []
+      tessellationDetail: 0
+      bones: []
+      spriteID: 1e15fc99cf36bc5489798f8bc872fb6b
+      internalID: -258525880
+      vertices: []
+      indices: 
+      edges: []
+      weights: []
+    - serializedVersion: 2
+      name: AircraftLocation_Design2_White_44
+      rect:
+        serializedVersion: 2
+        x: 854
+        y: 262
+        width: 15
+        height: 12
+      alignment: 0
+      pivot: {x: 0.5, y: 0.5}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      customData: 
+      outline: []
+      physicsShape: []
+      tessellationDetail: 0
+      bones: []
+      spriteID: 9884a7f07cb84d9479841b1889b410c9
+      internalID: 1057180021
+      vertices: []
+      indices: 
+      edges: []
+      weights: []
+    - serializedVersion: 2
+      name: AircraftLocation_Design2_White_45
+      rect:
+        serializedVersion: 2
+        x: 868
+        y: 262
+        width: 10
+        height: 12
+      alignment: 0
+      pivot: {x: 0.5, y: 0.5}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      customData: 
+      outline: []
+      physicsShape: []
+      tessellationDetail: 0
+      bones: []
+      spriteID: 1421ffd782392b544924bfc402bb5256
+      internalID: -1903787759
+      vertices: []
+      indices: 
+      edges: []
+      weights: []
+    - serializedVersion: 2
+      name: AircraftLocation_Design2_White_46
+      rect:
+        serializedVersion: 2
+        x: 1217
+        y: 255
+        width: 7
+        height: 13
+      alignment: 0
+      pivot: {x: 0.5, y: 0.5}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      customData: 
+      outline: []
+      physicsShape: []
+      tessellationDetail: 0
+      bones: []
+      spriteID: d7fb74d380e45a14eae27fd4ad837401
+      internalID: -1241673376
+      vertices: []
+      indices: 
+      edges: []
+      weights: []
+    - serializedVersion: 2
+      name: AircraftLocation_Design2_White_47
+      rect:
+        serializedVersion: 2
+        x: 1224
+        y: 255
+        width: 17
+        height: 13
+      alignment: 0
+      pivot: {x: 0.5, y: 0.5}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      customData: 
+      outline: []
+      physicsShape: []
+      tessellationDetail: 0
+      bones: []
+      spriteID: 2ea4615b260cebe49a1566863a2d31af
+      internalID: -504766481
+      vertices: []
+      indices: 
+      edges: []
+      weights: []
+    - serializedVersion: 2
+      name: AircraftLocation_Design2_White_48
+      rect:
+        serializedVersion: 2
+        x: 1040
+        y: 245
+        width: 12
+        height: 17
+      alignment: 0
+      pivot: {x: 0.5, y: 0.5}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      customData: 
+      outline: []
+      physicsShape: []
+      tessellationDetail: 0
+      bones: []
+      spriteID: 46f82350c83df654489147c17bb09f1f
+      internalID: 1054212014
+      vertices: []
+      indices: 
+      edges: []
+      weights: []
+    - serializedVersion: 2
+      name: AircraftLocation_Design2_White_49
+      rect:
+        serializedVersion: 2
+        x: 908
+        y: 230
+        width: 10
+        height: 13
+      alignment: 0
+      pivot: {x: 0.5, y: 0.5}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      customData: 
+      outline: []
+      physicsShape: []
+      tessellationDetail: 0
+      bones: []
+      spriteID: 11cbb7782c18c6944b2e09f8c288ebce
+      internalID: -1923969946
+      vertices: []
+      indices: 
+      edges: []
+      weights: []
+    - serializedVersion: 2
+      name: AircraftLocation_Design2_White_50
+      rect:
+        serializedVersion: 2
+        x: 916
+        y: 230
+        width: 17
+        height: 13
+      alignment: 0
+      pivot: {x: 0.5, y: 0.5}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      customData: 
+      outline: []
+      physicsShape: []
+      tessellationDetail: 0
+      bones: []
+      spriteID: f1886e7e763ea1741ad97895085b3ea9
+      internalID: -173295194
+      vertices: []
+      indices: 
+      edges: []
+      weights: []
+    - serializedVersion: 2
+      name: AircraftLocation_Design2_White_51
+      rect:
+        serializedVersion: 2
+        x: 1162
+        y: 228
+        width: 7
+        height: 12
+      alignment: 0
+      pivot: {x: 0.5, y: 0.5}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      customData: 
+      outline: []
+      physicsShape: []
+      tessellationDetail: 0
+      bones: []
+      spriteID: a41ebea4ed8e52847830fded74759e65
+      internalID: 1807255866
+      vertices: []
+      indices: 
+      edges: []
+      weights: []
+    - serializedVersion: 2
+      name: AircraftLocation_Design2_White_52
+      rect:
+        serializedVersion: 2
+        x: 1169
+        y: 228
+        width: 17
+        height: 12
+      alignment: 0
+      pivot: {x: 0.5, y: 0.5}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      customData: 
+      outline: []
+      physicsShape: []
+      tessellationDetail: 0
+      bones: []
+      spriteID: 4689684b579d5954ab5dbcfb4a2de177
+      internalID: -696564880
+      vertices: []
+      indices: 
+      edges: []
+      weights: []
+    - serializedVersion: 2
+      name: AircraftLocation_Design2_White_53
+      rect:
+        serializedVersion: 2
+        x: 705
+        y: 222
+        width: 685
+        height: 685
+      alignment: 0
+      pivot: {x: 0.5, y: 0.5}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      customData: 
+      outline: []
+      physicsShape: []
+      tessellationDetail: 0
+      bones: []
+      spriteID: b02b70fbb45d70646b6c1510bcebb2ea
+      internalID: 1901174530
+      vertices: []
+      indices: 
+      edges: []
+      weights: []
+    - serializedVersion: 2
+      name: AircraftLocation_Design2_White_54
+      rect:
+        serializedVersion: 2
+        x: 967
+        y: 213
+        width: 7
+        height: 13
+      alignment: 0
+      pivot: {x: 0.5, y: 0.5}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      customData: 
+      outline: []
+      physicsShape: []
+      tessellationDetail: 0
+      bones: []
+      spriteID: 0acb9ebd25077ea498e693f139043c8c
+      internalID: 1964228701
+      vertices: []
+      indices: 
+      edges: []
+      weights: []
+    - serializedVersion: 2
+      name: AircraftLocation_Design2_White_55
+      rect:
+        serializedVersion: 2
+        x: 975
+        y: 213
+        width: 17
+        height: 13
+      alignment: 0
+      pivot: {x: 0.5, y: 0.5}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      customData: 
+      outline: []
+      physicsShape: []
+      tessellationDetail: 0
+      bones: []
+      spriteID: 75164c3b202859345bbaf9fca4dee807
+      internalID: -2021846851
+      vertices: []
+      indices: 
+      edges: []
+      weights: []
+    - serializedVersion: 2
+      name: AircraftLocation_Design2_White_56
+      rect:
+        serializedVersion: 2
+        x: 1103
+        y: 211
+        width: 8
+        height: 13
+      alignment: 0
+      pivot: {x: 0.5, y: 0.5}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      customData: 
+      outline: []
+      physicsShape: []
+      tessellationDetail: 0
+      bones: []
+      spriteID: 3e33a0fd4c1fd3945a0d2a1664eaee2e
+      internalID: -624017819
+      vertices: []
+      indices: 
+      edges: []
+      weights: []
+    - serializedVersion: 2
+      name: AircraftLocation_Design2_White_57
+      rect:
+        serializedVersion: 2
+        x: 1110
+        y: 211
+        width: 18
+        height: 13
+      alignment: 0
+      pivot: {x: 0.5, y: 0.5}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      customData: 
+      outline: []
+      physicsShape: []
+      tessellationDetail: 0
+      bones: []
+      spriteID: c9bf62f2d987929488a9ced583df8db8
+      internalID: -372168220
+      vertices: []
+      indices: 
+      edges: []
+      weights: []
+    - serializedVersion: 2
+      name: AircraftLocation_Design2_White_58
+      rect:
+        serializedVersion: 2
+        x: 1035
+        y: 204
+        width: 7
+        height: 13
+      alignment: 0
+      pivot: {x: 0.5, y: 0.5}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      customData: 
+      outline: []
+      physicsShape: []
+      tessellationDetail: 0
+      bones: []
+      spriteID: ba9803cbeb2443c43ab037633f9abc6c
+      internalID: 1221219304
+      vertices: []
+      indices: 
+      edges: []
+      weights: []
+    - serializedVersion: 2
+      name: AircraftLocation_Design2_White_59
+      rect:
+        serializedVersion: 2
+        x: 1042
+        y: 204
+        width: 17
+        height: 13
+      alignment: 0
+      pivot: {x: 0.5, y: 0.5}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      customData: 
+      outline: []
+      physicsShape: []
+      tessellationDetail: 0
+      bones: []
+      spriteID: 416242aff7975d541868e28a5740cab5
+      internalID: -707157399
+      vertices: []
+      indices: 
+      edges: []
+      weights: []
+    - serializedVersion: 2
+      name: AircraftLocation_Design2_White_60
+      rect:
+        serializedVersion: 2
+        x: 671
+        y: 187
+        width: 754
+        height: 753
+      alignment: 0
+      pivot: {x: 0.5, y: 0.5}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      customData: 
+      outline: []
+      physicsShape: []
+      tessellationDetail: 0
+      bones: []
+      spriteID: 94216ca6b155c6c4caf39b3f4d2ac5ad
+      internalID: -1765293956
+      vertices: []
+      indices: 
+      edges: []
+      weights: []
+    outline: []
+    customData: 
+    physicsShape: []
+    bones: []
+    spriteID: 78d219fae577f5f419f10fe137a01342
+    internalID: 0
+    vertices: []
+    indices: 
+    edges: []
+    weights: []
+    secondaryTextures: []
+    spriteCustomMetadata:
+      entries:
+      - key: SpriteEditor.SliceSettings
+        value: '{"sliceOnImport":false,"gridCellCount":{"x":1.0,"y":1.0},"gridSpriteSize":{"x":64.0,"y":64.0},"gridSpriteOffset":{"x":0.0,"y":0.0},"gridSpritePadding":{"x":0.0,"y":0.0},"pivot":{"x":0.5,"y":0.5},"pivotPixels":{"x":0.0,"y":0.0},"autoSlicingMethod":0,"spriteAlignment":0,"pivotUnitMode":0,"slicingType":0,"keepEmptyRects":false,"isAlternate":false}'
+      - key: SpriteEditor.SliceOnImport
+        value: False
+    nameFileIdTable:
+      AircraftLocation_Design2_White_0: 336608325
+      AircraftLocation_Design2_White_1: 385740388
+      AircraftLocation_Design2_White_10: 1002179461
+      AircraftLocation_Design2_White_11: 190824280
+      AircraftLocation_Design2_White_12: 850823805
+      AircraftLocation_Design2_White_13: 239085283
+      AircraftLocation_Design2_White_14: -814458049
+      AircraftLocation_Design2_White_15: 1209768543
+      AircraftLocation_Design2_White_16: 330109726
+      AircraftLocation_Design2_White_17: -1397433173
+      AircraftLocation_Design2_White_18: -984200649
+      AircraftLocation_Design2_White_19: -1066369673
+      AircraftLocation_Design2_White_2: 501869512
+      AircraftLocation_Design2_White_20: 1964135021
+      AircraftLocation_Design2_White_21: 731023263
+      AircraftLocation_Design2_White_22: -370110447
+      AircraftLocation_Design2_White_23: 1648404286
+      AircraftLocation_Design2_White_24: 198086508
+      AircraftLocation_Design2_White_25: -457870452
+      AircraftLocation_Design2_White_26: 1978220463
+      AircraftLocation_Design2_White_27: 558276190
+      AircraftLocation_Design2_White_28: 1441143969
+      AircraftLocation_Design2_White_29: 411349929
+      AircraftLocation_Design2_White_3: -1798073468
+      AircraftLocation_Design2_White_30: -2028715566
+      AircraftLocation_Design2_White_31: 1224516906
+      AircraftLocation_Design2_White_32: 2009303252
+      AircraftLocation_Design2_White_33: -1616545575
+      AircraftLocation_Design2_White_34: -1265604419
+      AircraftLocation_Design2_White_35: 1971098860
+      AircraftLocation_Design2_White_36: 1480655815
+      AircraftLocation_Design2_White_37: 1860313287
+      AircraftLocation_Design2_White_38: 1597095165
+      AircraftLocation_Design2_White_39: -1400922255
+      AircraftLocation_Design2_White_4: -578558821
+      AircraftLocation_Design2_White_40: 378869906
+      AircraftLocation_Design2_White_41: -1412051929
+      AircraftLocation_Design2_White_42: -780023068
+      AircraftLocation_Design2_White_43: -258525880
+      AircraftLocation_Design2_White_44: 1057180021
+      AircraftLocation_Design2_White_45: -1903787759
+      AircraftLocation_Design2_White_46: -1241673376
+      AircraftLocation_Design2_White_47: -504766481
+      AircraftLocation_Design2_White_48: 1054212014
+      AircraftLocation_Design2_White_49: -1923969946
+      AircraftLocation_Design2_White_5: 2023044121
+      AircraftLocation_Design2_White_50: -173295194
+      AircraftLocation_Design2_White_51: 1807255866
+      AircraftLocation_Design2_White_52: -696564880
+      AircraftLocation_Design2_White_53: 1901174530
+      AircraftLocation_Design2_White_54: 1964228701
+      AircraftLocation_Design2_White_55: -2021846851
+      AircraftLocation_Design2_White_56: -624017819
+      AircraftLocation_Design2_White_57: -372168220
+      AircraftLocation_Design2_White_58: 1221219304
+      AircraftLocation_Design2_White_59: -707157399
+      AircraftLocation_Design2_White_6: -1742653271
+      AircraftLocation_Design2_White_60: -1765293956
+      AircraftLocation_Design2_White_7: -1297484485
+      AircraftLocation_Design2_White_8: -842554140
+      AircraftLocation_Design2_White_9: 827998162
+  mipmapLimitGroupName: 
+  pSDRemoveMatte: 0
+  userData: 
+  assetBundleName: 
+  assetBundleVariant: 

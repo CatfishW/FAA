@@ -1,0 +1,801 @@
+fileFormatVersion: 2
+guid: 4abf57088b5f9d64ea1f0dad76d4243d
+TextureImporter:
+  internalIDToNameTable: []
+  externalObjects: {}
+  serializedVersion: 13
+  mipmaps:
+    mipMapMode: 0
+    enableMipMap: 0
+    sRGBTexture: 1
+    linearTexture: 0
+    fadeOut: 0
+    borderMipMap: 0
+    mipMapsPreserveCoverage: 0
+    alphaTestReferenceValue: 0.5
+    mipMapFadeDistanceStart: 1
+    mipMapFadeDistanceEnd: 3
+  bumpmap:
+    convertToNormalMap: 0
+    externalNormalMap: 0
+    heightScale: 0.25
+    normalMapFilter: 0
+    flipGreenChannel: 0
+  isReadable: 1
+  streamingMipmaps: 0
+  streamingMipmapsPriority: 0
+  vTOnly: 0
+  ignoreMipmapLimit: 0
+  grayScaleToAlpha: 0
+  generateCubemap: 6
+  cubemapConvolution: 0
+  seamlessCubemap: 0
+  textureFormat: 1
+  maxTextureSize: 2048
+  textureSettings:
+    serializedVersion: 2
+    filterMode: 1
+    aniso: 1
+    mipBias: 0
+    wrapU: 1
+    wrapV: 1
+    wrapW: 0
+  nPOTScale: 0
+  lightmap: 0
+  compressionQuality: 50
+  spriteMode: 2
+  spriteExtrude: 1
+  spriteMeshType: 0
+  alignment: 0
+  spritePivot: {x: 0.5, y: 0.5}
+  spritePixelsToUnits: 100
+  spriteBorder: {x: 0, y: 0, z: 0, w: 0}
+  spriteGenerateFallbackPhysicsShape: 1
+  alphaUsage: 1
+  alphaIsTransparency: 1
+  spriteTessellationDetail: -1
+  textureType: 8
+  textureShape: 1
+  singleChannelComponent: 0
+  flipbookRows: 1
+  flipbookColumns: 1
+  maxTextureSizeSet: 0
+  compressionQualitySet: 0
+  textureFormatSet: 0
+  ignorePngGamma: 0
+  applyGammaDecoding: 0
+  swizzle: 50462976
+  cookieLightType: 0
+  platformSettings:
+  - serializedVersion: 4
+    buildTarget: DefaultTexturePlatform
+    maxTextureSize: 2048
+    resizeAlgorithm: 0
+    textureFormat: -1
+    textureCompression: 1
+    compressionQuality: 50
+    crunchedCompression: 0
+    allowsAlphaSplitting: 0
+    overridden: 0
+    ignorePlatformSupport: 0
+    androidETC2FallbackOverride: 0
+    forceMaximumCompressionQuality_BC6H_BC7: 0
+  - serializedVersion: 4
+    buildTarget: Standalone
+    maxTextureSize: 2048
+    resizeAlgorithm: 0
+    textureFormat: -1
+    textureCompression: 1
+    compressionQuality: 50
+    crunchedCompression: 0
+    allowsAlphaSplitting: 0
+    overridden: 0
+    ignorePlatformSupport: 0
+    androidETC2FallbackOverride: 0
+    forceMaximumCompressionQuality_BC6H_BC7: 0
+  - serializedVersion: 4
+    buildTarget: WebGL
+    maxTextureSize: 2048
+    resizeAlgorithm: 0
+    textureFormat: -1
+    textureCompression: 1
+    compressionQuality: 50
+    crunchedCompression: 0
+    allowsAlphaSplitting: 0
+    overridden: 0
+    ignorePlatformSupport: 0
+    androidETC2FallbackOverride: 0
+    forceMaximumCompressionQuality_BC6H_BC7: 0
+  spriteSheet:
+    serializedVersion: 2
+    sprites:
+    - serializedVersion: 2
+      name: FMA_Design2_White_0
+      rect:
+        serializedVersion: 2
+        x: 1069
+        y: 1365
+        width: 214
+        height: 301
+      alignment: 0
+      pivot: {x: 0.5, y: 0.5}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      customData: 
+      outline: []
+      physicsShape: []
+      tessellationDetail: 0
+      bones: []
+      spriteID: 3aa845bb7f5b84046add57c2f43398a9
+      internalID: -2772223773269752330
+      vertices: []
+      indices: 
+      edges: []
+      weights: []
+    - serializedVersion: 2
+      name: FMA_Design2_White_1
+      rect:
+        serializedVersion: 2
+        x: 1307
+        y: 1522
+        width: 52
+        height: 57
+      alignment: 0
+      pivot: {x: 0.5, y: 0.5}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      customData: 
+      outline: []
+      physicsShape: []
+      tessellationDetail: 0
+      bones: []
+      spriteID: 4f46c4908107f974aa5c40e28066c4b3
+      internalID: -5920455027720058721
+      vertices: []
+      indices: 
+      edges: []
+      weights: []
+    - serializedVersion: 2
+      name: FMA_Design2_White_2
+      rect:
+        serializedVersion: 2
+        x: 1417
+        y: 1498
+        width: 115
+        height: 160
+      alignment: 0
+      pivot: {x: 0.5, y: 0.5}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      customData: 
+      outline: []
+      physicsShape: []
+      tessellationDetail: 0
+      bones: []
+      spriteID: 3d920e8cfd24ba14fae537453a7d4d28
+      internalID: -321091794573622709
+      vertices: []
+      indices: 
+      edges: []
+      weights: []
+    - serializedVersion: 2
+      name: FMA_Design2_White_3
+      rect:
+        serializedVersion: 2
+        x: 1537
+        y: 1496
+        width: 110
+        height: 177
+      alignment: 0
+      pivot: {x: 0.5, y: 0.5}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      customData: 
+      outline: []
+      physicsShape: []
+      tessellationDetail: 0
+      bones: []
+      spriteID: 84699b0135dce4548994ab99c341ab91
+      internalID: 3745830872298915126
+      vertices: []
+      indices: 
+      edges: []
+      weights: []
+    - serializedVersion: 2
+      name: FMA_Design2_White_4
+      rect:
+        serializedVersion: 2
+        x: 1647
+        y: 1498
+        width: 105
+        height: 160
+      alignment: 0
+      pivot: {x: 0.5, y: 0.5}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      customData: 
+      outline: []
+      physicsShape: []
+      tessellationDetail: 0
+      bones: []
+      spriteID: 6fcbde7839aac2544a861e096d815f66
+      internalID: 8248740568057615478
+      vertices: []
+      indices: 
+      edges: []
+      weights: []
+    - serializedVersion: 2
+      name: FMA_Design2_White_5
+      rect:
+        serializedVersion: 2
+        x: 2052
+        y: 1358
+        width: 197
+        height: 289
+      alignment: 0
+      pivot: {x: 0.5, y: 0.5}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      customData: 
+      outline: []
+      physicsShape: []
+      tessellationDetail: 0
+      bones: []
+      spriteID: 9f60d3b0ddcfaa34ea9caa198959940d
+      internalID: 6998448278025817250
+      vertices: []
+      indices: 
+      edges: []
+      weights: []
+    - serializedVersion: 2
+      name: FMA_Design2_White_6
+      rect:
+        serializedVersion: 2
+        x: 2270
+        y: 1509
+        width: 52
+        height: 57
+      alignment: 0
+      pivot: {x: 0.5, y: 0.5}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      customData: 
+      outline: []
+      physicsShape: []
+      tessellationDetail: 0
+      bones: []
+      spriteID: d3d52c1734eee374aa912d8398de0264
+      internalID: -898559647259865039
+      vertices: []
+      indices: 
+      edges: []
+      weights: []
+    - serializedVersion: 2
+      name: FMA_Design2_White_7
+      rect:
+        serializedVersion: 2
+        x: 2377
+        y: 1501
+        width: 128
+        height: 154
+      alignment: 0
+      pivot: {x: 0.5, y: 0.5}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      customData: 
+      outline: []
+      physicsShape: []
+      tessellationDetail: 0
+      bones: []
+      spriteID: 6c1fdd88608600d48a706882ad665907
+      internalID: -3445424337492298482
+      vertices: []
+      indices: 
+      edges: []
+      weights: []
+    - serializedVersion: 2
+      name: FMA_Design2_White_8
+      rect:
+        serializedVersion: 2
+        x: 2505
+        y: 1498
+        width: 105
+        height: 160
+      alignment: 0
+      pivot: {x: 0.5, y: 0.5}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      customData: 
+      outline: []
+      physicsShape: []
+      tessellationDetail: 0
+      bones: []
+      spriteID: 299a2eccc84699f4e90fd97e966f9e70
+      internalID: -817691373242163340
+      vertices: []
+      indices: 
+      edges: []
+      weights: []
+    - serializedVersion: 2
+      name: FMA_Design2_White_9
+      rect:
+        serializedVersion: 2
+        x: 2908
+        y: 1498
+        width: 112
+        height: 160
+      alignment: 0
+      pivot: {x: 0.5, y: 0.5}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      customData: 
+      outline: []
+      physicsShape: []
+      tessellationDetail: 0
+      bones: []
+      spriteID: 3bc4e5577f32d4e4299e812405427ba9
+      internalID: -2612487509003205972
+      vertices: []
+      indices: 
+      edges: []
+      weights: []
+    - serializedVersion: 2
+      name: FMA_Design2_White_10
+      rect:
+        serializedVersion: 2
+        x: 3039
+        y: 1501
+        width: 102
+        height: 154
+      alignment: 0
+      pivot: {x: 0.5, y: 0.5}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      customData: 
+      outline: []
+      physicsShape: []
+      tessellationDetail: 0
+      bones: []
+      spriteID: 85aa666e72c4dcc419536de54c5c1cc5
+      internalID: 2133708694846799213
+      vertices: []
+      indices: 
+      edges: []
+      weights: []
+    - serializedVersion: 2
+      name: FMA_Design2_White_11
+      rect:
+        serializedVersion: 2
+        x: 3157
+        y: 1501
+        width: 91
+        height: 154
+      alignment: 0
+      pivot: {x: 0.5, y: 0.5}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      customData: 
+      outline: []
+      physicsShape: []
+      tessellationDetail: 0
+      bones: []
+      spriteID: 04d86d41276f24e49ab3f0c9a686f6f9
+      internalID: 482623967960682472
+      vertices: []
+      indices: 
+      edges: []
+      weights: []
+    - serializedVersion: 2
+      name: FMA_Design2_White_12
+      rect:
+        serializedVersion: 2
+        x: 3578
+        y: 1365
+        width: 191
+        height: 287
+      alignment: 0
+      pivot: {x: 0.5, y: 0.5}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      customData: 
+      outline: []
+      physicsShape: []
+      tessellationDetail: 0
+      bones: []
+      spriteID: 9389cd0c89853604ab15a94c2037c70f
+      internalID: -2632865027123155174
+      vertices: []
+      indices: 
+      edges: []
+      weights: []
+    - serializedVersion: 2
+      name: FMA_Design2_White_13
+      rect:
+        serializedVersion: 2
+        x: 3795
+        y: 1514
+        width: 52
+        height: 60
+      alignment: 0
+      pivot: {x: 0.5, y: 0.5}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      customData: 
+      outline: []
+      physicsShape: []
+      tessellationDetail: 0
+      bones: []
+      spriteID: 70b02ee5223411148910e2e59dcb6548
+      internalID: -6179139389015673054
+      vertices: []
+      indices: 
+      edges: []
+      weights: []
+    - serializedVersion: 2
+      name: FMA_Design2_White_14
+      rect:
+        serializedVersion: 2
+        x: 3920
+        y: 1509
+        width: 115
+        height: 151
+      alignment: 0
+      pivot: {x: 0.5, y: 0.5}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      customData: 
+      outline: []
+      physicsShape: []
+      tessellationDetail: 0
+      bones: []
+      spriteID: a49029999cd9e024c91458dea72c2c36
+      internalID: 2652087128226860508
+      vertices: []
+      indices: 
+      edges: []
+      weights: []
+    - serializedVersion: 2
+      name: FMA_Design2_White_15
+      rect:
+        serializedVersion: 2
+        x: 4064
+        y: 1509
+        width: 115
+        height: 151
+      alignment: 0
+      pivot: {x: 0.5, y: 0.5}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      customData: 
+      outline: []
+      physicsShape: []
+      tessellationDetail: 0
+      bones: []
+      spriteID: 5816ce1e7a019ca48b76994ef4f5263e
+      internalID: -5449470773703925466
+      vertices: []
+      indices: 
+      edges: []
+      weights: []
+    - serializedVersion: 2
+      name: FMA_Design2_White_16
+      rect:
+        serializedVersion: 2
+        x: 4191
+        y: 1506
+        width: 117
+        height: 157
+      alignment: 0
+      pivot: {x: 0.5, y: 0.5}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      customData: 
+      outline: []
+      physicsShape: []
+      tessellationDetail: 0
+      bones: []
+      spriteID: 792efcd741c30f945b78aa9a25bfa6ee
+      internalID: -2503843908031676038
+      vertices: []
+      indices: 
+      edges: []
+      weights: []
+    - serializedVersion: 2
+      name: FMA_Design2_White_17
+      rect:
+        serializedVersion: 2
+        x: 1307
+        y: 1367
+        width: 52
+        height: 58
+      alignment: 0
+      pivot: {x: 0.5, y: 0.5}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      customData: 
+      outline: []
+      physicsShape: []
+      tessellationDetail: 0
+      bones: []
+      spriteID: 4cf25f6fe89148449870dd67fe8a6ade
+      internalID: -1250664624712266328
+      vertices: []
+      indices: 
+      edges: []
+      weights: []
+    - serializedVersion: 2
+      name: FMA_Design2_White_18
+      rect:
+        serializedVersion: 2
+        x: 1417
+        y: 1297
+        width: 115
+        height: 159
+      alignment: 0
+      pivot: {x: 0.5, y: 0.5}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      customData: 
+      outline: []
+      physicsShape: []
+      tessellationDetail: 0
+      bones: []
+      spriteID: 17fadacc9e60bd642ad773d342e56df0
+      internalID: 5250303922891021453
+      vertices: []
+      indices: 
+      edges: []
+      weights: []
+    - serializedVersion: 2
+      name: FMA_Design2_White_19
+      rect:
+        serializedVersion: 2
+        x: 1537
+        y: 1295
+        width: 110
+        height: 177
+      alignment: 0
+      pivot: {x: 0.5, y: 0.5}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      customData: 
+      outline: []
+      physicsShape: []
+      tessellationDetail: 0
+      bones: []
+      spriteID: 8ae75ef72e1c00243b5bfdfbc61e62e9
+      internalID: 3757278236172536901
+      vertices: []
+      indices: 
+      edges: []
+      weights: []
+    - serializedVersion: 2
+      name: FMA_Design2_White_20
+      rect:
+        serializedVersion: 2
+        x: 1647
+        y: 1297
+        width: 105
+        height: 159
+      alignment: 0
+      pivot: {x: 0.5, y: 0.5}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      customData: 
+      outline: []
+      physicsShape: []
+      tessellationDetail: 0
+      bones: []
+      spriteID: 038824a4ba5a45a458e407475290f54d
+      internalID: 584013994255172112
+      vertices: []
+      indices: 
+      edges: []
+      weights: []
+    - serializedVersion: 2
+      name: FMA_Design2_White_21
+      rect:
+        serializedVersion: 2
+        x: 2270
+        y: 1354
+        width: 52
+        height: 58
+      alignment: 0
+      pivot: {x: 0.5, y: 0.5}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      customData: 
+      outline: []
+      physicsShape: []
+      tessellationDetail: 0
+      bones: []
+      spriteID: cced6c468cdbfa3448f80373b6afd758
+      internalID: -6366265082734815976
+      vertices: []
+      indices: 
+      edges: []
+      weights: []
+    - serializedVersion: 2
+      name: FMA_Design2_White_22
+      rect:
+        serializedVersion: 2
+        x: 2377
+        y: 1299
+        width: 128
+        height: 154
+      alignment: 0
+      pivot: {x: 0.5, y: 0.5}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      customData: 
+      outline: []
+      physicsShape: []
+      tessellationDetail: 0
+      bones: []
+      spriteID: 4e52a07f2e9641b4e948f29c93b111eb
+      internalID: -4666275741610823703
+      vertices: []
+      indices: 
+      edges: []
+      weights: []
+    - serializedVersion: 2
+      name: FMA_Design2_White_23
+      rect:
+        serializedVersion: 2
+        x: 2505
+        y: 1297
+        width: 105
+        height: 159
+      alignment: 0
+      pivot: {x: 0.5, y: 0.5}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      customData: 
+      outline: []
+      physicsShape: []
+      tessellationDetail: 0
+      bones: []
+      spriteID: 9f16179a21e04ed498e886a17ff4ad33
+      internalID: 6138003002272285598
+      vertices: []
+      indices: 
+      edges: []
+      weights: []
+    - serializedVersion: 2
+      name: FMA_Design2_White_24
+      rect:
+        serializedVersion: 2
+        x: 3795
+        y: 1359
+        width: 52
+        height: 58
+      alignment: 0
+      pivot: {x: 0.5, y: 0.5}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      customData: 
+      outline: []
+      physicsShape: []
+      tessellationDetail: 0
+      bones: []
+      spriteID: a660f90b016d30642bac28efa6a71e79
+      internalID: 7180669168066284847
+      vertices: []
+      indices: 
+      edges: []
+      weights: []
+    - serializedVersion: 2
+      name: FMA_Design2_White_25
+      rect:
+        serializedVersion: 2
+        x: 3920
+        y: 1307
+        width: 115
+        height: 152
+      alignment: 0
+      pivot: {x: 0.5, y: 0.5}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      customData: 
+      outline: []
+      physicsShape: []
+      tessellationDetail: 0
+      bones: []
+      spriteID: 602426f01079ffc42931b40613b95f1e
+      internalID: 6392971444607008479
+      vertices: []
+      indices: 
+      edges: []
+      weights: []
+    - serializedVersion: 2
+      name: FMA_Design2_White_26
+      rect:
+        serializedVersion: 2
+        x: 4064
+        y: 1307
+        width: 115
+        height: 152
+      alignment: 0
+      pivot: {x: 0.5, y: 0.5}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      customData: 
+      outline: []
+      physicsShape: []
+      tessellationDetail: 0
+      bones: []
+      spriteID: eac723f954d88bf41b9e978000330150
+      internalID: -20264695154418628
+      vertices: []
+      indices: 
+      edges: []
+      weights: []
+    - serializedVersion: 2
+      name: FMA_Design2_White_27
+      rect:
+        serializedVersion: 2
+        x: 4191
+        y: 1303
+        width: 117
+        height: 158
+      alignment: 0
+      pivot: {x: 0.5, y: 0.5}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      customData: 
+      outline: []
+      physicsShape: []
+      tessellationDetail: 0
+      bones: []
+      spriteID: e38af1abbf116a14aa63c250e738d83e
+      internalID: 6524456741873599239
+      vertices: []
+      indices: 
+      edges: []
+      weights: []
+    - serializedVersion: 2
+      name: FMA_Design2_White_28
+      rect:
+        serializedVersion: 2
+        x: 1065
+        y: 1276
+        width: 3254
+        height: 410
+      alignment: 0
+      pivot: {x: 0, y: 0}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      customData: 
+      outline: []
+      physicsShape: []
+      tessellationDetail: 0
+      bones: []
+      spriteID: 771245ff0e993e540bd1bf91e9295c79
+      internalID: -1151066675
+      vertices: []
+      indices: 
+      edges: []
+      weights: []
+    outline: []
+    customData: 
+    physicsShape: []
+    bones: []
+    spriteID: 7bd75ef3fa67c0141bbf4259e0ab8365
+    internalID: 0
+    vertices: []
+    indices: 
+    edges: []
+    weights: []
+    secondaryTextures: []
+    spriteCustomMetadata:
+      entries:
+      - key: SpriteEditor.SliceOnImport
+        value: False
+      - key: SpriteEditor.SliceSettings
+        value: '{"sliceOnImport":false,"gridCellCount":{"x":1.0,"y":1.0},"gridSpriteSize":{"x":64.0,"y":64.0},"gridSpriteOffset":{"x":0.0,"y":0.0},"gridSpritePadding":{"x":0.0,"y":0.0},"pivot":{"x":0.5,"y":0.5},"pivotPixels":{"x":0.0,"y":0.0},"autoSlicingMethod":0,"spriteAlignment":0,"pivotUnitMode":0,"slicingType":0,"keepEmptyRects":false,"isAlternate":false}'
+    nameFileIdTable:
+      FMA_Design2_White_0: -2772223773269752330
+      FMA_Design2_White_1: -5920455027720058721
+      FMA_Design2_White_10: 2133708694846799213
+      FMA_Design2_White_11: 482623967960682472
+      FMA_Design2_White_12: -2632865027123155174
+      FMA_Design2_White_13: -6179139389015673054
+      FMA_Design2_White_14: 2652087128226860508
+      FMA_Design2_White_15: -5449470773703925466
+      FMA_Design2_White_16: -2503843908031676038
+      FMA_Design2_White_17: -1250664624712266328
+      FMA_Design2_White_18: 5250303922891021453
+      FMA_Design2_White_19: 3757278236172536901
+      FMA_Design2_White_2: -321091794573622709
+      FMA_Design2_White_20: 584013994255172112
+      FMA_Design2_White_21: -6366265082734815976
+      FMA_Design2_White_22: -4666275741610823703
+      FMA_Design2_White_23: 6138003002272285598
+      FMA_Design2_White_24: 7180669168066284847
+      FMA_Design2_White_25: 6392971444607008479
+      FMA_Design2_White_26: -20264695154418628
+      FMA_Design2_White_27: 6524456741873599239
+      FMA_Design2_White_28: -1151066675
+      FMA_Design2_White_3: 3745830872298915126
+      FMA_Design2_White_4: 8248740568057615478
+      FMA_Design2_White_5: 6998448278025817250
+      FMA_Design2_White_6: -898559647259865039
+      FMA_Design2_White_7: -3445424337492298482
+      FMA_Design2_White_8: -817691373242163340
+      FMA_Design2_White_9: -2612487509003205972
+  mipmapLimitGroupName: 
+  pSDRemoveMatte: 0
+  userData: 
+  assetBundleName: 
+  assetBundleVariant: 

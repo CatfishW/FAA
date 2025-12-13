@@ -1,0 +1,263 @@
+fileFormatVersion: 2
+guid: 3b6a648f6eb92274e85452c2536b1c37
+TextureImporter:
+  internalIDToNameTable: []
+  externalObjects: {}
+  serializedVersion: 13
+  mipmaps:
+    mipMapMode: 0
+    enableMipMap: 0
+    sRGBTexture: 1
+    linearTexture: 0
+    fadeOut: 0
+    borderMipMap: 0
+    mipMapsPreserveCoverage: 0
+    alphaTestReferenceValue: 0.5
+    mipMapFadeDistanceStart: 1
+    mipMapFadeDistanceEnd: 3
+  bumpmap:
+    convertToNormalMap: 0
+    externalNormalMap: 0
+    heightScale: 0.25
+    normalMapFilter: 0
+    flipGreenChannel: 0
+  isReadable: 1
+  streamingMipmaps: 0
+  streamingMipmapsPriority: 0
+  vTOnly: 0
+  ignoreMipmapLimit: 0
+  grayScaleToAlpha: 0
+  generateCubemap: 6
+  cubemapConvolution: 0
+  seamlessCubemap: 0
+  textureFormat: 1
+  maxTextureSize: 2048
+  textureSettings:
+    serializedVersion: 2
+    filterMode: 1
+    aniso: 1
+    mipBias: 0
+    wrapU: 1
+    wrapV: 1
+    wrapW: 0
+  nPOTScale: 0
+  lightmap: 0
+  compressionQuality: 50
+  spriteMode: 2
+  spriteExtrude: 1
+  spriteMeshType: 1
+  alignment: 0
+  spritePivot: {x: 0.5, y: 0.5}
+  spritePixelsToUnits: 100
+  spriteBorder: {x: 0, y: 0, z: 0, w: 0}
+  spriteGenerateFallbackPhysicsShape: 1
+  alphaUsage: 1
+  alphaIsTransparency: 1
+  spriteTessellationDetail: -1
+  textureType: 8
+  textureShape: 1
+  singleChannelComponent: 0
+  flipbookRows: 1
+  flipbookColumns: 1
+  maxTextureSizeSet: 0
+  compressionQualitySet: 0
+  textureFormatSet: 0
+  ignorePngGamma: 0
+  applyGammaDecoding: 0
+  swizzle: 50462976
+  cookieLightType: 0
+  platformSettings:
+  - serializedVersion: 4
+    buildTarget: DefaultTexturePlatform
+    maxTextureSize: 2048
+    resizeAlgorithm: 0
+    textureFormat: -1
+    textureCompression: 1
+    compressionQuality: 50
+    crunchedCompression: 0
+    allowsAlphaSplitting: 0
+    overridden: 0
+    ignorePlatformSupport: 0
+    androidETC2FallbackOverride: 0
+    forceMaximumCompressionQuality_BC6H_BC7: 0
+  - serializedVersion: 4
+    buildTarget: Standalone
+    maxTextureSize: 2048
+    resizeAlgorithm: 0
+    textureFormat: -1
+    textureCompression: 1
+    compressionQuality: 50
+    crunchedCompression: 0
+    allowsAlphaSplitting: 0
+    overridden: 0
+    ignorePlatformSupport: 0
+    androidETC2FallbackOverride: 0
+    forceMaximumCompressionQuality_BC6H_BC7: 0
+  - serializedVersion: 4
+    buildTarget: WebGL
+    maxTextureSize: 2048
+    resizeAlgorithm: 0
+    textureFormat: -1
+    textureCompression: 1
+    compressionQuality: 50
+    crunchedCompression: 0
+    allowsAlphaSplitting: 0
+    overridden: 0
+    ignorePlatformSupport: 0
+    androidETC2FallbackOverride: 0
+    forceMaximumCompressionQuality_BC6H_BC7: 0
+  spriteSheet:
+    serializedVersion: 2
+    sprites:
+    - serializedVersion: 2
+      name: WeatherGauge_Design2_White_0
+      rect:
+        serializedVersion: 2
+        x: 967
+        y: 538
+        width: 132
+        height: 134
+      alignment: 0
+      pivot: {x: 0.5, y: 0.5}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      customData: 
+      outline: []
+      physicsShape: []
+      tessellationDetail: 0
+      bones: []
+      spriteID: c29891f8de71de543a54c55e54564bd3
+      internalID: -4993900296015685192
+      vertices: []
+      indices: 
+      edges: []
+      weights: []
+    - serializedVersion: 2
+      name: WeatherGauge_Design2_White_1
+      rect:
+        serializedVersion: 2
+        x: 760
+        y: 287
+        width: 616
+        height: 616
+      alignment: 0
+      pivot: {x: 0.5, y: 0.5}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      customData: 
+      outline: []
+      physicsShape: []
+      tessellationDetail: 0
+      bones: []
+      spriteID: 8606c3b28e740c148a5383d9a7be05e7
+      internalID: 1606108192
+      vertices: []
+      indices: 
+      edges: []
+      weights: []
+    outline: []
+    customData: 
+    physicsShape: []
+    bones: []
+    spriteID: 2ef2cc29b56100e47ab8fd19d774ccf6
+    internalID: 0
+    vertices: []
+    indices: 
+    edges: []
+    weights: []
+    secondaryTextures: []
+    spriteCustomMetadata:
+      entries: []
+    nameFileIdTable:
+      WeatherGauge_Design2_White_0: -4993900296015685192
+      WeatherGauge_Design2_White_1: 1606108192
+      WeatherGauge_Design2_White_10: -839764912
+      WeatherGauge_Design2_White_11: -201350508
+      WeatherGauge_Design2_White_12: -607879980
+      WeatherGauge_Design2_White_13: -868675432
+      WeatherGauge_Design2_White_14: -301933052
+      WeatherGauge_Design2_White_15: -1197787890
+      WeatherGauge_Design2_White_16: 2083833585
+      WeatherGauge_Design2_White_17: 924007029
+      WeatherGauge_Design2_White_18: 995718603
+      WeatherGauge_Design2_White_19: -284732206
+      WeatherGauge_Design2_White_2: -669456122
+      WeatherGauge_Design2_White_20: 1439179774
+      WeatherGauge_Design2_White_21: 71641041
+      WeatherGauge_Design2_White_22: -562082040
+      WeatherGauge_Design2_White_23: -1031698911
+      WeatherGauge_Design2_White_24: 2051145615
+      WeatherGauge_Design2_White_25: 1846733155
+      WeatherGauge_Design2_White_26: -869599074
+      WeatherGauge_Design2_White_27: 132517628
+      WeatherGauge_Design2_White_28: 642875044
+      WeatherGauge_Design2_White_29: 539536583
+      WeatherGauge_Design2_White_3: -1220549974
+      WeatherGauge_Design2_White_30: 1123145484
+      WeatherGauge_Design2_White_31: 596521074
+      WeatherGauge_Design2_White_32: -2078149483
+      WeatherGauge_Design2_White_33: -1769170202
+      WeatherGauge_Design2_White_34: -2098579791
+      WeatherGauge_Design2_White_35: 2001728676
+      WeatherGauge_Design2_White_36: 1212779073
+      WeatherGauge_Design2_White_37: -536619922
+      WeatherGauge_Design2_White_38: 257593664
+      WeatherGauge_Design2_White_39: -1509184957
+      WeatherGauge_Design2_White_4: -1961222196
+      WeatherGauge_Design2_White_40: 1524380227
+      WeatherGauge_Design2_White_41: 1947948862
+      WeatherGauge_Design2_White_42: -349280557
+      WeatherGauge_Design2_White_43: -699141069
+      WeatherGauge_Design2_White_44: -1399447479
+      WeatherGauge_Design2_White_45: -1167212618
+      WeatherGauge_Design2_White_46: 914867407
+      WeatherGauge_Design2_White_47: -1345500135
+      WeatherGauge_Design2_White_48: 501374321
+      WeatherGauge_Design2_White_49: -1643338253
+      WeatherGauge_Design2_White_5: -321649098
+      WeatherGauge_Design2_White_50: -742719595
+      WeatherGauge_Design2_White_51: 1836578376
+      WeatherGauge_Design2_White_52: 1108421922
+      WeatherGauge_Design2_White_53: -1366177042
+      WeatherGauge_Design2_White_54: 452856210
+      WeatherGauge_Design2_White_55: 635799038
+      WeatherGauge_Design2_White_56: -367921189
+      WeatherGauge_Design2_White_57: 1461435523
+      WeatherGauge_Design2_White_58: -1271897846
+      WeatherGauge_Design2_White_59: 982541341
+      WeatherGauge_Design2_White_6: -342293877
+      WeatherGauge_Design2_White_60: 1331155943
+      WeatherGauge_Design2_White_61: -109947046
+      WeatherGauge_Design2_White_62: -1647911577
+      WeatherGauge_Design2_White_63: 816907952
+      WeatherGauge_Design2_White_64: -1149553841
+      WeatherGauge_Design2_White_65: -489170965
+      WeatherGauge_Design2_White_66: 2061788055
+      WeatherGauge_Design2_White_67: 1930413468
+      WeatherGauge_Design2_White_68: 772183120
+      WeatherGauge_Design2_White_69: 370107629
+      WeatherGauge_Design2_White_7: 1953917261
+      WeatherGauge_Design2_White_70: 887716314
+      WeatherGauge_Design2_White_71: -1753163115
+      WeatherGauge_Design2_White_72: 976406977
+      WeatherGauge_Design2_White_73: 1135484682
+      WeatherGauge_Design2_White_74: 858726682
+      WeatherGauge_Design2_White_75: -224276405
+      WeatherGauge_Design2_White_76: -732697389
+      WeatherGauge_Design2_White_77: 1345620304
+      WeatherGauge_Design2_White_78: 80708262
+      WeatherGauge_Design2_White_79: 2049895154
+      WeatherGauge_Design2_White_8: -343377180
+      WeatherGauge_Design2_White_80: 713871104
+      WeatherGauge_Design2_White_81: -312904640
+      WeatherGauge_Design2_White_82: 148593127
+      WeatherGauge_Design2_White_83: 1525777160
+      WeatherGauge_Design2_White_84: -535440045
+      WeatherGauge_Design2_White_85: -11554733
+      WeatherGauge_Design2_White_86: -893597657
+      WeatherGauge_Design2_White_87: -15006601
+      WeatherGauge_Design2_White_88: -1649114466
+      WeatherGauge_Design2_White_9: 297851120
+  mipmapLimitGroupName: 
+  pSDRemoveMatte: 0
+  userData: 
+  assetBundleName: 
+  assetBundleVariant: 

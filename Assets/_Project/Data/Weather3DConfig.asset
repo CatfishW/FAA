@@ -1,0 +1,55 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 383c7d952789c5a40b937879d7d0d7a9, type: 3}
+  m_Name: Weather3DConfig
+  m_EditorClassIdentifier: Assembly-CSharp::WeatherRadar.Weather3D.Weather3DConfig
+  gridResolution: {x: 64, y: 16, z: 64}
+  coverageNM: 75
+  maxAltitudeFt: 50000
+  maxCloudParticles: 2000
+  cloudParticleSize: 1.5
+  cloudSizeVariation: 0.5
+  cloudOpacity: 0.7
+  animateClouds: 1
+  cloudAnimationSpeed: 0.5
+  maxPrecipitationParticles: 1000
+  rainDropSize: 0.1
+  rainFallSpeed: 20
+  snowFlakeSize: 0.08
+  snowFallSpeed: 3
+  enableLightning: 1
+  lightningFlashDuration: 0.15
+  lightningMinInterval: 2
+  lightningMaxInterval: 8
+  lightningSegments: 8
+  lightningWidth: 0.3
+  lightningColor: {r: 0.9, g: 0.95, b: 1, a: 1}
+  turbulenceOpacity: 0.4
+  animateTurbulence: 1
+  turbulenceAnimFrequency: 2
+  hazardPillarRings: 4
+  hazardPulseSpeed: 1.5
+  hazardPillarWidth: 2
+  lightColor: {r: 0, g: 0.8, b: 0, a: 0.6}
+  moderateColor: {r: 1, g: 1, b: 0, a: 0.7}
+  heavyColor: {r: 1, g: 0.5, b: 0, a: 0.8}
+  intenseColor: {r: 1, g: 0, b: 0, a: 0.9}
+  extremeColor: {r: 1, g: 0, b: 1, a: 1}
+  effectUpdateRate: 10
+  lodDistance: 50
+  maxVisibleRange: 200
+  enableParticleShadows: 0
+  frustumCulling: 1
+  showVerticalProfile: 1
+  profileViewHeight: 200
+  showAltitudeLabels: 1
+  showDistanceRings: 1

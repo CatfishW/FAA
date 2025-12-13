@@ -1,0 +1,76 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 5f65e47c13e47eb40b1927e6cfd061a3, type: 3}
+  m_Name: IndicatorSettings
+  m_EditorClassIdentifier: Assembly-CSharp::IndicatorSystem.Core.IndicatorSettings
+  enabled: 1
+  maxIndicators: 100
+  edgePadding: 80
+  globalScale: 1.5
+  indicatorSize: 40
+  arrowSize: 40
+  rotateSymbolByHeading: 1
+  rotationOffset: 0
+  limitRotationAngles: 0
+  minVisibleAngle: 15
+  enable3DRotation: 1
+  maxPerspectiveTiltX: 60
+  maxPerspectiveTiltY: 60
+  labelFontSize: 48
+  distanceFontSize: 12
+  altitudeFontSize: 11
+  showDistanceLabels: 1
+  maxDisplayDistance: 500
+  minDisplayDistance: 0
+  enableDistanceScaling: 1
+  closeDistanceNM: 0
+  farDistanceNM: 10
+  closeDistanceScale: 3
+  farDistanceScale: 0.2
+  showTrails: 0
+  trailPointCount: 9
+  trailSampleInterval: 0.5
+  trailFadeDuration: 10
+  trailWidth: 10
+  trailColor: {r: 0, g: 1, b: 1, a: 0.6}
+  showAltitudeIndicators: 1
+  altitudeInThousands: 1
+  altitudeThreshold: 500
+  showNavigationLights: 1
+  navLightSize: 8
+  portLightColor: {r: 1, g: 0, b: 0, a: 1}
+  starboardLightColor: {r: 0, g: 1, b: 0, a: 1}
+  tailLightColor: {r: 1, g: 1, b: 1, a: 0.9}
+  navLightIntensity: 1.2
+  blinkNavLights: 1
+  navLightBlinkRate: 1
+  smoothMovement: 0
+  smoothSpeed: 3.98
+  pulseHighPriority: 1
+  pulseFrequency: 1.54
+  trafficNormalColor: {r: 0, g: 1, b: 1, a: 0.5882353}
+  trafficAdvisoryColor: {r: 1, g: 0.75, b: 0, a: 0.5882353}
+  trafficResolutionColor: {r: 1, g: 0, b: 0, a: 0.5882353}
+  weatherLightColor: {r: 0, g: 0.8, b: 0, a: 1}
+  weatherModerateColor: {r: 1, g: 1, b: 0, a: 1}
+  weatherHeavyColor: {r: 1, g: 0, b: 0, a: 1}
+  waypointColor: {r: 1, g: 0, b: 1, a: 1}
+  showTrafficIndicators: 1
+  showWeatherIndicators: 0
+  showWaypointIndicators: 0
+  useCustomPrefabs: 1
+  defaultIndicatorPrefab: {fileID: 5592259921768212743, guid: 3ff6a7fe393007d45a43914daaf9e0ad, type: 3}
+  commercialPrefab: {fileID: 5592259921768212743, guid: 3ff6a7fe393007d45a43914daaf9e0ad, type: 3}
+  militaryPrefab: {fileID: 5592259921768212743, guid: 3ff6a7fe393007d45a43914daaf9e0ad, type: 3}
+  generalPrefab: {fileID: 5592259921768212743, guid: 3ff6a7fe393007d45a43914daaf9e0ad, type: 3}
+  helicopterPrefab: {fileID: 5592259921768212743, guid: 3ff6a7fe393007d45a43914daaf9e0ad, type: 3}
+  unknownPrefab: {fileID: 5592259921768212743, guid: 3ff6a7fe393007d45a43914daaf9e0ad, type: 3}
