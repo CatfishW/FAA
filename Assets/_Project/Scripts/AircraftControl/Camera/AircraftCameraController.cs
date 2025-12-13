@@ -1,4 +1,5 @@
 using UnityEngine;
+using AircraftControl.Core;
 
 namespace AircraftControl.Camera
 {
@@ -78,6 +79,29 @@ namespace AircraftControl.Camera
         [Header("Cockpit Settings")]
         [Tooltip("Offset from aircraft pivot for cockpit camera")]
         [SerializeField] private Vector3 cockpitOffset = new Vector3(0f, 1.5f, 2f);
+
+        [Header("HUD First Person Compensation")]
+        [Tooltip("Aircraft controller used to derive climb/dive information for HUD-ready motion")]
+        [SerializeField] private AircraftController aircraftController;
+
+        [Tooltip("Auto-assign AircraftController from the aircraft transform if left empty")]
+        [SerializeField] private bool autoFindAircraftController = true;
+
+        [Tooltip("Blend toward the flight-path pitch so HUD feels anchored to real motion (0 = attitude only, 1 = full flight-path)")]
+        [Range(0f, 1f)]
+        [SerializeField] private float flightPathBlend = 0.6f;
+
+        [Tooltip("Maximum pitch offset (degrees) contributed by flight-path blending")]
+        [SerializeField] private float maxPitchCompensation = 12f;
+
+        [Tooltip("Maximum vertical head-lag offset in meters when pulling positive/negative flight path angles")]
+        [SerializeField] private float verticalOffsetMeters = 0.15f;
+
+        [Tooltip("Vertical speed in m/s that produces full head-lag offset")]
+        [SerializeField] private float verticalSpeedForFullOffset = 25f;
+
+        [Tooltip("How quickly climb/dive compensation reacts (higher = snappier)")]
+        [SerializeField] private float compensationSmoothing = 4f;
         
         [Header("Input")]
         [Tooltip("Mouse button to hold for free look (0=left, 1=right, 2=middle)")]
@@ -114,6 +138,10 @@ namespace AircraftControl.Camera
         // Free rotation storage
         private Quaternion _freeRotation;
         private Quaternion _lastAircraftRotation;
+
+        // First person HUD compensation
+        private float _smoothedFlightPathPitch;
+        private float _currentVerticalOffset;
         
         #endregion
         
@@ -145,12 +173,19 @@ namespace AircraftControl.Camera
                 enabled = false;
                 return;
             }
+
+            if (autoFindAircraftController && aircraftController == null)
+            {
+                aircraftController = aircraftTransform.GetComponent<AircraftController>()
+                    ?? aircraftTransform.GetComponentInParent<AircraftController>();
+            }
             
             // Initialize rotation tracking
             _freeRotation = aircraftTransform.rotation;
             _lastAircraftRotation = aircraftTransform.rotation;
             _currentPitch = 0f;
             _currentYaw = 0f;
+            _smoothedFlightPathPitch = NormalizeAngle(aircraftTransform.rotation.eulerAngles.x);
         }
         
         private void LateUpdate()
@@ -243,14 +278,22 @@ namespace AircraftControl.Camera
         {
             // Position in cockpit
             Vector3 cockpitPosition = aircraftTransform.TransformPoint(cockpitOffset);
+
+            // Calculate base rotation and then apply climb/dive compensation so HUD stays believable in first person
+            Quaternion aircraftRotation = aircraftTransform.rotation;
+            Vector3 aircraftEuler = aircraftRotation.eulerAngles;
+            float basePitch = NormalizeAngle(aircraftEuler.x);
+            float compensatedPitch = GetCompensatedPitch(basePitch);
+            aircraftEuler.x = compensatedPitch;
+            Quaternion compensatedRotation = Quaternion.Euler(aircraftEuler);
+
+            // Apply vertical head-lag offset driven by climb/dive
+            cockpitPosition += GetVerticalOffset(compensatedRotation);
             transform.position = cockpitPosition;
             
-            // Calculate look rotation relative to aircraft
-            Quaternion aircraftRotation = aircraftTransform.rotation;
+            // Combine compensated aircraft rotation with look offset (local rotation)
             Quaternion lookOffset = Quaternion.Euler(_currentPitch, _currentYaw, 0f);
-            
-            // Combine aircraft rotation with look offset (local rotation)
-            transform.rotation = aircraftRotation * lookOffset;
+            transform.rotation = compensatedRotation * lookOffset;
         }
         
         private void UpdateChaseCamera()
@@ -383,6 +426,50 @@ namespace AircraftControl.Camera
             
             GUILayout.EndVertical();
             GUILayout.EndArea();
+        }
+
+        #endregion
+
+        #region Helpers
+
+        private float GetCompensatedPitch(float basePitch)
+        {
+            if (aircraftController == null || aircraftController.State == null || flightPathBlend <= 0f)
+            {
+                return basePitch;
+            }
+
+            var state = aircraftController.State;
+            float flightPathPitch = Mathf.Atan2(state.VerticalSpeedMps, Mathf.Max(state.GroundSpeedMps, 0.1f)) * Mathf.Rad2Deg;
+            float clampedPitch = Mathf.Clamp(flightPathPitch, basePitch - maxPitchCompensation, basePitch + maxPitchCompensation);
+            _smoothedFlightPathPitch = Mathf.Lerp(_smoothedFlightPathPitch, clampedPitch, Time.deltaTime * compensationSmoothing);
+            return Mathf.Lerp(basePitch, _smoothedFlightPathPitch, flightPathBlend);
+        }
+
+        private Vector3 GetVerticalOffset(Quaternion referenceRotation)
+        {
+            if (aircraftController == null || aircraftController.State == null || verticalOffsetMeters <= 0f)
+            {
+                return Vector3.zero;
+            }
+
+            var state = aircraftController.State;
+            float normalizedVs = 0f;
+            if (verticalSpeedForFullOffset > 0.01f)
+            {
+                normalizedVs = Mathf.Clamp(state.VerticalSpeedMps / verticalSpeedForFullOffset, -1f, 1f);
+            }
+
+            float targetOffset = -normalizedVs * verticalOffsetMeters; // Positive climb pushes pilot down into the seat
+            _currentVerticalOffset = Mathf.Lerp(_currentVerticalOffset, targetOffset, Time.deltaTime * compensationSmoothing);
+            return referenceRotation * (Vector3.up * _currentVerticalOffset);
+        }
+
+        private static float NormalizeAngle(float angle)
+        {
+            angle %= 360f;
+            if (angle > 180f) angle -= 360f;
+            return angle;
         }
         
         #endregion

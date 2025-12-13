@@ -31,6 +31,7 @@ namespace VoiceControl.UI
         [Header("Animation")]
         [SerializeField] private float animationDuration = 0.25f;
         [SerializeField] private AnimationCurve easeCurve = AnimationCurve.EaseInOut(0, 0, 1, 1);
+        [SerializeField, Range(0f, 1f)] private float initialCanvasAlpha = 0f;
         
         private bool _isVisible = false;
         private Coroutine _animationCoroutine;
@@ -52,10 +53,11 @@ namespace VoiceControl.UI
                     canvasGroup = gameObject.AddComponent<CanvasGroup>();
             }
             
-            // Start hidden
+            // Start fully hidden; animate to the configured alpha when shown
             canvasGroup.alpha = 0f;
             canvasGroup.interactable = false;
             canvasGroup.blocksRaycasts = false;
+            _isVisible = false;
         }
         
         private void Start()
@@ -172,9 +174,11 @@ namespace VoiceControl.UI
                 _animationCoroutine = null;
             }
             
-            canvasGroup.alpha = visible ? 1f : 0f;
-            canvasGroup.interactable = visible;
-            canvasGroup.blocksRaycasts = visible;
+            float targetAlpha = visible ? Mathf.Clamp01(initialCanvasAlpha) : 0f;
+            bool enableInteraction = visible && targetAlpha > 0.001f;
+            canvasGroup.alpha = targetAlpha;
+            canvasGroup.interactable = enableInteraction;
+            canvasGroup.blocksRaycasts = enableInteraction;
         }
         
         #endregion
@@ -267,7 +271,7 @@ namespace VoiceControl.UI
         private IEnumerator AnimateVisibilityCoroutine(bool show)
         {
             float startAlpha = canvasGroup.alpha;
-            float targetAlpha = show ? 1f : 0f;
+            float targetAlpha = show ? Mathf.Clamp01(initialCanvasAlpha) : 0f;
             
             Vector2 startOffset = panelTransform.anchoredPosition;
             Vector2 targetOffset = startOffset;
@@ -285,8 +289,9 @@ namespace VoiceControl.UI
             
             if (show)
             {
-                canvasGroup.interactable = true;
-                canvasGroup.blocksRaycasts = true;
+                bool enableInteraction = targetAlpha > 0.001f;
+                canvasGroup.interactable = enableInteraction;
+                canvasGroup.blocksRaycasts = enableInteraction;
                 panelTransform.anchoredPosition = startOffset;
             }
             
@@ -306,6 +311,11 @@ namespace VoiceControl.UI
             panelTransform.anchoredPosition = targetOffset;
             
             if (!show)
+            {
+                canvasGroup.interactable = false;
+                canvasGroup.blocksRaycasts = false;
+            }
+            else if (targetAlpha <= 0.001f)
             {
                 canvasGroup.interactable = false;
                 canvasGroup.blocksRaycasts = false;

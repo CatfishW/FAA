@@ -9,6 +9,29 @@ using VisualUnderstanding.Core;
 namespace VisualUnderstanding.UI
 {
     /// <summary>
+    /// Helper class to force layout rebuilds on text change
+    /// </summary>
+    public static class LayoutHelper
+    {
+        public static void ForceRebuildLayoutImmediate(RectTransform rect)
+        {
+            if (rect == null) return;
+            LayoutRebuilder.ForceRebuildLayoutImmediate(rect);
+            
+            // Also rebuild parent layouts up the hierarchy
+            var parent = rect.parent as RectTransform;
+            while (parent != null)
+            {
+                var fitter = parent.GetComponent<ContentSizeFitter>();
+                if (fitter != null && fitter.enabled)
+                {
+                    LayoutRebuilder.ForceRebuildLayoutImmediate(parent);
+                }
+                parent = parent.parent as RectTransform;
+            }
+        }
+    }
+    /// <summary>
     /// Main panel for displaying visual analysis results with animations.
     /// Click on the panel to hide it.
     /// </summary>
@@ -29,6 +52,13 @@ namespace VisualUnderstanding.UI
         [SerializeField] private TMP_Text statusText;
         [SerializeField] private UnityEngine.UI.RawImage imagePreview;
         
+        [Header("Dynamic Sizing")]
+        [SerializeField] private ContentSizeFitter panelSizeFitter;
+        [SerializeField] private ContentSizeFitter summarySizeFitter;
+        [SerializeField] private LayoutElement summaryLayoutElement;
+        [SerializeField] private float minPanelHeight = 150f;
+        [SerializeField] private float maxPanelHeight = 600f;
+        
         [Header("Prefabs")]
         [SerializeField] private GameObject briefingItemPrefab;
         
@@ -36,6 +66,7 @@ namespace VisualUnderstanding.UI
         [SerializeField] private float slideDistance = 50f;
         [SerializeField] private float staggerDelay = 0.1f;
         [SerializeField] private bool useUnscaledTime = true;
+        [SerializeField, Range(0f, 1f)] private float initialCanvasAlpha = 0f;
         
         [Header("Auto Hide")]
         [SerializeField] private bool autoHide = true;
@@ -72,8 +103,10 @@ namespace VisualUnderstanding.UI
                 }
             }
             
-            // Start hidden
+            // Start fully hidden; animate to the configured alpha when shown
             canvasGroup.alpha = 0f;
+            canvasGroup.interactable = false;
+            canvasGroup.blocksRaycasts = false;
             _isVisible = false;
             
             if (loadingIndicator != null)
@@ -295,6 +328,13 @@ namespace VisualUnderstanding.UI
         
         private void HandleAnalysisStarted(VisualAnalysisType type)
         {
+            // Cancel existing auto-hide timer so it resets for the new analysis
+            if (_autoHideCoroutine != null)
+            {
+                StopCoroutine(_autoHideCoroutine);
+                _autoHideCoroutine = null;
+            }
+            
             // Reset streaming state - critical to prevent text accumulation
             _streamingInProgress = false;
             
@@ -358,6 +398,62 @@ namespace VisualUnderstanding.UI
                 
                 // Convert markdown to TMP rich text after appending
                 summaryText.text = ConvertMarkdownToRichText(summaryText.text);
+                
+                // Force layout rebuild to expand panel with new text
+                RefreshPanelLayout();
+            }
+        }
+        
+        /// <summary>
+        /// Refresh the panel layout to accommodate new text content
+        /// </summary>
+        private void RefreshPanelLayout()
+        {
+            if (summaryText == null) return;
+            
+            // Force the TMP text to update its mesh
+            summaryText.ForceMeshUpdate();
+            
+            // Get the preferred height of the text
+            float preferredHeight = summaryText.preferredHeight;
+            
+            // If we have a layout element, update its min height
+            if (summaryLayoutElement != null)
+            {
+                summaryLayoutElement.minHeight = preferredHeight;
+                summaryLayoutElement.preferredHeight = preferredHeight;
+            }
+            
+            // Force layout rebuild from summary text up through panel
+            var summaryRect = summaryText.GetComponent<RectTransform>();
+            if (summaryRect != null)
+            {
+                LayoutHelper.ForceRebuildLayoutImmediate(summaryRect);
+            }
+            
+            // Also rebuild the panel itself
+            if (_rectTransform != null)
+            {
+                LayoutHelper.ForceRebuildLayoutImmediate(_rectTransform);
+                
+                // Clamp the panel height within bounds
+                ClampPanelHeight();
+            }
+        }
+        
+        /// <summary>
+        /// Clamp the panel height between min and max values
+        /// </summary>
+        private void ClampPanelHeight()
+        {
+            if (_rectTransform == null) return;
+            
+            Vector2 size = _rectTransform.sizeDelta;
+            float clampedHeight = Mathf.Clamp(size.y, minPanelHeight, maxPanelHeight);
+            
+            if (Mathf.Abs(size.y - clampedHeight) > 0.01f)
+            {
+                _rectTransform.sizeDelta = new Vector2(size.x, clampedHeight);
             }
         }
         
@@ -443,29 +539,42 @@ namespace VisualUnderstanding.UI
         {
             float fadeIn = settings?.fadeInDuration ?? 0.3f;
             float elapsed = 0f;
+            float targetAlpha = Mathf.Clamp01(initialCanvasAlpha);
+            bool enableInteraction = targetAlpha > 0.001f;
             
             Vector2 startPos = _originalPosition + Vector2.left * slideDistance;
+            if (enableInteraction)
+            {
+                canvasGroup.interactable = true;
+                canvasGroup.blocksRaycasts = true;
+            }
             
             while (elapsed < fadeIn)
             {
                 elapsed += useUnscaledTime ? Time.unscaledDeltaTime : Time.deltaTime;
                 float t = EaseOutCubic(elapsed / fadeIn);
                 
-                canvasGroup.alpha = t;
+                canvasGroup.alpha = Mathf.Lerp(canvasGroup.alpha, targetAlpha, t);
                 _rectTransform.anchoredPosition = Vector2.Lerp(startPos, _originalPosition, t);
                 
                 yield return null;
             }
             
-            canvasGroup.alpha = 1f;
+            canvasGroup.alpha = targetAlpha;
             _rectTransform.anchoredPosition = _originalPosition;
-            _isVisible = true;
+            _isVisible = enableInteraction;
+            if (!enableInteraction)
+            {
+                canvasGroup.interactable = false;
+                canvasGroup.blocksRaycasts = false;
+            }
         }
         
         private IEnumerator HidePanelCoroutine()
         {
             float fadeOut = settings?.fadeOutDuration ?? 0.5f;
             float elapsed = 0f;
+            float startAlpha = canvasGroup.alpha;
             
             Vector2 endPos = _originalPosition + Vector2.left * slideDistance;
             
@@ -481,7 +590,7 @@ namespace VisualUnderstanding.UI
                 elapsed += useUnscaledTime ? Time.unscaledDeltaTime : Time.deltaTime;
                 float t = EaseInCubic(elapsed / fadeOut);
                 
-                canvasGroup.alpha = 1f - t;
+                canvasGroup.alpha = Mathf.Lerp(startAlpha, 0f, t);
                 _rectTransform.anchoredPosition = Vector2.Lerp(_originalPosition, endPos, t);
                 
                 // Fade image preview along with panel
@@ -498,6 +607,8 @@ namespace VisualUnderstanding.UI
             }
             
             canvasGroup.alpha = 0f;
+            canvasGroup.interactable = false;
+            canvasGroup.blocksRaycasts = false;
             _isVisible = false;
             
             // Hide image preview

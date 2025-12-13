@@ -483,6 +483,54 @@ namespace VoiceControl.Network
             }
         }
         
+        /// <summary>
+        /// Fetch available models from the LLM server (for Editor use)
+        /// </summary>
+        /// <param name="serverUrl">URL of the LLM server</param>
+        /// <param name="callback">Callback with list of model IDs and error message</param>
+        public static void FetchAvailableModels(string serverUrl, System.Action<List<string>, string> callback)
+        {
+            var models = new List<string>();
+            string url = serverUrl.TrimEnd('/') + "/v1/models";
+            
+            try
+            {
+                using (var client = new System.Net.WebClient())
+                {
+                    string response = client.DownloadString(url);
+                    
+                    // Parse using MiniJson
+                    var json = MiniJson.Deserialize(response) as Dictionary<string, object>;
+                    if (json != null && json.TryGetValue("data", out var dataObj) && dataObj is List<object> dataList)
+                    {
+                        foreach (var item in dataList)
+                        {
+                            if (item is Dictionary<string, object> modelObj)
+                            {
+                                if (modelObj.TryGetValue("id", out var idObj) && idObj != null)
+                                {
+                                    models.Add(idObj.ToString());
+                                }
+                            }
+                        }
+                    }
+                    
+                    if (models.Count > 0)
+                    {
+                        callback?.Invoke(models, null);
+                    }
+                    else
+                    {
+                        callback?.Invoke(models, "No models found in server response");
+                    }
+                }
+            }
+            catch (System.Exception e)
+            {
+                callback?.Invoke(models, $"Failed to fetch models: {e.Message}");
+            }
+        }
+        
         private void Log(string message)
         {
             if (verboseLogging)

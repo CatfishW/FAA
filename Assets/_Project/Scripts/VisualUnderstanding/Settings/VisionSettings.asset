@@ -13,7 +13,7 @@ MonoBehaviour:
   m_Name: VisionSettings
   m_EditorClassIdentifier: Assembly-CSharp::VisualUnderstanding.Core.VisionSettings
   serverUrl: https://game.agaii.org/mllm/v1
-  modelName: Qwen/Qwen3-VL-30B-A3B-Instruct-FP8
+  modelName: QuantTrio/Qwen3-VL-32B-Instruct-AWQ
   apiKey: empty
   timeout: 120
   temperature: 0.4
@@ -25,8 +25,9 @@ MonoBehaviour:
     classes, airports, frequencies, terrain features, obstacles, and NOTAMs if visible.
 
     Be
-    brief and use aviation terminology. Format as short bullet points, be precise,
-    no more than 100 words.'
+    brief and use aviation terminology. **Important**: Format as short bullet points,
+    be concise, no more than 80 words, only output what you are sure to be precise
+    and true based on your knowledge.'
   weatherRadarPrompt: 'You are an aviation weather briefing assistant. Analyze this
     weather radar image.
 
@@ -34,7 +35,9 @@ MonoBehaviour:
     storm cells, movement direction if detectable.
 
     Provide pilot-relevant hazard
-    assessment. Be concise with bullet points.'
+    assessment. **Important**: Format as short bullet points, be concise, no more
+    than 80 words, only output what you are sure to be precise and true based on
+    your knowledge.'
   displayDuration: 15
   typewriterSpeed: 80
   fadeInDuration: 0.3

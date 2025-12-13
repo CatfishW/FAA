@@ -1,4 +1,5 @@
 #if UNITY_EDITOR
+using System.Collections.Generic;
 using UnityEngine;
 using UnityEditor;
 using UnityEngine.UI;
@@ -57,6 +58,11 @@ namespace VoiceControl.Editor
         private VoiceCommandRegistry _existingRegistry;
         private VoiceControlUI _existingUI;
         private bool _checkedScene;
+        
+        // Model auto-detection
+        private bool _isFetchingModels;
+        private string _modelFetchStatus = "";
+        private string _lastFetchedUrl = "";
         
         #endregion
         
@@ -208,8 +214,33 @@ namespace VoiceControl.Editor
             EditorGUILayout.Space(10);
             
             EditorGUILayout.LabelField("LLM Server (OpenAI-compatible)", EditorStyles.boldLabel);
+            
+            // LLM URL with auto-fetch on change
+            EditorGUI.BeginChangeCheck();
             _llmServerUrl = EditorGUILayout.TextField("LLM Server URL", _llmServerUrl);
-            _llmModelName = EditorGUILayout.TextField("Model Name", _llmModelName);
+            if (EditorGUI.EndChangeCheck() && !string.IsNullOrEmpty(_llmServerUrl) && _llmServerUrl != _lastFetchedUrl)
+            {
+                FetchAndAutoFillModel();
+            }
+            
+            // Show detected model (read-only)
+            EditorGUILayout.BeginHorizontal();
+            EditorGUI.BeginDisabledGroup(true);
+            EditorGUILayout.TextField("Model (auto-detected)", _llmModelName);
+            EditorGUI.EndDisabledGroup();
+            GUI.enabled = !_isFetchingModels && !string.IsNullOrEmpty(_llmServerUrl);
+            if (GUILayout.Button(_isFetchingModels ? "..." : "Detect", GUILayout.Width(55)))
+            {
+                FetchAndAutoFillModel();
+            }
+            GUI.enabled = true;
+            EditorGUILayout.EndHorizontal();
+            
+            if (!string.IsNullOrEmpty(_modelFetchStatus))
+            {
+                EditorGUILayout.HelpBox(_modelFetchStatus, string.IsNullOrEmpty(_llmModelName) ? MessageType.Warning : MessageType.Info);
+            }
+            
             _llmApiKey = EditorGUILayout.TextField("API Key (optional)", _llmApiKey);
             
             EditorGUILayout.Space(10);
@@ -335,6 +366,37 @@ namespace VoiceControl.Editor
                 
                 _isTestingConnectivity = false;
                 Repaint();
+            };
+        }
+        
+        private void FetchAndAutoFillModel()
+        {
+            if (string.IsNullOrEmpty(_llmServerUrl)) return;
+            
+            _isFetchingModels = true;
+            _modelFetchStatus = "Detecting model...";
+            _lastFetchedUrl = _llmServerUrl;
+            
+            EditorApplication.delayCall += () =>
+            {
+                LLMClient.FetchAvailableModels(_llmServerUrl, (models, error) =>
+                {
+                    if (!string.IsNullOrEmpty(error))
+                    {
+                        _modelFetchStatus = error;
+                    }
+                    else if (models != null && models.Count > 0)
+                    {
+                        _llmModelName = models[0];
+                        _modelFetchStatus = $"Detected: {_llmModelName}";
+                    }
+                    else
+                    {
+                        _modelFetchStatus = "No models found";
+                    }
+                    _isFetchingModels = false;
+                    Repaint();
+                });
             };
         }
         
