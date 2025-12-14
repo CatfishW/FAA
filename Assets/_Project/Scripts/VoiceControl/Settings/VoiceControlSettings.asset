@@ -14,8 +14,8 @@ MonoBehaviour:
   m_EditorClassIdentifier: Assembly-CSharp::VoiceControl.Manager.VoiceControlSettings
   sttServerUrl: https://game.agaii.org/stt
   sttTimeout: 5
-  llmServerUrl: https://game.agaii.org/llm
-  llmModelName: Qwen/Qwen3-VL-4B-Instruct-FP8
+  llmServerUrl: https://game.agaii.org/mllm
+  llmModelName: 
   llmApiKey: 
   llmTimeout: 5
   llmTemperature: 0.3
