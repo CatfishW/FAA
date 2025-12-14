@@ -28,9 +28,9 @@ namespace FAA.Customization
     {
         #region Inspector Fields
         
-        [Header("Target Root")]
-        [Tooltip("Root transform containing all symbology elements (e.g., Second Iteration GUI)")]
-        [SerializeField] private Transform symbologyRoot;
+        [Header("Target Roots")]
+        [Tooltip("Root transforms containing all symbology elements (e.g., Second Iteration GUI)")]
+        [SerializeField] private List<Transform> symbologyRoots = new List<Transform>();
         
         [Header("Color Settings")]
         [SerializeField] private ColorPreset currentPreset = ColorPreset.Black;
@@ -236,6 +236,67 @@ namespace FAA.Customization
         }
         
         /// <summary>
+        /// Get the current opacity (alpha) value
+        /// </summary>
+        public float CurrentOpacity => _currentColor.a;
+        
+        /// <summary>
+        /// Set the opacity/transparency of all symbology elements (0 = invisible, 1 = fully visible)
+        /// </summary>
+        /// <param name="opacity">Opacity value from 0 to 1</param>
+        public void SetOpacity(float opacity)
+        {
+            if (!_isInitialized)
+            {
+                Initialize();
+            }
+            
+            opacity = Mathf.Clamp01(opacity);
+            _currentColor.a = opacity;
+            
+            foreach (var img in _cachedImages)
+            {
+                if (img != null)
+                {
+                    var c = img.color;
+                    c.a = opacity;
+                    img.color = c;
+                }
+            }
+            
+            foreach (var txt in _cachedTexts)
+            {
+                if (txt != null)
+                {
+                    var c = txt.color;
+                    c.a = opacity;
+                    txt.color = c;
+                }
+            }
+            
+            if (logColorChanges)
+            {
+                Debug.Log($"[SymbologyColorManager] Set opacity to {opacity:F2}");
+            }
+        }
+        
+        /// <summary>
+        /// Show all symbology elements (set opacity to 1)
+        /// </summary>
+        public void Show()
+        {
+            SetOpacity(1f);
+        }
+        
+        /// <summary>
+        /// Hide all symbology elements (set opacity to 0)
+        /// </summary>
+        public void Hide()
+        {
+            SetOpacity(0f);
+        }
+        
+        /// <summary>
         /// Refresh the component cache (call after hierarchy changes)
         /// </summary>
         public void RefreshCache()
@@ -252,28 +313,49 @@ namespace FAA.Customization
             _cachedImages.Clear();
             _cachedTexts.Clear();
             
-            Transform root = symbologyRoot != null ? symbologyRoot : transform;
-            
-            // Cache all Image components
-            Image[] images = root.GetComponentsInChildren<Image>(true);
-            foreach (var img in images)
+            // Get all roots to process (use self if no roots specified)
+            List<Transform> rootsToProcess = new List<Transform>();
+            if (symbologyRoots != null && symbologyRoots.Count > 0)
             {
-                if (img == buttonIcon) continue;
-                if (IsUnderExceptionParent(img.transform)) continue;
-                _cachedImages.Add(img);
+                foreach (var root in symbologyRoots)
+                {
+                    if (root != null)
+                        rootsToProcess.Add(root);       
+                }
             }
             
-            // Cache all TMP_Text components
-            TMP_Text[] texts = root.GetComponentsInChildren<TMP_Text>(true);
-            foreach (var txt in texts)
+            // Fallback to self if no valid roots
+            if (rootsToProcess.Count == 0)
             {
-                if (IsUnderExceptionParent(txt.transform)) continue;
-                _cachedTexts.Add(txt);
+                rootsToProcess.Add(transform);
+            }
+            
+            // Cache components from all roots
+            foreach (var root in rootsToProcess)
+            {
+                // Cache all Image components
+                Image[] images = root.GetComponentsInChildren<Image>(true);
+                foreach (var img in images)
+                {
+                    if (img == buttonIcon) continue;
+                    if (IsUnderExceptionParent(img.transform)) continue;
+                    if (!_cachedImages.Contains(img)) // Avoid duplicates
+                        _cachedImages.Add(img);
+                }
+                
+                // Cache all TMP_Text components
+                TMP_Text[] texts = root.GetComponentsInChildren<TMP_Text>(true);
+                foreach (var txt in texts)
+                {
+                    if (IsUnderExceptionParent(txt.transform)) continue;
+                    if (!_cachedTexts.Contains(txt)) // Avoid duplicates
+                        _cachedTexts.Add(txt);
+                }
             }
             
             if (logColorChanges)
             {
-                Debug.Log($"[SymbologyColorManager] Cached {_cachedImages.Count} images and {_cachedTexts.Count} texts");
+                Debug.Log($"[SymbologyColorManager] Cached {_cachedImages.Count} images and {_cachedTexts.Count} texts from {rootsToProcess.Count} roots");
             }
         }
         
