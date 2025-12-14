@@ -185,7 +185,7 @@ namespace AircraftControl.Camera
             _lastAircraftRotation = aircraftTransform.rotation;
             _currentPitch = 0f;
             _currentYaw = 0f;
-            _smoothedFlightPathPitch = NormalizeAngle(aircraftTransform.rotation.eulerAngles.x);
+            _smoothedFlightPathPitch = GetAircraftPitchDegrees();
         }
         
         private void LateUpdate()
@@ -282,9 +282,9 @@ namespace AircraftControl.Camera
             // Calculate base rotation and then apply climb/dive compensation so HUD stays believable in first person
             Quaternion aircraftRotation = aircraftTransform.rotation;
             Vector3 aircraftEuler = aircraftRotation.eulerAngles;
-            float basePitch = NormalizeAngle(aircraftEuler.x);
+            float basePitch = GetAircraftPitchDegrees();
             float compensatedPitch = GetCompensatedPitch(basePitch);
-            aircraftEuler.x = compensatedPitch;
+            aircraftEuler.x = -compensatedPitch; // Invert so nose-up points camera to the sky
             Quaternion compensatedRotation = Quaternion.Euler(aircraftEuler);
 
             // Apply vertical head-lag offset driven by climb/dive
@@ -431,6 +431,23 @@ namespace AircraftControl.Camera
         #endregion
 
         #region Helpers
+
+        private float GetAircraftPitchDegrees()
+        {
+            if (aircraftController != null && aircraftController.State != null)
+            {
+                return aircraftController.State.Pitch;
+            }
+
+            if (aircraftTransform == null)
+            {
+                return 0f;
+            }
+
+            Vector3 forward = aircraftTransform.forward;
+            float horizontalMag = new Vector2(forward.x, forward.z).magnitude;
+            return Mathf.Atan2(forward.y, horizontalMag) * Mathf.Rad2Deg;
+        }
 
         private float GetCompensatedPitch(float basePitch)
         {
