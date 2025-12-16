@@ -338,8 +338,8 @@ namespace AircraftControl.Integration
         
         private void UpdateHeadingRotation(float heading)
         {
-            // Target rotation: negative heading to rotate map so heading points up
-            _targetRotation = -heading;
+            // Target rotation: rotate map counter-clockwise so aircraft heading points up (track-up)
+            _targetRotation = heading;
             
             // Smooth rotation
             _currentRotation = Mathf.LerpAngle(_currentRotation, _targetRotation, Time.deltaTime * headingRotationSpeed);
@@ -359,7 +359,7 @@ namespace AircraftControl.Integration
                     if (compassLabelTransforms[i] == null) continue;
                     
                     // Calculate new position around center
-                    float angle = baseAngles[i] + _currentRotation;
+                    float angle = baseAngles[i] - _currentRotation;
                     float radians = angle * Mathf.Deg2Rad;
                     
                     // Position around center (N at top = angle 0 = up)
