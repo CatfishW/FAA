@@ -66,6 +66,7 @@ namespace FAA.Customization
         
         private List<Image> _cachedImages = new List<Image>();
         private List<TMP_Text> _cachedTexts = new List<TMP_Text>();
+        private List<Text> _cachedStandardTexts = new List<Text>();
         private Coroutine _animationCoroutine;
         private Color _currentColor;
         private bool _isInitialized = false;
@@ -227,6 +228,14 @@ namespace FAA.Customization
                 }
             }
             
+            foreach (var txt in _cachedStandardTexts)
+            {
+                if (txt != null)
+                {
+                    txt.color = color;
+                }
+            }
+            
 #if UNITY_EDITOR
             if (!Application.isPlaying)
             {
@@ -274,6 +283,16 @@ namespace FAA.Customization
                 }
             }
             
+            foreach (var txt in _cachedStandardTexts)
+            {
+                if (txt != null)
+                {
+                    var c = txt.color;
+                    c.a = opacity;
+                    txt.color = c;
+                }
+            }
+            
             if (logColorChanges)
             {
                 Debug.Log($"[SymbologyColorManager] Set opacity to {opacity:F2}");
@@ -312,6 +331,7 @@ namespace FAA.Customization
         {
             _cachedImages.Clear();
             _cachedTexts.Clear();
+            _cachedStandardTexts.Clear();
             
             // Get all roots to process (use self if no roots specified)
             List<Transform> rootsToProcess = new List<Transform>();
@@ -351,11 +371,20 @@ namespace FAA.Customization
                     if (!_cachedTexts.Contains(txt)) // Avoid duplicates
                         _cachedTexts.Add(txt);
                 }
+
+                // Cache all legacy Text components
+                Text[] standardTexts = root.GetComponentsInChildren<Text>(true);
+                foreach (var txt in standardTexts)
+                {
+                    if (IsUnderExceptionParent(txt.transform)) continue;
+                    if (!_cachedStandardTexts.Contains(txt)) // Avoid duplicates
+                        _cachedStandardTexts.Add(txt);
+                }
             }
             
             if (logColorChanges)
             {
-                Debug.Log($"[SymbologyColorManager] Cached {_cachedImages.Count} images and {_cachedTexts.Count} texts from {rootsToProcess.Count} roots");
+                Debug.Log($"[SymbologyColorManager] Cached {_cachedImages.Count} images, {_cachedTexts.Count} TMP texts, and {_cachedStandardTexts.Count} standard texts from {rootsToProcess.Count} roots");
             }
         }
         
@@ -424,6 +453,14 @@ namespace FAA.Customization
                     }
                 }
                 
+                for (int i = 0; i < _cachedStandardTexts.Count; i++)
+                {
+                    if (_cachedStandardTexts[i] != null)
+                    {
+                        _cachedStandardTexts[i].color = currentLerpColor;
+                    }
+                }
+                
                 yield return null;
             }
             
@@ -470,7 +507,7 @@ namespace FAA.Customization
         private void ContextRefreshCache()
         {
             RefreshCache();
-            Debug.Log($"[SymbologyColorManager] Cache refreshed: {_cachedImages.Count} images, {_cachedTexts.Count} texts");
+            Debug.Log($"[SymbologyColorManager] Cache refreshed: {_cachedImages.Count} images, {_cachedTexts.Count} TMP texts, {_cachedStandardTexts.Count} standard texts");
         }
         
         [ContextMenu("Apply Current Preset")]
