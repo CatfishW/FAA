@@ -6,9 +6,13 @@ using System.Collections.Generic;
 namespace WeatherRadar.Weather3D
 {
     /// <summary>
-    /// Main controller for the 3D Weather Visualization System.
+    /// [DEPRECATED] Main controller for the 3D Weather Visualization System.
     /// Manages all visualization sub-systems and coordinates data flow.
+    /// 
+    /// THIS CLASS IS DEPRECATED. Use WeatherVisualization3D.VolumetricWeatherManager instead.
+    /// The new system provides true volumetric raymarching rendering with higher visual quality.
     /// </summary>
+    [Obsolete("Weather3DManager is deprecated. Use WeatherVisualization3D.VolumetricWeatherManager instead for true volumetric cloud rendering.")]
     public class Weather3DManager : MonoBehaviour
     {
         [Header("Configuration")]

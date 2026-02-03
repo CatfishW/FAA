@@ -3,6 +3,8 @@ using UnityEditor;
 using AircraftControl.Core;
 using AircraftControl.Camera;
 using AircraftControl.Integration;
+using FAA.Geo;
+
 
 namespace AircraftControl.Editor
 {
@@ -177,14 +179,14 @@ namespace AircraftControl.Editor
             EditorGUILayout.EndScrollView();
         }
         
-        private void DrawExistingComponentsInfo()
+private void DrawExistingComponentsInfo()
         {
             EditorGUILayout.LabelField("Scene Status", EditorStyles.boldLabel);
             
             var existingAircraft = FindObjectOfType<AircraftController>();
             var existingCamera = FindObjectOfType<AircraftCameraController>();
             var existingBridge = FindObjectOfType<OwnAircraftRadarBridge>();
-            var existingGeoManager = FindObjectOfType<GeoPosUnityPosProjectManager>();
+            var existingGeoManager = FindObjectOfType<FAA.Geo.GeoPosUnityPosProjectManager>();
             
             EditorGUILayout.BeginVertical("box");
             
@@ -215,7 +217,7 @@ namespace AircraftControl.Editor
             EditorGUILayout.EndHorizontal();
         }
         
-        private void PerformSetup()
+private void PerformSetup()
         {
             Undo.SetCurrentGroupName("Setup Aircraft Control System");
             int undoGroup = Undo.GetCurrentGroup();
@@ -323,13 +325,13 @@ namespace AircraftControl.Editor
             }
             
             // Step 4: Ensure GeoPosUnityPosProjectManager exists
-            var geoManager = FindObjectOfType<GeoPosUnityPosProjectManager>();
+            var geoManager = FindObjectOfType<FAA.Geo.GeoPosUnityPosProjectManager>();
             if (geoManager == null)
             {
                 GameObject geoObj = new GameObject("GeoPosUnityPosProjectManager");
                 Undo.RegisterCreatedObjectUndo(geoObj, "Create Geo Manager");
                 
-                geoManager = geoObj.AddComponent<GeoPosUnityPosProjectManager>();
+                geoManager = geoObj.AddComponent<FAA.Geo.GeoPosUnityPosProjectManager>();
                 
                 // Set origin to match aircraft position
                 SerializedObject geoSo = new SerializedObject(geoManager);

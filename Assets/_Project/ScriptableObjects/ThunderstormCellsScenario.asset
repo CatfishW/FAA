@@ -1,0 +1,48 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: b96f66b3fbe2dc846957a71197c09523, type: 3}
+  m_Name: ThunderstormCellsScenario
+  m_EditorClassIdentifier: Assembly-CSharp::WeatherVisualization3D.WeatherScenarioPreset
+  scenarioName: Thunderstorm Cells
+  description: Custom weather scenario
+  scenarioType: 2
+  cellCount: 5
+  spawnAreaSize: {x: 40000, y: 40000}
+  minimumCellSpacing: 8000
+  minCellRadius: 2000
+  maxCellRadius: 8000
+  radiusVariation: 0.3
+  intensityWeights:
+  - 0.3
+  - 0.4
+  - 0.2
+  - 0.1
+  dynamicIntensity: 1
+  intensityChangeRate: 0.3
+  baseAltitudeFeet: 5000
+  maxTopAltitudeFeet: 45000
+  altitudeVariation: 3000
+  minLifetime: 120
+  maxLifetime: 600
+  growthPhaseFraction: 0.25
+  maturePhaseFraction: 0.5
+  averageSpeedKnots: 25
+  speedVariation: 10
+  primaryDirection: 270
+  directionVariation: 30
+  enableLightning: 1
+  lightningFrequency: 12
+  enablePrecipitation: 1
+  enableTurbulence: 1
+  squallLineOrientation: 45
+  squallLineLength: 50000
+  squallLineWidth: 15000

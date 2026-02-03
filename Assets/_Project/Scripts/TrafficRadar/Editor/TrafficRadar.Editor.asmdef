@@ -1,0 +1,20 @@
+{
+    "name": "TrafficRadar.Editor",
+    "rootNamespace": "TrafficRadar.Editor",
+    "references": [
+        "TrafficRadar",
+        "WeatherRadar",
+        "Unity.TextMeshPro"
+    ],
+    "includePlatforms": [
+        "Editor"
+    ],
+    "excludePlatforms": [],
+    "allowUnsafeCode": false,
+    "overrideReferences": false,
+    "precompiledReferences": [],
+    "autoReferenced": true,
+    "defineConstraints": [],
+    "versionDefines": [],
+    "noEngineReferences": false
+}

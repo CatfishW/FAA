@@ -5,11 +5,13 @@ using System.Security.Principal;
 using UnityEngine;
 using UnityEngine.UIElements;
 
-/// <summary>
-/// Manages the projection between geographic positions (latitude/longitude) and Unity world positions.
-/// </summary>
-public class GeoPosUnityPosProjectManager : MonoBehaviour
+namespace FAA.Geo
 {
+    /// <summary>
+    /// Manages the projection between geographic positions (latitude/longitude) and Unity world positions.
+    /// </summary>
+    public class GeoPosUnityPosProjectManager : MonoBehaviour
+    {
     #region Singleton
     public static GeoPosUnityPosProjectManager Instance { get; private set; }
     
@@ -411,4 +413,5 @@ public class GeoPosUnityPosProjectManager : MonoBehaviour
         return (latitude, longitude, altitude);
     }
     #endregion
+}
 }

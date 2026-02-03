@@ -1,12 +1,18 @@
 using UnityEngine;
+using System;
 using System.Collections.Generic;
+using Random = UnityEngine.Random;
 
 namespace WeatherRadar.Weather3D
 {
     /// <summary>
-    /// Renders volumetric 3D clouds using particle systems.
+    /// [DEPRECATED] Renders volumetric 3D clouds using particle systems.
     /// Creates realistic cloud formations based on weather cell data.
+    /// 
+    /// THIS CLASS IS DEPRECATED. Use WeatherVisualization3D.VolumetricCloudVolume instead.
+    /// The new system uses true raymarching shaders for volumetric rendering.
     /// </summary>
+    [Obsolete("VolumetricCloudRenderer is deprecated. Use WeatherVisualization3D.VolumetricCloudVolume instead for true raymarching volumetric clouds.")]
     public class VolumetricCloudRenderer : MonoBehaviour
     {
         [Header("References")]

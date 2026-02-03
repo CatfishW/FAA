@@ -4,6 +4,7 @@ using UnityEngine;
 using UnityEngine.UI;
 using System.Linq;
 using CompassNavigatorPro;
+using FAA.Geo;
 
 [AddComponentMenu("Air Traffic/Traffic Entity Manager")]
 public class UnityTrafficEntityManager : MonoBehaviour
@@ -121,7 +122,7 @@ public class UnityTrafficEntityManager : MonoBehaviour
     private Dictionary<string, Quaternion> rotationVelocities = new Dictionary<string, Quaternion>();
     
     // Component caches
-    private GeoPosUnityPosProjectManager projectionManager;
+    private FAA.Geo.GeoPosUnityPosProjectManager projectionManager;
     private Transform referenceTransform;
     private enum ThreatLevel
     {
@@ -588,7 +589,7 @@ public class UnityTrafficEntityManager : MonoBehaviour
         }
 
         // Get projection manager
-        projectionManager = FindObjectOfType<GeoPosUnityPosProjectManager>();
+        projectionManager = FindObjectOfType<FAA.Geo.GeoPosUnityPosProjectManager>();
         if (projectionManager == null)
         {
             Debug.LogWarning("[TrafficEntityManager] No GeoPosUnityPosProjectManager found in the scene!");

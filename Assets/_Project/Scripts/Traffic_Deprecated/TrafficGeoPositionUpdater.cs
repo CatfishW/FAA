@@ -2,6 +2,8 @@ using System.Collections;
 using System.Collections.Generic;
 using UnityEngine;
 using UnityEngine.Events;
+using FAA.Geo;
+
 
 [System.Serializable]
 public class GeoPositionUpdateEvent : UnityEvent<double, double,double> { }

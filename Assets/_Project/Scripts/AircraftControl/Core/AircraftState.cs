@@ -6,10 +6,19 @@ namespace AircraftControl.Core
     /// <summary>
     /// Centralized aircraft state data structure.
     /// Contains all flight parameters needed for HUD, radar, and control systems.
+    /// Supports both fixed-wing and rotary-wing (helicopter) aircraft.
     /// </summary>
     [Serializable]
     public class AircraftState
     {
+        #region Aircraft Type
+
+        [Header("Aircraft Type")]
+        [Tooltip("Type of aircraft - affects control scheme and physics")]
+        public AircraftType AircraftType = AircraftType.FixedWing;
+
+        #endregion
+
         #region Position Data
         
         [Header("Geographic Position")]
@@ -91,9 +100,54 @@ namespace AircraftControl.Core
         [Tooltip("Rudder deflection (-1 to 1, positive = yaw right)")]
         [Range(-1f, 1f)]
         public float RudderInput;
-        
+
         #endregion
-        
+
+        #region Helicopter-Specific State
+
+        [Header("Helicopter Systems")]
+        [Tooltip("Main rotor RPM (0-100% of max)")]
+        [Range(0f, 100f)]
+        public float MainRotorRpm;
+
+        [Tooltip("Tail rotor RPM (0-100% of max)")]
+        [Range(0f, 100f)]
+        public float TailRotorRpm;
+
+        [Tooltip("Collective pitch input (-1 to 1, positive = more lift)")]
+        [Range(-1f, 1f)]
+        public float CollectiveInput;
+
+        [Tooltip("Cyclic longitudinal input (-1 to 1, positive = pitch nose down/forward)")]
+        [Range(-1f, 1f)]
+        public float CyclicLongitudinalInput;
+
+        [Tooltip("Cyclic lateral input (-1 to 1, positive = roll right)")]
+        [Range(-1f, 1f)]
+        public float CyclicLateralInput;
+
+        [Tooltip("Tail rotor collective/pitch input (-1 to 1, positive = yaw right)")]
+        [Range(-1f, 1f)]
+        public float TailRotorInput;
+
+        [Tooltip("Current ground effect factor (0-1, 1 = maximum ground effect)")]
+        [Range(0f, 1f)]
+        public float GroundEffectFactor;
+
+        [Tooltip("Current rotor disc tilt angle in degrees (combined cyclic result)")]
+        public float RotorDiscTiltAngle;
+
+        [Tooltip("Direction of rotor disc tilt in degrees (0 = forward, 90 = right)")]
+        public float RotorDiscTiltDirection;
+
+        [Tooltip("Engine/rotor spooled up and ready (above 80% RPM)")]
+        public bool IsRotorSpooledUp;
+
+        [Tooltip("Helicopter is in hover mode (ground speed < 5 knots)")]
+        public bool IsInHover;
+
+        #endregion
+
         #region Status Flags
         
         [Header("Status")]
@@ -112,6 +166,16 @@ namespace AircraftControl.Core
         {
             return (AircraftState)MemberwiseClone();
         }
+
+        /// <summary>
+        /// Create a deep copy suitable for a specific aircraft type
+        /// </summary>
+        public AircraftState Clone(AircraftType targetType)
+        {
+            var cloned = Clone();
+            cloned.AircraftType = targetType;
+            return cloned;
+        }
         
         /// <summary>
         /// Interpolate between two aircraft states
@@ -120,20 +184,45 @@ namespace AircraftControl.Core
         {
             return new AircraftState
             {
+                // Aircraft type
+                AircraftType = t < 0.5f ? a.AircraftType : b.AircraftType,
+
+                // Position
                 Latitude = a.Latitude + (b.Latitude - a.Latitude) * t,
                 Longitude = a.Longitude + (b.Longitude - a.Longitude) * t,
                 AltitudeMeters = Mathf.Lerp(a.AltitudeMeters, b.AltitudeMeters, t),
+
+                // Attitude
                 Pitch = Mathf.Lerp(a.Pitch, b.Pitch, t),
                 Roll = Mathf.Lerp(a.Roll, b.Roll, t),
                 Heading = Mathf.LerpAngle(a.Heading, b.Heading, t),
+
+                // Velocity
                 IndicatedAirspeedKnots = Mathf.Lerp(a.IndicatedAirspeedKnots, b.IndicatedAirspeedKnots, t),
                 GroundSpeedKnots = Mathf.Lerp(a.GroundSpeedKnots, b.GroundSpeedKnots, t),
                 TrueAirspeedKnots = Mathf.Lerp(a.TrueAirspeedKnots, b.TrueAirspeedKnots, t),
                 VerticalSpeedFpm = Mathf.Lerp(a.VerticalSpeedFpm, b.VerticalSpeedFpm, t),
+
+                // Control inputs (fixed-wing)
                 ThrottlePercent = Mathf.Lerp(a.ThrottlePercent, b.ThrottlePercent, t),
                 ElevatorInput = Mathf.Lerp(a.ElevatorInput, b.ElevatorInput, t),
                 AileronInput = Mathf.Lerp(a.AileronInput, b.AileronInput, t),
                 RudderInput = Mathf.Lerp(a.RudderInput, b.RudderInput, t),
+
+                // Helicopter systems
+                MainRotorRpm = Mathf.Lerp(a.MainRotorRpm, b.MainRotorRpm, t),
+                TailRotorRpm = Mathf.Lerp(a.TailRotorRpm, b.TailRotorRpm, t),
+                CollectiveInput = Mathf.Lerp(a.CollectiveInput, b.CollectiveInput, t),
+                CyclicLongitudinalInput = Mathf.Lerp(a.CyclicLongitudinalInput, b.CyclicLongitudinalInput, t),
+                CyclicLateralInput = Mathf.Lerp(a.CyclicLateralInput, b.CyclicLateralInput, t),
+                TailRotorInput = Mathf.Lerp(a.TailRotorInput, b.TailRotorInput, t),
+                GroundEffectFactor = Mathf.Lerp(a.GroundEffectFactor, b.GroundEffectFactor, t),
+                RotorDiscTiltAngle = Mathf.Lerp(a.RotorDiscTiltAngle, b.RotorDiscTiltAngle, t),
+                RotorDiscTiltDirection = Mathf.LerpAngle(a.RotorDiscTiltDirection, b.RotorDiscTiltDirection, t),
+                IsRotorSpooledUp = t < 0.5f ? a.IsRotorSpooledUp : b.IsRotorSpooledUp,
+                IsInHover = t < 0.5f ? a.IsInHover : b.IsInHover,
+
+                // Status
                 IsOnGround = t < 0.5f ? a.IsOnGround : b.IsOnGround,
                 GearDown = t < 0.5f ? a.GearDown : b.GearDown,
                 AutopilotEngaged = t < 0.5f ? a.AutopilotEngaged : b.AutopilotEngaged
@@ -141,26 +230,63 @@ namespace AircraftControl.Core
         }
         
         /// <summary>
-        /// Creates a default aircraft state
+        /// Creates a default aircraft state for fixed-wing aircraft
         /// </summary>
         public static AircraftState CreateDefault(double latitude = 33.6407, double longitude = -84.4277)
         {
-            return new AircraftState
+            return CreateDefault(AircraftType.FixedWing, latitude, longitude);
+        }
+
+        /// <summary>
+        /// Creates a default aircraft state for the specified aircraft type
+        /// </summary>
+        public static AircraftState CreateDefault(AircraftType type, double latitude = 33.6407, double longitude = -84.4277)
+        {
+            var state = new AircraftState
             {
+                AircraftType = type,
                 Latitude = latitude,
                 Longitude = longitude,
-                AltitudeMeters = 3048f, // 10,000 ft
                 Pitch = 0f,
                 Roll = 0f,
                 Heading = 0f,
-                IndicatedAirspeedKnots = 250f,
-                GroundSpeedKnots = 250f,
-                TrueAirspeedKnots = 260f,
                 VerticalSpeedFpm = 0f,
-                ThrottlePercent = 50f,
                 IsOnGround = false,
                 GearDown = false
             };
+
+            if (type == AircraftType.Helicopter)
+            {
+                // Helicopter defaults - typically start on ground with rotors stopped
+                state.AltitudeMeters = 304.8f; // 1,000 ft (or 0 for ground start)
+                state.IndicatedAirspeedKnots = 0f;
+                state.GroundSpeedKnots = 0f;
+                state.TrueAirspeedKnots = 0f;
+                state.ThrottlePercent = 0f;
+                state.MainRotorRpm = 0f;
+                state.TailRotorRpm = 0f;
+                state.CollectiveInput = 0f;
+                state.CyclicLongitudinalInput = 0f;
+                state.CyclicLateralInput = 0f;
+                state.TailRotorInput = 0f;
+                state.GroundEffectFactor = 0f;
+                state.RotorDiscTiltAngle = 0f;
+                state.RotorDiscTiltDirection = 0f;
+                state.IsRotorSpooledUp = false;
+                state.IsInHover = true;
+            }
+            else
+            {
+                // Fixed-wing defaults
+                state.AltitudeMeters = 3048f; // 10,000 ft
+                state.IndicatedAirspeedKnots = 250f;
+                state.GroundSpeedKnots = 250f;
+                state.TrueAirspeedKnots = 260f;
+                state.ThrottlePercent = 50f;
+                state.GearDown = false;
+            }
+
+            return state;
         }
         
         #endregion

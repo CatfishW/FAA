@@ -1,12 +1,16 @@
 using UnityEngine;
+using System;
 
 namespace WeatherRadar.Weather3D
 {
     /// <summary>
-    /// ScriptableObject configuration for the 3D Weather Display System.
+    /// [DEPRECATED] ScriptableObject configuration for the 3D Weather Display System.
     /// Contains all visual and performance settings.
+    /// 
+    /// THIS CLASS IS DEPRECATED. Use WeatherVisualization3D.WeatherVolumeConfig instead.
     /// </summary>
-    [CreateAssetMenu(fileName = "Weather3DConfig", menuName = "Weather Radar/3D Weather Config")]
+    [Obsolete("Weather3DConfig is deprecated. Use WeatherVisualization3D.WeatherVolumeConfig instead.")]
+    [CreateAssetMenu(fileName = "Weather3DConfig", menuName = "Weather Radar/3D Weather Config (DEPRECATED)")]
     public class Weather3DConfig : ScriptableObject
     {
         [Header("Grid Settings")]

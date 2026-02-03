@@ -1,0 +1,102 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 87e2274c20f845e42b7f05700fec1387, type: 3}
+  m_Name: DefaultWeatherConfig 1
+  m_EditorClassIdentifier: Assembly-CSharp::WeatherVisualization3D.WeatherVolumeConfig
+  volumeResolution: {x: 64, y: 32, z: 64}
+  coverageNM: 80
+  maxAltitudeFt: 50000
+  minAltitudeFt: 0
+  raymarchSteps: 128
+  stepSizeMultiplier: 1
+  jitterAmount: 0.5
+  earlyTerminationThreshold: 0.95
+  cloudDensity: 1.5
+  detailScale: 3
+  detailStrength: 0.5
+  heightDensityCurve:
+    serializedVersion: 2
+    m_Curve:
+    - serializedVersion: 3
+      time: 0
+      value: 0.3
+      inSlope: 0
+      outSlope: 0
+      tangentMode: 0
+      weightedMode: 0
+      inWeight: 0
+      outWeight: 0
+    - serializedVersion: 3
+      time: 1
+      value: 1
+      inSlope: 0
+      outSlope: 0
+      tangentMode: 0
+      weightedMode: 0
+      inWeight: 0
+      outWeight: 0
+    m_PreInfinity: 2
+    m_PostInfinity: 2
+    m_RotationOrder: 4
+  edgeSoftness: 0.3
+  animateClouds: 1
+  animationSpeed: 0.1
+  ambientColor: {r: 0.4, g: 0.45, b: 0.5, a: 1}
+  sunColor: {r: 1, g: 0.95, b: 0.9, a: 1}
+  lightAbsorption: 0.8
+  forwardScattering: 0.7
+  multiScatterStrength: 0.5
+  selfShadowing: 1
+  shadowSteps: 6
+  lightColor: {r: 0, g: 0.85, b: 0, a: 0.7}
+  moderateColor: {r: 1, g: 1, b: 0, a: 0.8}
+  heavyColor: {r: 1, g: 0.55, b: 0, a: 0.85}
+  intenseColor: {r: 1, g: 0, b: 0, a: 0.9}
+  extremeColor: {r: 1, g: 0, b: 1, a: 1}
+  stormCoreColor: {r: 1, g: 0.3, b: 0.3, a: 1}
+  enableHeightExtrusion: 1
+  heightExtrusionMultiplier: 1.5
+  lightPrecipMinHeight: 2000
+  lightPrecipMaxHeight: 15000
+  moderatePrecipMinHeight: 1500
+  moderatePrecipMaxHeight: 25000
+  heavyPrecipMinHeight: 1000
+  heavyPrecipMaxHeight: 35000
+  thunderstormMinHeight: 500
+  thunderstormMaxHeight: 50000
+  showIntensityPillars: 1
+  pillarOpacity: 0.6
+  pillarWidth: 500
+  animatePillars: 1
+  pillarPulseSpeed: 1.2
+  enableLightning: 1
+  lightningColor: {r: 0.95, g: 0.95, b: 1, a: 1}
+  lightningIntensity: 2
+  lightningFlashDuration: 0.1
+  lightningMinInterval: 1.5
+  lightningMaxInterval: 6
+  lightningWidth: 30
+  lightningSegments: 10
+  enablePrecipitation: 1
+  maxPrecipitationParticles: 2000
+  rainDropSize: 0.05
+  rainFallSpeed: 25
+  rainStreakLength: 2
+  snowFlakeSize: 0.08
+  snowFallSpeed: 3
+  effectUpdateRate: 30
+  lodDistance: 50000
+  frustumCulling: 1
+  maxVisibleRange: 150000
+  showVolumeBounds: 0
+  showHeatmap: 0
+  debugLogging: 0

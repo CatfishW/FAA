@@ -5,8 +5,10 @@ using System.Collections.Generic;
 namespace WeatherRadar.Weather3D
 {
     /// <summary>
-    /// Represents a 3D weather cell with position, size, and intensity data.
+    /// [DEPRECATED] Represents a 3D weather cell with position, size, and intensity data.
+    /// Use WeatherVisualization3D.WeatherVolumeData instead.
     /// </summary>
+    [Obsolete("WeatherCell3D is deprecated. Use WeatherVisualization3D.WeatherVolumeData instead.")]
     [Serializable]
     public class WeatherCell3D
     {

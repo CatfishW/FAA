@@ -1,12 +1,16 @@
 using UnityEngine;
+using System;
 using System.Collections.Generic;
 
 namespace WeatherRadar.Weather3D
 {
     /// <summary>
-    /// Converts 2D radar texture data into 3D volumetric weather data.
+    /// [DEPRECATED] Converts 2D radar texture data into 3D volumetric weather data.
     /// Uses meteorological models to estimate altitude distribution.
+    /// 
+    /// THIS CLASS IS DEPRECATED. Use WeatherVisualization3D.WeatherDataMapper instead.
     /// </summary>
+    [Obsolete("Weather2DTo3DConverter is deprecated. Use WeatherVisualization3D.WeatherDataMapper instead.")]
     public static class Weather2DTo3DConverter
     {
         // Altitude distribution constants (based on typical precipitation profiles)

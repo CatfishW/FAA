@@ -1,0 +1,20 @@
+{
+    "name": "AircraftControl",
+    "rootNamespace": "AircraftControl",
+    "references": [
+        "TrafficRadar",
+        "WeatherRadar",
+        "OnlineMaps",
+        "Unity.TextMeshPro",
+        "FAA.Geo"
+    ],
+    "includePlatforms": [],
+    "excludePlatforms": [],
+    "allowUnsafeCode": false,
+    "overrideReferences": false,
+    "precompiledReferences": [],
+    "autoReferenced": true,
+    "defineConstraints": [],
+    "versionDefines": [],
+    "noEngineReferences": false
+}
