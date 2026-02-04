@@ -10,6 +10,7 @@ namespace WeatherVisualization3D
     /// </summary>
     [RequireComponent(typeof(MeshFilter))]
     [RequireComponent(typeof(MeshRenderer))]
+    [ExecuteInEditMode]
     public class VolumetricCloudVolume : MonoBehaviour, IVolumetricRenderer, ILayeredRenderer
     {
         #region Serialized Fields
@@ -17,6 +18,7 @@ namespace WeatherVisualization3D
         [Header("Rendering")]
         [SerializeField] private Material _cloudMaterial;
         [SerializeField] private Shader _cloudShader;
+        [SerializeField] private bool _useEnhancedShader = true;
 
         [Header("Volume Bounds")]
         [SerializeField] private Vector3 _volumeSize = new Vector3(150000f, 15000f, 150000f);
@@ -67,6 +69,25 @@ namespace WeatherVisualization3D
         private static readonly int _ExtremeColorID = Shader.PropertyToID("_ExtremeColor");
         private static readonly int _StormCoreColorID = Shader.PropertyToID("_StormCoreColor");
         private static readonly int _EarlyTerminationID = Shader.PropertyToID("_EarlyTerminationThreshold");
+
+        // Enhanced shader property IDs
+        private static readonly int _ShapeScaleID = Shader.PropertyToID("_ShapeScale");
+        private static readonly int _ErosionScaleID = Shader.PropertyToID("_ErosionScale");
+        private static readonly int _ShapeStrengthID = Shader.PropertyToID("_ShapeStrength");
+        private static readonly int _ErosionStrengthID = Shader.PropertyToID("_ErosionStrength");
+        private static readonly int _CloudBaseHeightID = Shader.PropertyToID("_CloudBaseHeight");
+        private static readonly int _CloudTopHeightID = Shader.PropertyToID("_CloudTopHeight");
+        private static readonly int _BaseSoftnessID = Shader.PropertyToID("_BaseSoftness");
+        private static readonly int _TopSoftnessID = Shader.PropertyToID("_TopSoftness");
+        private static readonly int _AnvilAmountID = Shader.PropertyToID("_AnvilAmount");
+        private static readonly int _WindSpeedID = Shader.PropertyToID("_WindSpeed");
+        private static readonly int _WindDirectionID = Shader.PropertyToID("_WindDirection");
+        private static readonly int _ShapeEvolutionID = Shader.PropertyToID("_ShapeEvolution");
+        private static readonly int _ErosionEvolutionID = Shader.PropertyToID("_ErosionEvolution");
+        private static readonly int _SilverLiningID = Shader.PropertyToID("_SilverLining");
+        private static readonly int _ColorBlendID = Shader.PropertyToID("_ColorBlend");
+        private static readonly int _SunIntensityID = Shader.PropertyToID("_SunIntensity");
+        private static readonly int _AmbientIntensityID = Shader.PropertyToID("_AmbientIntensity");
 
         #endregion
 
@@ -215,16 +236,49 @@ namespace WeatherVisualization3D
 
         private void InitializeMaterial()
         {
+            // Get the mesh renderer
+            if (_meshRenderer == null)
+                _meshRenderer = GetComponent<MeshRenderer>();
+
             // Find or create shader
             if (_cloudShader == null)
             {
-                _cloudShader = Shader.Find("WeatherVisualization3D/VolumetricCloud");
+                string shaderName = _useEnhancedShader
+                    ? "WeatherVisualization3D/VolumetricCloudEnhanced"
+                    : "WeatherVisualization3D/VolumetricCloud";
+
+                _cloudShader = Shader.Find(shaderName);
+
+                // Fallback to original if enhanced not found
+                if (_cloudShader == null && _useEnhancedShader)
+                {
+                    Debug.LogWarning("[VolumetricCloudVolume] Enhanced shader not found, falling back to original.");
+                    _cloudShader = Shader.Find("WeatherVisualization3D/VolumetricCloud");
+                }
+
                 if (_cloudShader == null)
                 {
-                    Debug.LogError("[VolumetricCloudVolume] Could not find VolumetricCloud shader!");
+                    Debug.LogError($"[VolumetricCloudVolume] Could not find shader: {shaderName}");
                     return;
                 }
             }
+
+            // Always create a new material instance to ensure it gets the shader
+            if (_cloudMaterial != null)
+            {
+                if (Application.isPlaying)
+                    Destroy(_cloudMaterial);
+                else
+                    DestroyImmediate(_cloudMaterial);
+            }
+
+            _cloudMaterial = new Material(_cloudShader);
+            _cloudMaterial.name = "VolumetricCloudMaterial_Instance";
+            _meshRenderer.material = _cloudMaterial;
+            _meshRenderer.shadowCastingMode = UnityEngine.Rendering.ShadowCastingMode.Off;
+            _meshRenderer.receiveShadows = false;
+
+            Debug.Log($"[VolumetricCloudVolume] Initialized material with shader: {_cloudShader.name}");
 
             // Create material instance
             if (_cloudMaterial == null)
@@ -276,6 +330,36 @@ namespace WeatherVisualization3D
             _cloudMaterial.SetColor(_HeavyColorID, _config.heavyColor);
             _cloudMaterial.SetColor(_IntenseColorID, _config.intenseColor);
             _cloudMaterial.SetColor(_ExtremeColorID, _config.extremeColor);
+            _cloudMaterial.SetColor(_StormCoreColorID, _config.stormCoreColor);
+
+            // Enhanced shader settings
+            if (_useEnhancedShader)
+            {
+                ApplyEnhancedShaderSettings();
+            }
+        }
+
+        private void ApplyEnhancedShaderSettings()
+        {
+            if (_cloudMaterial == null || _config == null) return;
+
+            _cloudMaterial.SetFloat(_ShapeScaleID, _config.shapeScale);
+            _cloudMaterial.SetFloat(_ErosionScaleID, _config.erosionScale);
+            _cloudMaterial.SetFloat(_ShapeStrengthID, _config.shapeStrength);
+            _cloudMaterial.SetFloat(_ErosionStrengthID, _config.erosionStrength);
+            _cloudMaterial.SetFloat(_CloudBaseHeightID, _config.cloudBaseHeight);
+            _cloudMaterial.SetFloat(_CloudTopHeightID, _config.cloudTopHeight);
+            _cloudMaterial.SetFloat(_BaseSoftnessID, _config.baseSoftness);
+            _cloudMaterial.SetFloat(_TopSoftnessID, _config.topSoftness);
+            _cloudMaterial.SetFloat(_AnvilAmountID, _config.anvilAmount);
+            _cloudMaterial.SetFloat(_WindSpeedID, _config.windSpeed);
+            _cloudMaterial.SetVector(_WindDirectionID, _config.windDirection.normalized);
+            _cloudMaterial.SetFloat(_ShapeEvolutionID, _config.shapeEvolution);
+            _cloudMaterial.SetFloat(_ErosionEvolutionID, _config.erosionEvolution);
+            _cloudMaterial.SetFloat(_SilverLiningID, _config.silverLining);
+            _cloudMaterial.SetFloat(_ColorBlendID, _config.colorBlend);
+            _cloudMaterial.SetFloat(_SunIntensityID, 1.5f);
+            _cloudMaterial.SetFloat(_AmbientIntensityID, _config.ambientIntensity);
             _cloudMaterial.SetColor(_StormCoreColorID, _config.stormCoreColor);
         }
 
@@ -394,6 +478,20 @@ namespace WeatherVisualization3D
             }
         }
 
+        private void OnRenderObject()
+        {
+            // Render in Scene view when not playing
+            if (!Application.isPlaying && _cloudMaterial != null && _meshFilter != null)
+            {
+                // Only render if visible in scene view
+                if (_meshRenderer != null && !_meshRenderer.enabled)
+                    return;
+
+                _cloudMaterial.SetPass(0);
+                Graphics.DrawMeshNow(_meshFilter.sharedMesh, transform.localToWorldMatrix);
+            }
+        }
+
         #endregion
 
         #region Debug
@@ -402,7 +500,7 @@ namespace WeatherVisualization3D
         {
             // Draw volume bounds
             Gizmos.color = new Color(0f, 1f, 0.5f, 0.5f);
-            
+
             if (_currentData != null)
             {
                 Gizmos.DrawWireCube(_currentData.WorldBounds.center, _currentData.WorldBounds.size);
@@ -410,6 +508,70 @@ namespace WeatherVisualization3D
             else
             {
                 Gizmos.DrawWireCube(transform.position, _volumeSize);
+            }
+        }
+
+        private void OnDrawGizmos()
+        {
+            // Always draw preview in Scene view
+            if (!Application.isPlaying)
+            {
+                DrawPreviewClouds();
+            }
+        }
+
+        private void DrawPreviewClouds()
+        {
+            // Simple preview using gizmos
+            int samples = 50;
+            float voxelSize = Mathf.Min(_volumeSize.x, _volumeSize.y, _volumeSize.z) * 0.015f;
+
+            for (int i = 0; i < samples; i++)
+            {
+                // Pseudo-random positions
+                float nx = Mathf.Sin(i * 1.618f) * 0.5f + 0.5f;
+                float ny = Mathf.Sin(i * 2.618f) * 0.5f + 0.5f;
+                float nz = Mathf.Sin(i * 4.236f) * 0.5f + 0.5f;
+
+                // Storm cell centers
+                Vector3 cell1 = new Vector3(0.3f, 0.4f, 0.3f);
+                Vector3 cell2 = new Vector3(0.7f, 0.5f, 0.6f);
+                Vector3 cell3 = new Vector3(0.5f, 0.35f, 0.5f);
+
+                float dist1 = Vector3.Distance(new Vector3(nx, ny, nz), cell1);
+                float dist2 = Vector3.Distance(new Vector3(nx, ny, nz), cell2);
+                float dist3 = Vector3.Distance(new Vector3(nx, ny, nz), cell3);
+
+                float density = Mathf.Max(
+                    Mathf.Max(Mathf.Clamp01(1f - dist1 * 2.5f), Mathf.Clamp01(1f - dist2 * 2.5f)),
+                    Mathf.Clamp01(1f - dist3 * 2f)
+                );
+
+                // Boost density for visibility
+                density = Mathf.Pow(density, 0.7f) * 1.2f;
+
+                if (density > 0.15f)
+                {
+                    Vector3 pos = transform.position + new Vector3(
+                        (nx - 0.5f) * _volumeSize.x,
+                        (ny - 0.5f) * _volumeSize.y,
+                        (nz - 0.5f) * _volumeSize.z
+                    );
+
+                    // Color based on density - aviation weather colors
+                    Color color;
+                    if (density < 0.3f)
+                        color = new Color(0.2f, 0.9f, 0.2f, density * 0.6f);      // Green - Light
+                    else if (density < 0.5f)
+                        color = new Color(1f, 0.95f, 0.1f, density * 0.7f);       // Yellow - Moderate
+                    else if (density < 0.7f)
+                        color = new Color(1f, 0.5f, 0.1f, density * 0.8f);        // Orange - Heavy
+                    else
+                        color = new Color(1f, 0.15f, 0.15f, density * 0.9f);      // Red - Intense
+
+                    Gizmos.color = color;
+                    Gizmos.DrawSphere(pos, voxelSize * (0.5f + density * 0.5f));
+                }
             }
         }
 

@@ -37,7 +37,7 @@ Material:
     - _EarlyTerminationThreshold: 0.95
     - _EdgeSoftness: 0.3
     - _ForwardScattering: 0.7
-    - _JitterAmount: 0.5
+    - _JitterAmount: 0.3
     - _LightAbsorption: 0.8
     - _MultiScatterStrength: 0.5
     - _RaymarchSteps: 128
@@ -45,14 +45,14 @@ Material:
     - _ShadowSteps: 6
     - _StepSize: 100
     m_Colors:
-    - _AmbientColor: {r: 0.39999998, g: 0.45, b: 0.5, a: 1}
+    - _AmbientColor: {r: 0.4, g: 0.45, b: 0.5, a: 1}
     - _ExtremeColor: {r: 1, g: 0, b: 1, a: 1}
-    - _HeavyColor: {r: 1, g: 0.54999995, b: 0, a: 0.85}
+    - _HeavyColor: {r: 1, g: 0.55, b: 0, a: 0.85}
     - _IntenseColor: {r: 1, g: 0, b: 0, a: 0.9}
-    - _LightColor: {r: 1, g: 0.95, b: 0.9, a: 1}
+    - _LightColor: {r: 1, g: 1, b: 1, a: 1}
     - _LightColor_Weather: {r: 0, g: 0.85, b: 0, a: 0.7}
-    - _LightDir: {r: 0.5, g: 1, b: 0.5, a: 0}
+    - _LightDir: {r: 0.5, g: 1, b: 0.3, a: 0}
     - _ModerateColor: {r: 1, g: 1, b: 0, a: 0.8}
-    - _StormCoreColor: {r: 1, g: 0.29999998, b: 0.29999998, a: 1}
+    - _StormCoreColor: {r: 1, g: 0.3, b: 0.3, a: 1}
   m_BuildTextureStacks: []
   m_AllowLocking: 1

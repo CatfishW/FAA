@@ -11,7 +11,45 @@ namespace WeatherVisualization3D
     {
         #region Quick Setup
 
-        [MenuItem("Tools/Weather Visualization/Quick Setup/Create Complete System", false, 0)]
+        [MenuItem("Tools/Weather Visualization/Quick Setup/Add RainViewer Real-Time Radar", false, 0)]
+        public static void AddRainViewerProvider()
+        {
+            var manager = Object.FindObjectOfType<VolumetricWeatherManager>();
+            if (manager == null)
+            {
+                if (!EditorUtility.DisplayDialog("No Weather System",
+                    "No VolumetricWeatherManager found in scene.\n\n" +
+                    "Create a weather system first, then add RainViewer provider.",
+                    "Create System", "Cancel"))
+                {
+                    return;
+                }
+                CreateCompleteSystem();
+                manager = Object.FindObjectOfType<VolumetricWeatherManager>();
+            }
+
+            // Add RainViewer provider to the manager's game object
+            var provider = manager.gameObject.GetComponent<RainViewer3DProvider>();
+            if (provider != null)
+            {
+                EditorUtility.DisplayDialog("Already Exists",
+                    "RainViewer3DProvider already exists on the weather system.",
+                    "OK");
+                return;
+            }
+
+            provider = manager.gameObject.AddComponent<RainViewer3DProvider>();
+            provider.SetPosition(39.7392f, -104.9903f, 5000f); // Default: Denver
+            provider.SetRange(160f);
+
+            // Set as data source
+            manager.SetDataSource(provider);
+
+            Selection.activeGameObject = manager.gameObject;
+            Debug.Log("[WeatherQuickActions] Added RainViewer3DProvider to weather system. Press Play to start receiving real-time radar data.");
+        }
+
+        [MenuItem("Tools/Weather Visualization/Quick Setup/Create Complete System", false, 1)]
         public static void CreateCompleteSystem()
         {
             if (FindExistingSystem())
@@ -265,15 +303,107 @@ namespace WeatherVisualization3D
             camera.nearClipPlane = 10f;
             camera.farClipPlane = 500000f;
             camera.fieldOfView = 60f;
-            
+
             // Position above looking down
             camObj.transform.position = new Vector3(0, 30000f, -50000f);
             camObj.transform.LookAt(Vector3.up * 15000f);
-            
+
             camObj.AddComponent<FreeFlyCamera>();
-            
+
             Selection.activeGameObject = camObj;
             Debug.Log("[WeatherQuickActions] Created debug camera with FreeFly controls");
+        }
+
+        [MenuItem("Tools/Weather Visualization/Debug/Log RainViewer Status", false, 153)]
+        public static void LogRainViewerStatus()
+        {
+            var provider = Object.FindObjectOfType<RainViewer3DProvider>();
+            if (provider != null)
+            {
+                Debug.Log("=== RainViewer 3D Provider Status ===");
+                Debug.Log($"Status: {provider.Status}");
+                Debug.Log($"Data Valid: {provider.IsDataValid}");
+                Debug.Log($"Last Timestamp: {provider.LastRadarTimestamp}");
+                Debug.Log($"Cache: {provider.GetCacheStats()}");
+            }
+            else
+            {
+                Debug.Log("[WeatherQuickActions] No RainViewer3DProvider found in scene.");
+            }
+        }
+
+        #endregion
+
+        #region Shader Enhancement
+
+        [MenuItem("Tools/Weather Visualization/Clouds/Use Enhanced Shader", false, 175)]
+        public static void EnableEnhancedShader()
+        {
+            var volumes = Object.FindObjectsOfType<VolumetricCloudVolume>();
+            foreach (var volume in volumes)
+            {
+                var field = volume.GetType().GetField("_useEnhancedShader",
+                    System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Instance);
+                if (field != null)
+                {
+                    field.SetValue(volume, true);
+                    var initMethod = volume.GetType().GetMethod("InitializeMaterial",
+                        System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Instance);
+                    initMethod?.Invoke(volume, null);
+                }
+            }
+            Debug.Log($"[WeatherQuickActions] Enabled enhanced shader on {volumes.Length} cloud volume(s)");
+        }
+
+        [MenuItem("Tools/Weather Visualization/Clouds/Use Original Shader", false, 176)]
+        public static void DisableEnhancedShader()
+        {
+            var volumes = Object.FindObjectsOfType<VolumetricCloudVolume>();
+            foreach (var volume in volumes)
+            {
+                var field = volume.GetType().GetField("_useEnhancedShader",
+                    System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Instance);
+                if (field != null)
+                {
+                    field.SetValue(volume, false);
+                    var initMethod = volume.GetType().GetMethod("InitializeMaterial",
+                        System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Instance);
+                    initMethod?.Invoke(volume, null);
+                }
+            }
+            Debug.Log($"[WeatherQuickActions] Switched to original shader on {volumes.Length} cloud volume(s)");
+        }
+
+        #endregion
+
+        #region Prefabs
+
+        [MenuItem("Tools/Weather Visualization/Prefabs/Create All Prefabs", false, 180)]
+        public static void CreateAllPrefabsMenu()
+        {
+            WeatherPrefabFactory.CreateAllPrefabs();
+        }
+
+        [MenuItem("Tools/Weather Visualization/Prefabs/Create Missing Prefabs Only", false, 181)]
+        public static void CreateMissingPrefabsMenu()
+        {
+            WeatherPrefabFactory.CreateMissingPrefabsOnly();
+        }
+
+        [MenuItem("Tools/Weather Visualization/Prefabs/Select Prefab Registry", false, 190)]
+        public static void SelectPrefabRegistry()
+        {
+            var registry = WeatherPrefabRegistry.GetOrCreate();
+            if (registry != null)
+            {
+                Selection.activeObject = registry;
+            }
+            else
+            {
+                EditorUtility.DisplayDialog("No Registry",
+                    "No prefab registry found. Create prefabs first.",
+                    "OK");
+            }
         }
 
         #endregion

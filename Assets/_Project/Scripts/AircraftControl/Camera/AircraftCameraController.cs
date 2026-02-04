@@ -75,10 +75,22 @@ namespace AircraftControl.Camera
         [Tooltip("Chase position smoothing")]
         [Range(0.01f, 1f)]
         [SerializeField] private float chaseSmoothing = 0.1f;
+
+        [Tooltip("Chase rotation smoothing")]
+        [Range(0f, 1f)]
+        [SerializeField] private float chaseRotationSmoothing = 0.12f;
         
         [Header("Cockpit Settings")]
         [Tooltip("Offset from aircraft pivot for cockpit camera")]
         [SerializeField] private Vector3 cockpitOffset = new Vector3(0f, 1.5f, 2f);
+
+        [Tooltip("Smooth cockpit position to reduce jitter (0 = instant)")]
+        [Range(0f, 1f)]
+        [SerializeField] private float cockpitPositionSmoothing = 0.1f;
+
+        [Tooltip("Smooth cockpit rotation to reduce jitter (0 = instant)")]
+        [Range(0f, 1f)]
+        [SerializeField] private float cockpitRotationSmoothing = 0.15f;
 
         [Header("HUD First Person Compensation")]
         [Tooltip("Aircraft controller used to derive climb/dive information for HUD-ready motion")]
@@ -289,11 +301,28 @@ namespace AircraftControl.Camera
 
             // Apply vertical head-lag offset driven by climb/dive
             cockpitPosition += GetVerticalOffset(compensatedRotation);
-            transform.position = cockpitPosition;
+            float positionLerp = GetSmoothingFactor(cockpitPositionSmoothing);
+            if (cockpitPositionSmoothing <= 0f)
+            {
+                transform.position = cockpitPosition;
+            }
+            else
+            {
+                transform.position = Vector3.Lerp(transform.position, cockpitPosition, positionLerp);
+            }
             
             // Combine compensated aircraft rotation with look offset (local rotation)
             Quaternion lookOffset = Quaternion.Euler(_currentPitch, _currentYaw, 0f);
-            transform.rotation = compensatedRotation * lookOffset;
+            Quaternion targetRotation = compensatedRotation * lookOffset;
+            float rotationLerp = GetSmoothingFactor(cockpitRotationSmoothing);
+            if (cockpitRotationSmoothing <= 0f)
+            {
+                transform.rotation = targetRotation;
+            }
+            else
+            {
+                transform.rotation = Quaternion.Slerp(transform.rotation, targetRotation, rotationLerp);
+            }
         }
         
         private void UpdateChaseCamera()
@@ -316,13 +345,20 @@ namespace AircraftControl.Camera
             Quaternion baseLookRotation = Quaternion.LookRotation(lookTarget - transform.position);
             Quaternion lookOffset = Quaternion.Euler(_currentPitch, _currentYaw, 0f);
             
-            transform.rotation = baseLookRotation * lookOffset;
+            Quaternion targetRotation = baseLookRotation * lookOffset;
+            float rotationLerp = GetSmoothingFactor(chaseRotationSmoothing);
+            if (chaseRotationSmoothing <= 0f)
+            {
+                transform.rotation = targetRotation;
+            }
+            else
+            {
+                transform.rotation = Quaternion.Slerp(transform.rotation, targetRotation, rotationLerp);
+            }
         }
         
         private void UpdateFreeCamera()
         {
-            // Track aircraft rotation change
-            Quaternion aircraftDelta = aircraftTransform.rotation * Quaternion.Inverse(_lastAircraftRotation);
             _lastAircraftRotation = aircraftTransform.rotation;
             
             // Update free rotation with aircraft movement and look input
@@ -487,6 +523,16 @@ namespace AircraftControl.Camera
             angle %= 360f;
             if (angle > 180f) angle -= 360f;
             return angle;
+        }
+
+        private static float GetSmoothingFactor(float smoothing)
+        {
+            if (smoothing <= 0f)
+            {
+                return 1f;
+            }
+
+            return Mathf.Clamp01(smoothing * 60f * Time.deltaTime);
         }
         
         #endregion

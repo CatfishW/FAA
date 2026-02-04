@@ -103,6 +103,10 @@ namespace WeatherVisualization3D
         [Range(0f, 1f)]
         public float multiScatterStrength = 0.5f;
 
+        [Tooltip("Ambient light intensity")]
+        [Range(0.1f, 2f)]
+        public float ambientIntensity = 0.8f;
+
         [Tooltip("Enable self-shadowing")]
         public bool selfShadowing = true;
 
@@ -278,6 +282,73 @@ namespace WeatherVisualization3D
         [Tooltip("Max visible range for effects")]
         [Range(50000f, 300000f)]
         public float maxVisibleRange = 150000f;
+
+        #endregion
+
+        #region Enhanced Cloud Rendering
+
+        [Header("Enhanced Cloud Rendering (VolumetricCloudEnhanced Shader)")]
+        [Tooltip("Use enhanced shader with improved lighting and noise")]
+        public bool useEnhancedShader = true;
+
+        [Tooltip("Shape noise scale (large cloud formations)")]
+        [Range(0.1f, 5f)]
+        public float shapeScale = 1f;
+
+        [Tooltip("Erosion noise scale (cloud detail/edges)")]
+        [Range(1f, 50f)]
+        public float erosionScale = 20f;
+
+        [Tooltip("Shape contribution strength")]
+        [Range(0f, 2f)]
+        public float shapeStrength = 1.2f;
+
+        [Tooltip("Erosion strength (edge detail)")]
+        [Range(0f, 1.5f)]
+        public float erosionStrength = 0.8f;
+
+        [Tooltip("Cloud base height (0-1 normalized)")]
+        [Range(0f, 0.5f)]
+        public float cloudBaseHeight = 0f;
+
+        [Tooltip("Cloud top height (0.5-1 normalized)")]
+        [Range(0.5f, 1f)]
+        public float cloudTopHeight = 1f;
+
+        [Tooltip("Base softness (transition at cloud bottom)")]
+        [Range(0f, 1f)]
+        public float baseSoftness = 0.3f;
+
+        [Tooltip("Top softness (transition at cloud top)")]
+        [Range(0f, 1f)]
+        public float topSoftness = 0.5f;
+
+        [Tooltip("Anvil amount (thunderstorm tops)")]
+        [Range(0f, 1f)]
+        public float anvilAmount = 0.3f;
+
+        [Tooltip("Wind speed for cloud movement")]
+        [Range(0f, 100f)]
+        public float windSpeed = 20f;
+
+        [Tooltip("Wind direction")]
+        public Vector3 windDirection = new Vector3(1f, 0f, 0f);
+
+        [Tooltip("Shape evolution speed")]
+        [Range(0f, 1f)]
+        public float shapeEvolution = 0.1f;
+
+        [Tooltip("Erosion evolution speed")]
+        [Range(0f, 1f)]
+        public float erosionEvolution = 0.3f;
+
+        [Tooltip("Silver lining intensity")]
+        [Range(0f, 2f)]
+        public float silverLining = 1f;
+
+        [Tooltip("Blend between weather colors and natural clouds")]
+        [Range(0f, 1f)]
+        public float colorBlend = 0.6f;
 
         #endregion
 

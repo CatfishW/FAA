@@ -315,100 +315,67 @@ namespace WeatherVisualization3D
             Undo.IncrementCurrentGroup();
             Undo.SetCurrentGroupName("Create Weather System");
             int undoGroup = Undo.GetCurrentGroup();
-            
-            // Create root object
-            GameObject root = new GameObject("WeatherVisualization3D");
-            Undo.RegisterCreatedObjectUndo(root, "Create Weather Root");
-            
+
+            // Ensure prefabs exist
+            var registry = WeatherPrefabRegistry.GetOrCreate();
+            if (registry == null || !registry.IsComplete())
+            {
+                if (EditorUtility.DisplayDialog("Missing Prefabs",
+                    "Weather prefabs not found or incomplete.\n\nCreate prefabs now?",
+                    "Create Prefabs", "Cancel"))
+                {
+                    WeatherPrefabFactory.CreateMissingPrefabsOnly();
+                    registry = WeatherPrefabRegistry.GetOrCreate();
+                }
+
+                if (registry == null || !registry.IsComplete())
+                {
+                    Debug.LogError("[WeatherSetupWizard] Cannot create weather system - prefabs missing.");
+                    Undo.RevertAllDownToGroup(undoGroup);
+                    return;
+                }
+            }
+
             // Create config asset
             WeatherVolumeConfig config = CreateConfig();
-            
-            // Add manager
-            var manager = root.AddComponent<VolumetricWeatherManager>();
-            
-            // Create simulator
-            GameObject simObj = new GameObject("WeatherSimulator");
-            simObj.transform.SetParent(root.transform);
-            var simulator = simObj.AddComponent<WeatherSimulator>();
-            Undo.RegisterCreatedObjectUndo(simObj, "Create Simulator");
-            
-            // Set scenario via reflection or public method if available
-            var scenarioField = simulator.GetType().GetField("defaultScenarioType", 
-                System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Instance);
-            if (scenarioField != null)
+
+            // Use prefab factory to instantiate the system
+            GameObject root = WeatherPrefabFactory.InstantiateWeatherSystem(clouds, pillars, lightning, precipitation);
+
+            if (root == null)
             {
-                scenarioField.SetValue(simulator, scenario);
+                Debug.LogError("[WeatherSetupWizard] Failed to instantiate weather system from prefabs.");
+                Undo.RevertAllDownToGroup(undoGroup);
+                return;
             }
-            
-            // Create cloud renderer
-            if (clouds)
+
+            // Set scenario on simulator
+            var simulator = root.GetComponentInChildren<WeatherSimulator>();
+            if (simulator != null)
             {
-                GameObject cloudObj = new GameObject("VolumetricCloudVolume");
-                cloudObj.transform.SetParent(root.transform);
-                var cloudRenderer = cloudObj.AddComponent<VolumetricCloudVolume>();
-                Undo.RegisterCreatedObjectUndo(cloudObj, "Create Cloud Renderer");
-            }
-            
-            // Create pillar renderer
-            if (pillars)
-            {
-                GameObject pillarObj = new GameObject("IntensityPillarRenderer");
-                pillarObj.transform.SetParent(root.transform);
-                var pillarRenderer = pillarObj.AddComponent<IntensityPillarRenderer>();
-                
-                // Link to simulator
-                var simField = pillarRenderer.GetType().GetField("weatherSimulator",
+                var scenarioField = simulator.GetType().GetField("defaultScenarioType",
                     System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Instance);
-                if (simField != null)
+                if (scenarioField != null)
                 {
-                    simField.SetValue(pillarRenderer, simulator);
+                    scenarioField.SetValue(simulator, scenario);
                 }
-                
-                Undo.RegisterCreatedObjectUndo(pillarObj, "Create Pillar Renderer");
             }
-            
-            // Create lightning effect
-            if (lightning)
+
+            // Set config on manager
+            var manager = root.GetComponent<VolumetricWeatherManager>();
+            if (manager != null && config != null)
             {
-                GameObject lightningObj = new GameObject("VolumetricLightning");
-                lightningObj.transform.SetParent(root.transform);
-                var lightningEffect = lightningObj.AddComponent<VolumetricLightning>();
-                
-                // Link to simulator
-                var simField = lightningEffect.GetType().GetField("weatherSimulator",
+                var configField = manager.GetType().GetField("_config",
                     System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Instance);
-                if (simField != null)
-                {
-                    simField.SetValue(lightningEffect, simulator);
-                }
-                
-                Undo.RegisterCreatedObjectUndo(lightningObj, "Create Lightning Effect");
+                configField?.SetValue(manager, config);
             }
-            
-            // Create precipitation effect
-            if (precipitation)
-            {
-                GameObject precipObj = new GameObject("PrecipitationVFX");
-                precipObj.transform.SetParent(root.transform);
-                var precipEffect = precipObj.AddComponent<PrecipitationVFX>();
-                
-                // Link to simulator
-                var simField = precipEffect.GetType().GetField("weatherSimulator",
-                    System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Instance);
-                if (simField != null)
-                {
-                    simField.SetValue(precipEffect, simulator);
-                }
-                
-                Undo.RegisterCreatedObjectUndo(precipObj, "Create Precipitation Effect");
-            }
-            
+
             Undo.CollapseUndoOperations(undoGroup);
-            
+
             Selection.activeGameObject = root;
-            
+
             Debug.Log($"[WeatherSetupWizard] Created weather system with scenario: {scenario}");
-            EditorUtility.DisplayDialog("Success", 
+            EditorUtility.DisplayDialog("Success",
                 "Weather visualization system created successfully!\n\n" +
                 "Press Play to see the simulation in action.",
                 "OK");

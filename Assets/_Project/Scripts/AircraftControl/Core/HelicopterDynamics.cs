@@ -128,6 +128,29 @@ namespace AircraftControl.Core
 
         #endregion
 
+        #region Translational Response
+
+        [Header("Translational Response")]
+        [Tooltip("Horizontal acceleration toward target speeds (m/s^2)")]
+        public float HorizontalAcceleration = 10f;
+
+        [Tooltip("Horizontal drag applied each second (0 = no drag)")]
+        [Range(0f, 2f)]
+        public float HorizontalDrag = 0.5f;
+
+        [Tooltip("Extra drag applied when hovering with minimal cyclic input")]
+        [Range(0f, 2f)]
+        public float HoverStabilizationDrag = 0.8f;
+
+        [Tooltip("Cyclic input magnitude below which hover stabilization applies")]
+        [Range(0f, 0.3f)]
+        public float HoverStabilizationInputThreshold = 0.12f;
+
+        [Tooltip("Maximum ground speed (knots) for hover stabilization to apply")]
+        public float HoverStabilizationMaxSpeedKnots = 15f;
+
+        #endregion
+
         #region Translating Tendency
 
         [Header("Translating Tendency")]
@@ -173,6 +196,9 @@ namespace AircraftControl.Core
         private float _smoothedCollective;
         private float _currentTorque;
         private bool _isEngineRunning;
+        private float _forwardSpeedKnots;
+        private float _lateralSpeedKnots;
+        private float _groundTrackHeading;
 
         public void Initialize(AircraftState state)
         {
@@ -190,6 +216,10 @@ namespace AircraftControl.Core
             // Validate initial state
             state.IsRotorSpooledUp = _currentRotorRpm >= MinFlightRotorRpm;
             state.IsInHover = state.GroundSpeedKnots < 5f;
+
+            _forwardSpeedKnots = state.GroundSpeedKnots;
+            _lateralSpeedKnots = 0f;
+            _groundTrackHeading = state.Heading;
         }
 
         public void UpdatePhysics(AircraftState state, float deltaTime)
@@ -251,6 +281,9 @@ namespace AircraftControl.Core
             _currentRotorDiscTiltDirection = 0f;
             _currentTorque = 0f;
             _isEngineRunning = false;
+            _forwardSpeedKnots = 0f;
+            _lateralSpeedKnots = 0f;
+            _groundTrackHeading = state.Heading;
 
             state.Pitch = 0f;
             state.Roll = 0f;
@@ -481,76 +514,78 @@ namespace AircraftControl.Core
 
         private void UpdateHorizontalMotion(AircraftState state, float dt)
         {
-            // Calculate thrust vector based on rotor disc tilt
+            float rpmFactor = _currentRotorRpm / MaxMainRotorRpm;
             float tiltRad = _currentRotorDiscTilt * Mathf.Deg2Rad;
 
-            if (tiltRad < 0.01f && state.GroundSpeedKnots < 0.1f)
-            {
-                // No significant tilt and not moving
-                state.GroundSpeedKnots = 0f;
-                state.IndicatedAirspeedKnots = 0f;
-                state.TrueAirspeedKnots = 0f;
-                return;
-            }
+            // Convert collective to a positive lift factor for horizontal thrust.
+            float liftFactor = Mathf.Clamp01((_smoothedCollective - AutorotationMinCollective) / (1f - AutorotationMinCollective));
+            float thrustFactor = rpmFactor * rpmFactor * liftFactor;
 
-            // Calculate thrust magnitude based on collective and RPM
-            float rpmFactor = _currentRotorRpm / MaxMainRotorRpm;
-            float thrustFactor = _smoothedCollective * rpmFactor * rpmFactor;
-
-            // Decompose tilt into forward and lateral components
-            float tiltDirRad = _currentRotorDiscTiltDirection * Mathf.Deg2Rad;
-            float forwardComponent = Mathf.Cos(tiltDirRad) * Mathf.Sin(tiltRad);
-            float lateralComponent = Mathf.Sin(tiltDirRad) * Mathf.Sin(tiltRad);
-
-            // Calculate target speeds
             float targetForwardSpeed = 0f;
             float targetLateralSpeed = 0f;
 
-            if (Mathf.Abs(forwardComponent) > 0.001f)
+            if (tiltRad > 0.001f && thrustFactor > 0f)
             {
-                float maxSpeed = forwardComponent > 0 ? MaxForwardSpeedKnots : MaxRearwardSpeedKnots;
-                targetForwardSpeed = forwardComponent * maxSpeed * thrustFactor;
+                float tiltDirRad = _currentRotorDiscTiltDirection * Mathf.Deg2Rad;
+                float forwardComponent = Mathf.Cos(tiltDirRad) * Mathf.Sin(tiltRad);
+                float lateralComponent = Mathf.Sin(tiltDirRad) * Mathf.Sin(tiltRad);
+
+                if (Mathf.Abs(forwardComponent) > 0.001f)
+                {
+                    float maxSpeed = forwardComponent > 0 ? MaxForwardSpeedKnots : MaxRearwardSpeedKnots;
+                    targetForwardSpeed = forwardComponent * maxSpeed * thrustFactor;
+                }
+
+                if (Mathf.Abs(lateralComponent) > 0.001f)
+                {
+                    targetLateralSpeed = lateralComponent * MaxSidewaysSpeedKnots * thrustFactor;
+                }
             }
 
-            if (Mathf.Abs(lateralComponent) > 0.001f)
-            {
-                targetLateralSpeed = lateralComponent * MaxSidewaysSpeedKnots * thrustFactor;
-            }
+            float currentSpeedKnots = Mathf.Sqrt(_forwardSpeedKnots * _forwardSpeedKnots + _lateralSpeedKnots * _lateralSpeedKnots);
 
             // Add translating tendency when in hover
-            if (state.GroundSpeedKnots < 10f && _currentRotorRpm > MinFlightRotorRpm)
+            if (currentSpeedKnots < 10f && _currentRotorRpm > MinFlightRotorRpm)
             {
                 float ttDirRad = TranslatingTendencyDirection * Mathf.Deg2Rad;
                 targetForwardSpeed += Mathf.Cos(ttDirRad) * TranslatingTendencyKnots * rpmFactor;
                 targetLateralSpeed += Mathf.Sin(ttDirRad) * TranslatingTendencyKnots * rpmFactor;
             }
 
-            // Current velocity components (based on heading)
-            float headingRad = state.Heading * Mathf.Deg2Rad;
-            float currentFwdSpeed = state.GroundSpeedKnots * Mathf.Cos(headingRad);
-            float currentLatSpeed = state.GroundSpeedKnots * Mathf.Sin(headingRad);
-
             // Apply acceleration towards target speeds
-            float acceleration = 10f * rpmFactor * rpmFactor; // m/s^2
-            float currentFwdMps = currentFwdSpeed * KnotsToMps;
-            float currentLatMps = currentLatSpeed * KnotsToMps;
+            float acceleration = HorizontalAcceleration * rpmFactor * rpmFactor; // m/s^2
+            float currentFwdMps = _forwardSpeedKnots * KnotsToMps;
+            float currentLatMps = _lateralSpeedKnots * KnotsToMps;
             float targetFwdMps = targetForwardSpeed * KnotsToMps;
             float targetLatMps = targetLateralSpeed * KnotsToMps;
 
             currentFwdMps = Mathf.MoveTowards(currentFwdMps, targetFwdMps, acceleration * dt);
             currentLatMps = Mathf.MoveTowards(currentLatMps, targetLatMps, acceleration * dt);
 
-            // Apply drag
-            float drag = 0.5f * dt; // Simple drag coefficient
-            currentFwdMps *= (1f - drag);
-            currentLatMps *= (1f - drag);
+            // Apply base drag
+            float dragFactor = Mathf.Clamp01(1f - HorizontalDrag * dt);
+            currentFwdMps *= dragFactor;
+            currentLatMps *= dragFactor;
+
+            // Extra stabilization when hovering with minimal cyclic input
+            float inputMag = Mathf.Max(Mathf.Abs(state.CyclicLongitudinalInput), Mathf.Abs(state.CyclicLateralInput));
+            if (HoverStabilizationDrag > 0f && inputMag < HoverStabilizationInputThreshold)
+            {
+                float speedKnots = Mathf.Sqrt(currentFwdMps * currentFwdMps + currentLatMps * currentLatMps) * MpsToKnots;
+                if (speedKnots < HoverStabilizationMaxSpeedKnots)
+                {
+                    float hoverDragFactor = Mathf.Clamp01(1f - HoverStabilizationDrag * dt);
+                    currentFwdMps *= hoverDragFactor;
+                    currentLatMps *= hoverDragFactor;
+                }
+            }
 
             // Convert back to knots
-            float newFwdSpeed = currentFwdMps * MpsToKnots;
-            float newLatSpeed = currentLatMps * MpsToKnots;
+            _forwardSpeedKnots = currentFwdMps * MpsToKnots;
+            _lateralSpeedKnots = currentLatMps * MpsToKnots;
 
-            // Calculate total ground speed and direction
-            state.GroundSpeedKnots = Mathf.Sqrt(newFwdSpeed * newFwdSpeed + newLatSpeed * newLatSpeed);
+            // Calculate total ground speed
+            state.GroundSpeedKnots = Mathf.Sqrt(_forwardSpeedKnots * _forwardSpeedKnots + _lateralSpeedKnots * _lateralSpeedKnots);
 
             // Update airspeed (add vertical component)
             float verticalSpeedKnots = state.VerticalSpeedFpm * 0.0098747f; // fpm to knots
@@ -561,6 +596,8 @@ namespace AircraftControl.Core
 
             // Indicated airspeed is slightly less than true (simplified)
             state.IndicatedAirspeedKnots = state.TrueAirspeedKnots * 0.98f;
+
+            UpdateGroundTrackHeading(state);
         }
 
         private void UpdateYaw(AircraftState state, float dt)
@@ -598,7 +635,7 @@ namespace AircraftControl.Core
             float distanceMeters = speedMps * dt;
 
             // Convert heading to radians
-            float headingRad = state.Heading * Mathf.Deg2Rad;
+            float headingRad = _groundTrackHeading * Mathf.Deg2Rad;
 
             // Current latitude in radians
             double latRad = state.Latitude * Mathf.Deg2Rad;
@@ -622,10 +659,32 @@ namespace AircraftControl.Core
         private void ApplyDrag(AircraftState state, float dt)
         {
             // Simple drag when rotors are not providing thrust
-            float dragFactor = 0.9f * dt;
-            state.GroundSpeedKnots = Mathf.Max(0f, state.GroundSpeedKnots - dragFactor * 10f);
+            float dragFactor = Mathf.Clamp01(1f - HorizontalDrag * dt);
+            _forwardSpeedKnots *= dragFactor;
+            _lateralSpeedKnots *= dragFactor;
+            state.GroundSpeedKnots = Mathf.Sqrt(_forwardSpeedKnots * _forwardSpeedKnots + _lateralSpeedKnots * _lateralSpeedKnots);
             state.TrueAirspeedKnots = state.GroundSpeedKnots;
             state.IndicatedAirspeedKnots = state.GroundSpeedKnots;
+            UpdateGroundTrackHeading(state);
+        }
+
+        #endregion
+
+        #region Track Helpers
+
+        private void UpdateGroundTrackHeading(AircraftState state)
+        {
+            float headingRad = state.Heading * Mathf.Deg2Rad;
+            float northComponent = _forwardSpeedKnots * Mathf.Cos(headingRad) - _lateralSpeedKnots * Mathf.Sin(headingRad);
+            float eastComponent = _forwardSpeedKnots * Mathf.Sin(headingRad) + _lateralSpeedKnots * Mathf.Cos(headingRad);
+
+            if (Mathf.Abs(northComponent) < 0.001f && Mathf.Abs(eastComponent) < 0.001f)
+            {
+                _groundTrackHeading = state.Heading;
+                return;
+            }
+
+            _groundTrackHeading = Mathf.Repeat(Mathf.Atan2(eastComponent, northComponent) * Mathf.Rad2Deg, 360f);
         }
 
         #endregion

@@ -391,33 +391,48 @@ namespace WeatherVisualization3D
 
         private void CreateWeatherSystem()
         {
-            // Create root object
-            GameObject root = new GameObject("WeatherVisualization3D");
-            
-            // Create and configure manager
-            var manager = root.AddComponent<VolumetricWeatherManager>();
-            
+            // Ensure prefabs exist
+            var registry = WeatherPrefabRegistry.GetOrCreate();
+            if (registry == null || !registry.IsComplete())
+            {
+                WeatherPrefabFactory.CreateMissingPrefabsOnly();
+                registry = WeatherPrefabRegistry.GetOrCreate();
+            }
+
+            if (registry == null || !registry.IsComplete())
+            {
+                Debug.LogError("[WeatherTestSceneGenerator] Failed to create weather system - prefabs missing.");
+                return;
+            }
+
+            // Create root from prefab
+            GameObject root = PrefabUtility.InstantiatePrefab(registry.weatherSystemRoot) as GameObject;
+            root.name = "WeatherVisualization3D";
+
+            // Get manager and configure
+            var manager = root.GetComponent<VolumetricWeatherManager>();
+
             // Create config
             WeatherVolumeConfig config = ScriptableObject.CreateInstance<WeatherVolumeConfig>();
             config.volumeResolution = resolution;
             config.coverageNM = volumeSize.x / 3704f; // Convert meters to NM
             config.maxAltitudeFt = volumeSize.y * 3.28084f; // Convert to feet
-            
+
             string configPath = "Assets/_Project/ScriptableObjects/WeatherVisualization/TestSceneConfig.asset";
             EnsureDirectoryExists(configPath);
             configPath = AssetDatabase.GenerateUniqueAssetPath(configPath);
             AssetDatabase.CreateAsset(config, configPath);
-            
+
             // Assign config via serialized property
             var so = new SerializedObject(manager);
             so.FindProperty("_config").objectReferenceValue = config;
             so.ApplyModifiedPropertiesWithoutUndo();
-            
-            // Create simulator
-            GameObject simObj = new GameObject("WeatherSimulator");
-            simObj.transform.SetParent(root.transform);
-            var simulator = simObj.AddComponent<WeatherSimulator>();
-            
+
+            // Instantiate simulator from prefab
+            GameObject simObj = PrefabUtility.InstantiatePrefab(registry.weatherSimulator, root.transform) as GameObject;
+            simObj.name = "WeatherSimulator";
+            var simulator = simObj.GetComponent<WeatherSimulator>();
+
             // Configure simulator via serialized object
             var simSO = new SerializedObject(simulator);
             simSO.FindProperty("defaultScenarioType").enumValueIndex = (int)initialScenario;
@@ -427,36 +442,35 @@ namespace WeatherVisualization3D
             simSO.FindProperty("showDebugInfo").boolValue = true;
             simSO.FindProperty("drawCellGizmos").boolValue = true;
             simSO.ApplyModifiedPropertiesWithoutUndo();
-            
-            // Create cloud renderer
-            GameObject cloudObj = new GameObject("VolumetricCloudVolume");
-            cloudObj.transform.SetParent(root.transform);
-            cloudObj.AddComponent<VolumetricCloudVolume>();
-            
-            // Create pillar renderer
-            GameObject pillarObj = new GameObject("IntensityPillarRenderer");
-            pillarObj.transform.SetParent(root.transform);
-            var pillarRenderer = pillarObj.AddComponent<IntensityPillarRenderer>();
-            
+
+            // Instantiate cloud renderer from prefab
+            GameObject cloudObj = PrefabUtility.InstantiatePrefab(registry.volumetricCloudVolume, root.transform) as GameObject;
+            cloudObj.name = "VolumetricCloudVolume";
+
+            // Instantiate pillar renderer from prefab
+            GameObject pillarObj = PrefabUtility.InstantiatePrefab(registry.intensityPillarRenderer, root.transform) as GameObject;
+            pillarObj.name = "IntensityPillarRenderer";
+            var pillarRenderer = pillarObj.GetComponent<IntensityPillarRenderer>();
+
             // Link pillar renderer to simulator
             var pillarSO = new SerializedObject(pillarRenderer);
             pillarSO.FindProperty("weatherSimulator").objectReferenceValue = simulator;
             pillarSO.ApplyModifiedPropertiesWithoutUndo();
-            
-            // Create lightning effect
-            GameObject lightningObj = new GameObject("VolumetricLightning");
-            lightningObj.transform.SetParent(root.transform);
-            var lightning = lightningObj.AddComponent<VolumetricLightning>();
-            
+
+            // Instantiate lightning effect from prefab
+            GameObject lightningObj = PrefabUtility.InstantiatePrefab(registry.volumetricLightning, root.transform) as GameObject;
+            lightningObj.name = "VolumetricLightning";
+            var lightning = lightningObj.GetComponent<VolumetricLightning>();
+
             var lightningSO = new SerializedObject(lightning);
             lightningSO.FindProperty("weatherSimulator").objectReferenceValue = simulator;
             lightningSO.ApplyModifiedPropertiesWithoutUndo();
-            
-            // Create precipitation effect
-            GameObject precipObj = new GameObject("PrecipitationVFX");
-            precipObj.transform.SetParent(root.transform);
-            var precip = precipObj.AddComponent<PrecipitationVFX>();
-            
+
+            // Instantiate precipitation effect from prefab
+            GameObject precipObj = PrefabUtility.InstantiatePrefab(registry.precipitationVFX, root.transform) as GameObject;
+            precipObj.name = "PrecipitationVFX";
+            var precip = precipObj.GetComponent<PrecipitationVFX>();
+
             var precipSO = new SerializedObject(precip);
             precipSO.FindProperty("weatherSimulator").objectReferenceValue = simulator;
             precipSO.ApplyModifiedPropertiesWithoutUndo();
