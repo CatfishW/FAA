@@ -2,7 +2,7 @@
 // Part of WeatherVisualization3D System
 // Renders semi-transparent vertical intensity pillars with realistic volumetric appearance
 
-Shader "WeatherVisualization3D/IntensityPillar"
+Shader "IntensityPillar"
 {
     Properties
     {

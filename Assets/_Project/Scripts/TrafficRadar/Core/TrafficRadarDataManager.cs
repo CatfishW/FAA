@@ -67,7 +67,7 @@ namespace TrafficRadar
         
         [Header("Data Refresh Settings")]
         [Range(0.5f, 300f)]
-        [SerializeField] private float updateInterval = 5f;
+        [SerializeField] private float updateInterval = 30f;
         [SerializeField] public bool autoStartFetching = true;
         [Range(1, 10)]
         [SerializeField] private int maxConsecutiveFailures = 3;

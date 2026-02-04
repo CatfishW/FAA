@@ -299,7 +299,7 @@ namespace WeatherVisualization3D
             velocity.enabled = true;
             velocity.space = ParticleSystemSimulationSpace.World;
             velocity.x = new ParticleSystem.MinMaxCurve(0f, 0f);
-            velocity.y = new ParticleSystem.MinMaxCurve(-rainFallSpeed);
+            velocity.y = new ParticleSystem.MinMaxCurve(-rainFallSpeed, -rainFallSpeed);
             velocity.z = new ParticleSystem.MinMaxCurve(0f, 0f);
             
             // Renderer
@@ -348,7 +348,7 @@ namespace WeatherVisualization3D
             velocity.enabled = true;
             velocity.space = ParticleSystemSimulationSpace.World;
             velocity.x = new ParticleSystem.MinMaxCurve(-0.5f, 0.5f);
-            velocity.y = new ParticleSystem.MinMaxCurve(-snowFallSpeed);
+            velocity.y = new ParticleSystem.MinMaxCurve(-snowFallSpeed, -snowFallSpeed);
             velocity.z = new ParticleSystem.MinMaxCurve(-0.5f, 0.5f);
             
             // Noise module for realistic drifting

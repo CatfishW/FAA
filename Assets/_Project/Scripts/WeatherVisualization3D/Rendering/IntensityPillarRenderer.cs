@@ -15,6 +15,9 @@ namespace WeatherVisualization3D
         [Tooltip("Material for rendering pillars (uses IntensityPillar shader)")]
         [SerializeField] private Material pillarMaterial;
         
+        [Tooltip("Direct reference to IntensityPillar shader")]
+        [SerializeField] private Shader pillarShader;
+        
         [Tooltip("Number of segments around pillar circumference")]
         [Range(6, 32)]
         [SerializeField] private int cylinderSegments = 16;
@@ -81,7 +84,6 @@ namespace WeatherVisualization3D
         private static readonly int OpacityPropId = Shader.PropertyToID("_Opacity");
         private static readonly int GlowIntensityPropId = Shader.PropertyToID("_GlowIntensity");
         private static readonly int PulseSpeedPropId = Shader.PropertyToID("_PulseSpeed");
-        private static readonly int TimePropId = Shader.PropertyToID("_Time");
         
         #endregion
 
@@ -308,14 +310,36 @@ namespace WeatherVisualization3D
             
             return mesh;
         }
+
+        private void OnValidate()
+        {
+            if (pillarShader == null)
+            {
+                FindShader();
+            }
+        }
         
+        [ContextMenu("Find Shader")]
+        private void FindShader()
+        {
+            if (pillarShader == null)
+            {
+                pillarShader = Shader.Find("IntensityPillar");
+            }
+        }
+
         private void CreateDefaultMaterial()
         {
-            Shader shader = Shader.Find("WeatherVisualization3D/IntensityPillar");
+            if (pillarShader == null)
+            {
+                FindShader();
+            }
+
+            Shader shader = pillarShader;
             
             if (shader == null)
             {
-                Debug.LogWarning("[IntensityPillarRenderer] WeatherVisualization3D/IntensityPillar shader not found, using fallback");
+                Debug.LogWarning("[IntensityPillarRenderer] IntensityPillar shader not found, using fallback");
                 shader = Shader.Find("Standard");
             }
             
@@ -439,7 +463,6 @@ namespace WeatherVisualization3D
                 if (animateGlow)
                 {
                     propertyBlock.SetFloat(PulseSpeedPropId, glowPulseSpeed);
-                    propertyBlock.SetFloat(TimePropId, time);
                 }
                 
                 Graphics.DrawMesh(

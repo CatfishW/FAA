@@ -52,7 +52,6 @@ namespace WeatherVisualization3D
         private static readonly int _DetailStrengthID = Shader.PropertyToID("_DetailStrength");
         private static readonly int _EdgeSoftnessID = Shader.PropertyToID("_EdgeSoftness");
         private static readonly int _AnimationSpeedID = Shader.PropertyToID("_AnimationSpeed");
-        private static readonly int _TimeID = Shader.PropertyToID("_Time");
         private static readonly int _LightDirID = Shader.PropertyToID("_LightDir");
         private static readonly int _LightColorID = Shader.PropertyToID("_LightColor");
         private static readonly int _AmbientColorID = Shader.PropertyToID("_AmbientColor");
@@ -372,12 +371,6 @@ namespace WeatherVisualization3D
         private void Update()
         {
             if (!_isInitialized || _cloudMaterial == null) return;
-
-            // Update time for animation
-            if (_config != null && _config.animateClouds)
-            {
-                _cloudMaterial.SetFloat(_TimeID, Time.time);
-            }
 
             // Update light direction if sun moves
             if (RenderSettings.sun != null)

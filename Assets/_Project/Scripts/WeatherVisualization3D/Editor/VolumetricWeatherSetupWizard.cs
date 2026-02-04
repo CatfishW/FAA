@@ -47,7 +47,18 @@ namespace WeatherVisualization3D
         [MenuItem("Tools/Weather Visualization/Documentation", false, 200)]
         public static void OpenDocumentation()
         {
-            Application.OpenURL("https://github.com/your-repo/weather-visualization-docs");
+            // Open the README file in the project
+            string readmePath = "Assets/_Project/Scripts/WeatherVisualization3D/README.md";
+            var readme = UnityEditor.AssetDatabase.LoadAssetAtPath<UnityEngine.TextAsset>(readmePath);
+            if (readme != null)
+            {
+                UnityEditor.AssetDatabase.OpenAsset(readme);
+            }
+            else
+            {
+                // Fallback to GitHub repo
+                Application.OpenURL("https://github.com/CatfishW/FAA/tree/master/Assets/_Project/Scripts/WeatherVisualization3D");
+            }
         }
         
         #endregion
