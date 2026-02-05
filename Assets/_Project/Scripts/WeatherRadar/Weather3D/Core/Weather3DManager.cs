@@ -22,7 +22,7 @@ namespace WeatherRadar.Weather3D
         [SerializeField] private WeatherRadarProviderBase weatherProvider;
         
         [Header("Visualization Components")]
-        [SerializeField] private VolumetricCloudRenderer cloudRenderer;
+        // [SerializeField] private VolumetricCloudRenderer cloudRenderer; // Removed - VolumetricCloudRenderer deprecated
         [SerializeField] private PrecipitationSystem precipitationSystem;
         [SerializeField] private ThunderstormCellRenderer thunderstormRenderer;
         [SerializeField] private TurbulenceIndicator turbulenceIndicator;
@@ -184,11 +184,8 @@ namespace WeatherRadar.Weather3D
                 weatherProvider = FindObjectOfType<WeatherRadarProviderBase>();
             }
             
-            if (cloudRenderer == null)
-            {
-                cloudRenderer = GetComponentInChildren<VolumetricCloudRenderer>();
-            }
-            
+            // VolumetricCloudRenderer removed - no longer available
+
             if (precipitationSystem == null)
             {
                 precipitationSystem = GetComponentInChildren<PrecipitationSystem>();
@@ -207,11 +204,8 @@ namespace WeatherRadar.Weather3D
 
         private void InitializeSubSystems()
         {
-            if (cloudRenderer != null)
-            {
-                cloudRenderer.Initialize(config, this);
-            }
-            
+            // VolumetricCloudRenderer removed - no longer available
+
             if (precipitationSystem != null)
             {
                 precipitationSystem.Initialize(config, this);
@@ -306,13 +300,9 @@ namespace WeatherRadar.Weather3D
         private void UpdateVisualization()
         {
             if (currentData == null) return;
-            
-            // Update cloud visualization
-            if (cloudRenderer != null && showClouds)
-            {
-                cloudRenderer.UpdateClouds(currentData);
-            }
-            
+
+            // VolumetricCloudRenderer removed - cloud visualization no longer available
+
             // Update precipitation
             if (precipitationSystem != null && showPrecipitation)
             {
@@ -334,11 +324,8 @@ namespace WeatherRadar.Weather3D
 
         private void UpdateLayerVisibility()
         {
-            if (cloudRenderer != null)
-            {
-                cloudRenderer.SetVisible(showClouds);
-            }
-            
+            // VolumetricCloudRenderer removed - cloud visibility no longer available
+
             if (precipitationSystem != null)
             {
                 precipitationSystem.SetVisible(showPrecipitation);
@@ -380,11 +367,8 @@ namespace WeatherRadar.Weather3D
         private void ApplyViewMode()
         {
             // Notify all renderers of view mode change
-            if (cloudRenderer != null)
-            {
-                cloudRenderer.SetViewMode(viewMode);
-            }
-            
+            // VolumetricCloudRenderer removed - no longer available
+
             if (precipitationSystem != null)
             {
                 precipitationSystem.SetViewMode(viewMode);
@@ -431,11 +415,8 @@ namespace WeatherRadar.Weather3D
         /// </summary>
         public void ClearVisualization()
         {
-            if (cloudRenderer != null)
-            {
-                cloudRenderer.Clear();
-            }
-            
+            // VolumetricCloudRenderer removed - no longer available
+
             if (precipitationSystem != null)
             {
                 precipitationSystem.Clear();

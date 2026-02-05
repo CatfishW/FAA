@@ -29,11 +29,18 @@ namespace WeatherRadar
         [SerializeField] private string tileUrl = "https://mesonet.agron.iastate.edu/cache/tile.py/1.0.0/nexrad-n0q-900913";
 
         [Header("Tile Settings")]
-        [Tooltip("Zoom level (4-8 recommended, higher = more detail)")]
-        [SerializeField] [Range(4, 10)] private int zoomLevel = 6;
+        [Tooltip("Zoom level (4-12 recommended, higher = more detail)")]
+        [SerializeField] [Range(4, 12)] private int zoomLevel = 6;
 
         [Tooltip("Number of tiles to fetch in each direction from center")]
         [SerializeField] [Range(1, 3)] private int tileRadius = 1;
+
+        [Header("Auto Zoom")]
+        [Tooltip("Automatically adjust zoom based on range setting")]
+        [SerializeField] private bool autoZoomFromRange = true;
+
+        private const float NM_TO_METERS = 1852f;
+        private const float EARTH_RADIUS_METERS = 6378137f;
 
         [Header("Performance")]
         [Tooltip("Use cached tiles when available")]
@@ -114,6 +121,16 @@ namespace WeatherRadar
 
         protected override void GenerateRadarData()
         {
+            if (autoZoomFromRange)
+            {
+                int targetZoom = CalculateZoomForRange(rangeNM, latitude);
+                if (targetZoom != zoomLevel)
+                {
+                    zoomLevel = targetZoom;
+                    ClearCache();
+                }
+            }
+
             // Check if position changed enough to warrant cache clear
             float latDiff = Mathf.Abs(latitude - lastFetchLat);
             float lonDiff = Mathf.Abs(longitude - lastFetchLon);
@@ -282,70 +299,108 @@ namespace WeatherRadar
             if (radarTexture == null) InitializeTexture();
 
             int tileCount = tileRadius * 2 + 1;
-            int tilePixelSize = textureSize / tileCount;
-            
-            int centerX = textureSize / 2;
-            int centerY = textureSize / 2;
-            float radius = textureSize / 2f;
-
-            // Clear to transparent
-            Color[] clearPixels = new Color[textureSize * textureSize];
-            for (int i = 0; i < clearPixels.Length; i++)
-            {
-                clearPixels[i] = Color.clear;
-            }
-            radarTexture.SetPixels(clearPixels);
-
-            // Composite each tile
+            int tilePixelSize = 256;
             for (int tx = 0; tx < tileCount; tx++)
             {
                 for (int ty = 0; ty < tileCount; ty++)
                 {
-                    Texture2D tile = tiles[tx, ty];
-                    if (tile == null) continue;
-
-                    int startX = tx * tilePixelSize;
-                    int startY = (tileCount - 1 - ty) * tilePixelSize; // Flip Y for Unity
-
-                    // Sample and copy tile pixels
-                    for (int px = 0; px < tilePixelSize; px++)
+                    if (tiles[tx, ty] != null)
                     {
-                        for (int py = 0; py < tilePixelSize; py++)
-                        {
-                            int destX = startX + px;
-                            int destY = startY + py;
-
-                            // Check if within radar circle
-                            float dx = destX - centerX;
-                            float dy = destY - centerY;
-                            float dist = Mathf.Sqrt(dx * dx + dy * dy);
-
-                            if (dist > radius) continue;
-
-                            // Sample from tile
-                            float sampleX = (float)px / tilePixelSize * tile.width;
-                            float sampleY = (float)py / tilePixelSize * tile.height;
-
-                            Color tileColor = tile.GetPixelBilinear(sampleX / tile.width, sampleY / tile.height);
-                            
-                            // Only copy if there's actual weather (not transparent)
-                            if (tileColor.a > 0.1f)
-                            {
-                                // Apply gain adjustment
-                                float gainMultiplier = 1f + (gainDB / 8f);
-                                tileColor.r = Mathf.Clamp01(tileColor.r * gainMultiplier);
-                                tileColor.g = Mathf.Clamp01(tileColor.g * gainMultiplier);
-                                tileColor.b = Mathf.Clamp01(tileColor.b * gainMultiplier);
-                                
-                                radarTexture.SetPixel(destX, destY, tileColor);
-                            }
-                        }
+                        tilePixelSize = tiles[tx, ty].width;
+                        break;
                     }
                 }
             }
 
+            int compositeSize = tilePixelSize * tileCount;
+            Texture2D composite = new Texture2D(compositeSize, compositeSize, TextureFormat.RGBA32, false);
+            composite.filterMode = FilterMode.Bilinear;
+
+            for (int ty = 0; ty < tileCount; ty++)
+            {
+                for (int tx = 0; tx < tileCount; tx++)
+                {
+                    Texture2D tile = tiles[tx, ty];
+                    if (tile == null) continue;
+
+                    int destY = (tileCount - 1 - ty) * tilePixelSize; // Flip Y for Unity
+                    composite.SetPixels(tx * tilePixelSize, destY, tilePixelSize, tilePixelSize, tile.GetPixels());
+                }
+            }
+
+            composite.Apply();
+            UpdateRadarFromComposite(composite);
+            Destroy(composite);
+        }
+
+        private void UpdateRadarFromComposite(Texture2D composite)
+        {
+            int centerX = textureSize / 2;
+            int centerY = textureSize / 2;
+            float radius = textureSize / 2f;
+
+            float rangeMeters = Mathf.Max(rangeNM, 1f) * NM_TO_METERS;
+            float coverageMeters = CalculateCoverageMeters(zoomLevel, tileRadius, latitude);
+            float rangeScale = coverageMeters > 0f ? rangeMeters / coverageMeters : 1f;
+            if (rangeScale > 1f)
+            {
+                Debug.LogWarning("[IEM] Range exceeds tile coverage; clamping to available data");
+                rangeScale = 1f;
+            }
+
+            Color32[] pixels = new Color32[textureSize * textureSize];
+            Color32 clear = new Color32(0, 0, 0, 0);
+
+            float gainMultiplier = 1f + (gainDB / 8f);
+            float compositeHalfW = composite.width / 2f;
+            float compositeHalfH = composite.height / 2f;
+
+            for (int y = 0; y < textureSize; y++)
+            {
+                for (int x = 0; x < textureSize; x++)
+                {
+                    float dx = x - centerX;
+                    float dy = y - centerY;
+                    float distSq = dx * dx + dy * dy;
+
+                    if (distSq > radius * radius)
+                    {
+                        pixels[y * textureSize + x] = clear;
+                        continue;
+                    }
+
+                    float normX = dx / radius;
+                    float normY = dy / radius;
+
+                    float compX = compositeHalfW + (normX * rangeScale) * compositeHalfW;
+                    float compY = compositeHalfH + (normY * rangeScale) * compositeHalfH;
+
+                    int sourceX = Mathf.Clamp(Mathf.RoundToInt(compX), 0, composite.width - 1);
+                    int sourceY = Mathf.Clamp(Mathf.RoundToInt(compY), 0, composite.height - 1);
+
+                    Color sourceColor = composite.GetPixel(sourceX, sourceY);
+                    if (sourceColor.a > 0.1f)
+                    {
+                        sourceColor.r = Mathf.Clamp01(sourceColor.r * gainMultiplier);
+                        sourceColor.g = Mathf.Clamp01(sourceColor.g * gainMultiplier);
+                        sourceColor.b = Mathf.Clamp01(sourceColor.b * gainMultiplier);
+                    }
+
+                    pixels[y * textureSize + x] = sourceColor;
+                }
+            }
+
+            radarTexture.SetPixels32(pixels);
             radarTexture.Apply();
             NotifyDataUpdated();
+        }
+
+        private float CalculateCoverageMeters(int zoom, int radius, float latDeg)
+        {
+            int gridSize = radius * 2 + 1;
+            float latRad = Mathf.Clamp(latDeg, -85f, 85f) * Mathf.Deg2Rad;
+            float metersPerTile = (2f * Mathf.PI * EARTH_RADIUS_METERS / (1 << zoom)) * Mathf.Cos(latRad);
+            return metersPerTile * (gridSize / 2f);
         }
 
         private (int x, int y) LatLonToTile(float lat, float lon, int zoom)
@@ -410,6 +465,37 @@ namespace WeatherRadar
             return new Color(0.8f, 0f, 0.8f, 1f);                              // Magenta - Extreme
         }
 
+        public override void RefreshData()
+        {
+            if (autoZoomFromRange)
+            {
+                int targetZoom = CalculateZoomForRange(rangeNM, latitude);
+                if (targetZoom != zoomLevel)
+                {
+                    zoomLevel = targetZoom;
+                    ClearCache();
+                }
+            }
+
+            base.RefreshData();
+        }
+
+        private int CalculateZoomForRange(float rangeNm, float latDeg)
+        {
+            float rangeMeters = Mathf.Max(rangeNm, 1f) * NM_TO_METERS;
+            int gridSize = tileRadius * 2 + 1;
+            float latRad = Mathf.Clamp(latDeg, -85f, 85f) * Mathf.Deg2Rad;
+            float numerator = Mathf.Cos(latRad) * 2f * Mathf.PI * EARTH_RADIUS_METERS * (gridSize / 2f);
+            if (numerator <= 0f)
+            {
+                return 4;
+            }
+
+            float zFloat = Mathf.Log(numerator / rangeMeters, 2f);
+            int zoom = Mathf.FloorToInt(zFloat);
+            return Mathf.Clamp(zoom, 4, 12);
+        }
+
         /// <summary>
         /// Clear the tile cache
         /// </summary>
@@ -430,7 +516,7 @@ namespace WeatherRadar
         /// </summary>
         public void SetZoom(int zoom)
         {
-            zoomLevel = Mathf.Clamp(zoom, 4, 10);
+            zoomLevel = Mathf.Clamp(zoom, 4, 12);
         }
     }
 }

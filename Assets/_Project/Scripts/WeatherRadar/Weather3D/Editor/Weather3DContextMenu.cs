@@ -25,7 +25,7 @@ namespace WeatherRadar.Weather3D.Editor
             root.AddComponent<Weather3DRadarBridge>();
             
             // Create child renderers
-            CreateChildRenderer<VolumetricCloudRenderer>(root, "CloudRenderer");
+            // CreateChildRenderer<VolumetricCloudRenderer>(root, "CloudRenderer"); // Removed - VolumetricCloudRenderer deprecated
             CreateChildRenderer<PrecipitationSystem>(root, "PrecipitationRenderer");
             CreateChildRenderer<ThunderstormCellRenderer>(root, "ThunderstormRenderer");
             CreateChildRenderer<TurbulenceIndicator>(root, "TurbulenceRenderer");

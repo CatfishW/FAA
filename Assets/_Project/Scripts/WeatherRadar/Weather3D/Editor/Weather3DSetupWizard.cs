@@ -423,13 +423,13 @@ namespace WeatherRadar.Weather3D.Editor
 
         private void CreateRenderers(GameObject root, Weather3DManager manager, Weather3DConfig config)
         {
-            // Create Cloud Renderer
-            GameObject cloudObj = new GameObject("CloudRenderer");
-            cloudObj.transform.SetParent(root.transform);
-            cloudObj.transform.localPosition = Vector3.zero;
-            var cloudRenderer = cloudObj.AddComponent<VolumetricCloudRenderer>();
-            Undo.RegisterCreatedObjectUndo(cloudObj, "Create Cloud Renderer");
-            
+            // VolumetricCloudRenderer removed - no longer available
+            // GameObject cloudObj = new GameObject("CloudRenderer");
+            // cloudObj.transform.SetParent(root.transform);
+            // cloudObj.transform.localPosition = Vector3.zero;
+            // var cloudRenderer = cloudObj.AddComponent<VolumetricCloudRenderer>();
+            // Undo.RegisterCreatedObjectUndo(cloudObj, "Create Cloud Renderer");
+
             // Create Precipitation System
             GameObject precipObj = new GameObject("PrecipitationRenderer");
             precipObj.transform.SetParent(root.transform);
@@ -455,10 +455,10 @@ namespace WeatherRadar.Weather3D.Editor
             if (manager != null)
             {
                 var so = new SerializedObject(manager);
-                
-                var cloudProp = so.FindProperty("cloudRenderer");
-                if (cloudProp != null) cloudProp.objectReferenceValue = cloudRenderer;
-                
+
+                // var cloudProp = so.FindProperty("cloudRenderer"); // Removed - VolumetricCloudRenderer deprecated
+                // if (cloudProp != null) cloudProp.objectReferenceValue = cloudRenderer;
+
                 var precipProp = so.FindProperty("precipitationSystem");
                 if (precipProp != null) precipProp.objectReferenceValue = precipSystem;
                 
@@ -499,7 +499,7 @@ namespace WeatherRadar.Weather3D.Editor
         {
             var manager = FindObjectOfType<Weather3DManager>();
             var bridge = FindObjectOfType<Weather3DRadarBridge>();
-            var cloudRenderer = FindObjectOfType<VolumetricCloudRenderer>();
+            // var cloudRenderer = FindObjectOfType<VolumetricCloudRenderer>(); // Removed - VolumetricCloudRenderer deprecated
             var precipSystem = FindObjectOfType<PrecipitationSystem>();
             var stormRenderer = FindObjectOfType<ThunderstormCellRenderer>();
             var turbIndicator = FindObjectOfType<TurbulenceIndicator>();
@@ -508,7 +508,7 @@ namespace WeatherRadar.Weather3D.Editor
             string report = "3D Weather Components Found:\n\n";
             report += $"• Weather3DManager: {(manager != null ? "✅" : "❌")}\n";
             report += $"• Weather3DRadarBridge: {(bridge != null ? "✅" : "❌")}\n";
-            report += $"• VolumetricCloudRenderer: {(cloudRenderer != null ? "✅" : "❌")}\n";
+            report += $"• VolumetricCloudRenderer: ❌ (deprecated)\n";
             report += $"• PrecipitationSystem: {(precipSystem != null ? "✅" : "❌")}\n";
             report += $"• ThunderstormCellRenderer: {(stormRenderer != null ? "✅" : "❌")}\n";
             report += $"• TurbulenceIndicator: {(turbIndicator != null ? "✅" : "❌")}\n";
@@ -523,17 +523,17 @@ namespace WeatherRadar.Weather3D.Editor
             // Find and destroy all Weather3D components
             var managers = FindObjectsOfType<Weather3DManager>();
             var bridges = FindObjectsOfType<Weather3DRadarBridge>();
-            var clouds = FindObjectsOfType<VolumetricCloudRenderer>();
+            // var clouds = FindObjectsOfType<VolumetricCloudRenderer>(); // Removed - VolumetricCloudRenderer deprecated
             var precips = FindObjectsOfType<PrecipitationSystem>();
             var storms = FindObjectsOfType<ThunderstormCellRenderer>();
             var turbs = FindObjectsOfType<TurbulenceIndicator>();
             var panels = FindObjectsOfType<Weather3DControlPanel>();
             
             int count = 0;
-            
+
             foreach (var m in managers) { Undo.DestroyObjectImmediate(m.gameObject); count++; }
             foreach (var b in bridges) { if (b != null && b.gameObject != null) Undo.DestroyObjectImmediate(b.gameObject); count++; }
-            foreach (var c in clouds) { if (c != null && c.gameObject != null) Undo.DestroyObjectImmediate(c.gameObject); count++; }
+            // foreach (var c in clouds) { if (c != null && c.gameObject != null) Undo.DestroyObjectImmediate(c.gameObject); count++; } // Removed - VolumetricCloudRenderer deprecated
             foreach (var p in precips) { if (p != null && p.gameObject != null) Undo.DestroyObjectImmediate(p.gameObject); count++; }
             foreach (var s in storms) { if (s != null && s.gameObject != null) Undo.DestroyObjectImmediate(s.gameObject); count++; }
             foreach (var t in turbs) { if (t != null && t.gameObject != null) Undo.DestroyObjectImmediate(t.gameObject); count++; }

@@ -62,18 +62,18 @@ namespace WeatherRadar.Weather3D.Editor
                 EditorGUILayout.LabelField("Weather Provider:", hasProvider ? "✅ Connected" : "❌ Not connected");
                 
                 // Renderers status
-                var cloudProp = serializedObject.FindProperty("cloudRenderer");
+                // var cloudProp = serializedObject.FindProperty("cloudRenderer"); // Removed - VolumetricCloudRenderer deprecated
                 var precipProp = serializedObject.FindProperty("precipitationSystem");
                 var stormProp = serializedObject.FindProperty("thunderstormRenderer");
                 var turbProp = serializedObject.FindProperty("turbulenceIndicator");
-                
+
                 int connectedRenderers = 0;
-                if (cloudProp.objectReferenceValue != null) connectedRenderers++;
+                // if (cloudProp.objectReferenceValue != null) connectedRenderers++; // Removed - VolumetricCloudRenderer deprecated
                 if (precipProp.objectReferenceValue != null) connectedRenderers++;
                 if (stormProp.objectReferenceValue != null) connectedRenderers++;
                 if (turbProp.objectReferenceValue != null) connectedRenderers++;
-                
-                EditorGUILayout.LabelField("Renderers:", $"{connectedRenderers}/4 connected");
+
+                EditorGUILayout.LabelField("Renderers:", $"{connectedRenderers}/3 connected");
                 
                 // Current data
                 if (Application.isPlaying && manager.CurrentData != null)
@@ -205,12 +205,12 @@ namespace WeatherRadar.Weather3D.Editor
             }
             
             // Find renderers in children
-            var cloudProp = serializedObject.FindProperty("cloudRenderer");
-            if (cloudProp.objectReferenceValue == null)
-            {
-                cloudProp.objectReferenceValue = manager.GetComponentInChildren<VolumetricCloudRenderer>();
-            }
-            
+            // var cloudProp = serializedObject.FindProperty("cloudRenderer"); // Removed - VolumetricCloudRenderer deprecated
+            // if (cloudProp.objectReferenceValue == null)
+            // {
+            //     cloudProp.objectReferenceValue = manager.GetComponentInChildren<VolumetricCloudRenderer>();
+            // }
+
             var precipProp = serializedObject.FindProperty("precipitationSystem");
             if (precipProp.objectReferenceValue == null)
             {
@@ -310,17 +310,13 @@ namespace WeatherRadar.Weather3D.Editor
             });
             
             // Manually trigger update on renderers
-            var cloudRenderer = manager.GetComponentInChildren<VolumetricCloudRenderer>();
+            // var cloudRenderer = manager.GetComponentInChildren<VolumetricCloudRenderer>(); // Removed - VolumetricCloudRenderer deprecated
             var precipSystem = manager.GetComponentInChildren<PrecipitationSystem>();
             var stormRenderer = manager.GetComponentInChildren<ThunderstormCellRenderer>();
             var turbIndicator = manager.GetComponentInChildren<TurbulenceIndicator>();
             
-            if (cloudRenderer != null)
-            {
-                cloudRenderer.Initialize(config, manager);
-                cloudRenderer.UpdateClouds(testData);
-            }
-            
+            // VolumetricCloudRenderer removed - cloud visualization no longer available
+
             if (precipSystem != null)
             {
                 precipSystem.Initialize(config, manager);
@@ -365,9 +361,9 @@ namespace WeatherRadar.Weather3D.Editor
             var provider = providerProp.objectReferenceValue as WeatherRadarProviderBase;
             Debug.Log($"Weather Provider: {(provider != null ? provider.ProviderName : "MISSING")}");
             
-            var cloud = manager.GetComponentInChildren<VolumetricCloudRenderer>();
-            Debug.Log($"Cloud Renderer: {(cloud != null ? "✓ Found" : "✗ Missing")}");
-            
+            // var cloud = manager.GetComponentInChildren<VolumetricCloudRenderer>(); // Removed - VolumetricCloudRenderer deprecated
+            Debug.Log($"Cloud Renderer: ✗ Removed (deprecated)");
+
             var precip = manager.GetComponentInChildren<PrecipitationSystem>();
             Debug.Log($"Precipitation System: {(precip != null ? "✓ Found" : "✗ Missing")}");
             

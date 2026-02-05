@@ -1,0 +1,330 @@
+/* Advanced Radial Menu Styles - UI Toolkit */
+/* Imports shared design system */
+@import url("project://database/Assets/Resources/VoiceControl/SharedDesignSystem.uss");
+
+/* Root container */
+.adv-menu-root {
+    position: absolute;
+    left: 50%;
+    top: 50%;
+    width: 0;
+    height: 0;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    pointer-events: none;
+}
+
+/* Ring background - circular backdrop */
+.adv-ring-background {
+    position: absolute;
+    pointer-events: none;
+    transition-property: scale, opacity;
+    transition-duration: 0.4s;
+    transition-timing-function: ease-out;
+}
+
+/* Ripple container */
+.adv-ripple-container {
+    position: absolute;
+    pointer-events: none;
+}
+
+/* Gesture indicator */
+.adv-gesture-indicator {
+    position: absolute;
+    pointer-events: none;
+    opacity: 0;
+    transition-property: opacity;
+    transition-duration: 0.1s;
+}
+
+/* Main segments - large category buttons */
+.adv-main-segment {
+    position: absolute;
+    cursor: pointer;
+    transition-property: scale, opacity, background-color;
+    transition-duration: 0.2s;
+    transition-timing-function: ease-out;
+    overflow: hidden;
+}
+
+.adv-main-segment:hover {
+    scale: 1.08;
+    background-color: rgba(30, 45, 65, 0.98);
+}
+
+.adv-main-segment:hover .adv-main-bg {
+    background-color: rgba(60, 100, 140, 0.5);
+}
+
+.adv-main-segment:active {
+    scale: 0.95;
+}
+
+.adv-main-segment.adv-main-selected {
+    scale: 1.12;
+    background-color: rgba(35, 55, 80, 0.98);
+}
+
+.adv-main-segment.adv-main-selected .adv-main-bg {
+    background-color: rgba(80, 140, 200, 0.6);
+}
+
+.adv-main-bg {
+    position: absolute;
+    transition-property: background-color;
+    transition-duration: 0.25s;
+    transition-timing-function: ease-out;
+}
+
+.adv-main-icon-container {
+    position: relative;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    pointer-events: none;
+}
+
+.adv-main-icon {
+    font-size: 32px;
+    -unity-text-align: middle-center;
+    color: rgba(255, 255, 255, 0.95);
+    pointer-events: none;
+    text-shadow: 0 2px 4px rgba(0, 0, 0, 0.5);
+}
+
+.adv-main-name {
+    position: relative;
+    font-size: 11px;
+    color: rgba(220, 230, 240, 0.9);
+    -unity-text-align: middle-center;
+    -unity-font-style: bold;
+    white-space: nowrap;
+    pointer-events: none;
+    text-shadow: 0 1px 2px rgba(0, 0, 0, 0.5);
+}
+
+/* Sub segments - command buttons */
+.adv-sub-segment {
+    position: absolute;
+    cursor: pointer;
+    transition-property: scale, opacity, left, top, background-color;
+    transition-duration: 0.2s;
+    transition-timing-function: ease-out;
+    overflow: hidden;
+}
+
+.adv-sub-segment:hover {
+    scale: 1.1;
+    background-color: rgba(25, 40, 60, 0.98);
+}
+
+.adv-sub-segment:hover .adv-sub-bg {
+    background-color: rgba(70, 120, 180, 0.5);
+}
+
+.adv-sub-segment:active {
+    scale: 0.92;
+}
+
+.adv-sub-bg {
+    position: absolute;
+    width: 100%;
+    height: 100%;
+    transition-property: background-color;
+    transition-duration: 0.2s;
+}
+
+.adv-sub-icon {
+    font-size: 20px;
+    -unity-text-align: middle-center;
+    color: rgba(255, 255, 255, 0.92);
+    margin-bottom: 2px;
+    pointer-events: none;
+}
+
+.adv-sub-name {
+    font-size: 9px;
+    color: rgba(200, 215, 230, 0.85);
+    -unity-text-align: middle-center;
+    pointer-events: none;
+    white-space: nowrap;
+}
+
+/* Center info panel - hub display */
+.adv-center-info {
+    position: absolute;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    pointer-events: none;
+    transition-property: scale, opacity;
+    transition-duration: 0.35s;
+    transition-timing-function: ease-out;
+}
+
+.adv-center-title {
+    font-size: 18px;
+    -unity-text-align: middle-center;
+    -unity-font-style: bold;
+    pointer-events: none;
+    text-shadow: 0 2px 8px rgba(80, 160, 255, 0.4);
+}
+
+.adv-center-subtitle {
+    font-size: 12px;
+    -unity-text-align: middle-center;
+    color: rgba(180, 195, 210, 0.9);
+    margin-top: 6px;
+    pointer-events: none;
+}
+
+/* Selection glow effect */
+.adv-main-segment.adv-main-selected::after {
+    content: "";
+    position: absolute;
+    left: -4px;
+    top: -4px;
+    right: -4px;
+    bottom: -4px;
+    background-color: rgba(100, 180, 255, 0.15);
+    border-radius: 20px;
+    z-index: -1;
+}
+
+/* Reduced motion support */
+@media (prefers-reduced-motion: reduce) {
+    .adv-menu-root,
+    .adv-ring-background,
+    .adv-main-segment,
+    .adv-sub-segment,
+    .adv-center-info {
+        transition-duration: 0.05s;
+    }
+}
+
+/* Accessibility - high contrast mode */
+@media (prefers-contrast: high) {
+    .adv-main-segment {
+        border-width: 3px;
+        border-color: rgba(255, 255, 255, 0.9);
+    }
+
+    .adv-main-icon {
+        color: rgba(255, 255, 255, 1);
+    }
+
+    .adv-main-name {
+        color: rgba(255, 255, 255, 1);
+    }
+
+    .adv-center-title {
+        color: rgba(120, 200, 255, 1);
+    }
+}
+
+/* Different resolutions */
+@media screen and (max-width: 1920px) {
+    .adv-main-icon {
+        font-size: 28px;
+    }
+
+    .adv-main-name {
+        font-size: 10px;
+    }
+
+    .adv-center-title {
+        font-size: 16px;
+    }
+}
+
+@media screen and (max-width: 1366px) {
+    .adv-main-icon {
+        font-size: 24px;
+    }
+
+    .adv-main-name {
+        font-size: 9px;
+    }
+
+    .adv-center-title {
+        font-size: 14px;
+    }
+}
+
+@media screen and (min-width: 2560px) {
+    .adv-main-icon {
+        font-size: 36px;
+    }
+
+    .adv-main-name {
+        font-size: 13px;
+    }
+
+    .adv-center-title {
+        font-size: 22px;
+    }
+}
+
+/* Theme support - Light mode */
+.theme-light .adv-menu-root {
+    background-color: rgba(240, 242, 245, 0.05);
+}
+
+.theme-light .adv-main-segment {
+    background-color: rgba(230, 235, 245, 0.95);
+}
+
+.theme-light .adv-main-icon {
+    color: rgba(40, 60, 80, 0.95);
+}
+
+.theme-light .adv-main-name {
+    color: rgba(50, 70, 90, 0.9);
+}
+
+.theme-light .adv-center-title {
+    color: rgba(20, 100, 180, 1);
+}
+
+.theme-light .adv-center-subtitle {
+    color: rgba(80, 100, 120, 0.9);
+}
+
+/* Collapsed button - small circular icon when menu is closed */
+.adv-collapsed-button {
+    position: absolute;
+    left: 100px;
+    bottom: 100px;
+    width: 80px;
+    height: 80px;
+    background-color: rgba(20, 30, 50, 0.95);
+    border-radius: 40px;
+    border-width: 3px;
+    border-color: rgba(76, 153, 230, 0.7);
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+    transition-property: scale, background-color, border-color;
+    transition-duration: 0.15s;
+    transition-timing-function: ease-out;
+}
+
+.adv-collapsed-button:hover {
+    scale: 1.1;
+    background-color: rgba(30, 45, 70, 0.98);
+    border-color: rgba(102, 191, 255, 0.9);
+}
+
+.adv-collapsed-button:active {
+    scale: 0.9;
+}
+
+.adv-collapsed-icon {
+    width: 40px;
+    height: 40px;
+    -unity-background-scale-mode: scale-to-fit;
+    -unity-background-image-tint-color: rgba(102, 204, 255, 1);
+}

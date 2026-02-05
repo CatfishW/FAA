@@ -1,0 +1,33 @@
+<?xml version="1.0" encoding="utf-8"?>
+<ui:UXML
+    xmlns:ui="UnityEngine.UIElements"
+    xmlns:uie="UnityEditor.UIElements"
+    xsi:schemaLocation="UnityEngine.UIElements UnityEngine.UIElements/UnityEngine.UIElements.xsd UnityEditor.UIElements UnityEditor.UIElements/UnityEditor.UIElements.xsd"
+    xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance">
+
+    <!-- Advanced Radial Menu Template -->
+    <Style src="project://database/Assets/Resources/VoiceControl/AdvancedRadialMenuStyles.uss"/>
+
+    <!-- Collapsed button (small circular icon when menu is closed) -->
+    <ui:VisualElement name="CollapsedButton" class="adv-collapsed-button">
+        <ui:VisualElement name="CollapsedIcon" class="adv-collapsed-icon"/>
+    </ui:VisualElement>
+
+    <ui:VisualElement name="MenuRoot" class="adv-menu-root">
+        <!-- Ring background -->
+        <ui:VisualElement name="RingBackground" class="adv-ring-background"/>
+
+        <!-- Ripple container for click effects -->
+        <ui:VisualElement name="RippleContainer" class="adv-ripple-container"/>
+
+        <!-- Gesture indicator -->
+        <ui:VisualElement name="GestureIndicator" class="adv-gesture-indicator"/>
+
+        <!-- Center info panel -->
+        <ui:VisualElement name="CenterInfo" class="adv-center-info">
+            <ui:Label name="CenterTitle" class="adv-center-title" text=""/>
+            <ui:Label name="CenterSubtitle" class="adv-center-subtitle" text=""/>
+        </ui:VisualElement>
+    </ui:VisualElement>
+
+</ui:UXML>

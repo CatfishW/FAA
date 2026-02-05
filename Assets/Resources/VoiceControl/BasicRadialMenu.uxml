@@ -1,0 +1,23 @@
+<?xml version="1.0" encoding="utf-8"?>
+<ui:UXML
+    xmlns:ui="UnityEngine.UIElements"
+    xmlns:uie="UnityEditor.UIElements"
+    xsi:schemaLocation="UnityEngine.UIElements UnityEngine.UIElements/UnityEngine.UIElements.xsd UnityEditor.UIElements UnityEditor.UIElements/UnityEditor.UIElements.xsd"
+    xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance">
+
+    <!-- Basic Radial Menu Template -->
+    <Style src="project://database/Assets/Resources/VoiceControl/RadialMenuStyles.uss"/>
+
+    <ui:VisualElement name="MenuRoot" class="radial-menu-container">
+        <!-- Particle container for visual effects -->
+        <ui:VisualElement name="ParticleContainer" class="particle-container"/>
+
+        <!-- Center info panel -->
+        <ui:VisualElement name="CenterPanel" class="center-panel">
+            <ui:Label name="CenterTitle" class="center-title" text=""/>
+            <ui:Label name="CenterDescription" class="center-description" text="Select Command"/>
+            <ui:Label name="CenterTarget" class="center-target" text=""/>
+        </ui:VisualElement>
+    </ui:VisualElement>
+
+</ui:UXML>

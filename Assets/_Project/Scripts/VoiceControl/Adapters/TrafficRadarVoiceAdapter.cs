@@ -19,6 +19,8 @@ namespace VoiceControl.Adapters
         [SerializeField] private TrafficRadarDisplay display;
         [SerializeField] private TrafficRadarRangeUI rangeUI;
         [SerializeField] private TrafficRadarFilterUI filterUI;
+        [SerializeField] private GameObject radarRoot;
+        [SerializeField] private string radarRootName;
         
         [Header("Settings")]
         [SerializeField] private bool autoFindComponents = true;
@@ -71,6 +73,8 @@ namespace VoiceControl.Adapters
             {
                 filterUI = FindObjectOfType<TrafficRadarFilterUI>();
             }
+
+            ResolveRadarRoot();
             
             Log($"Found components - Controller: {controller != null}, Display: {display != null}, RangeUI: {rangeUI != null}, FilterUI: {filterUI != null}");
         }
@@ -337,52 +341,13 @@ namespace VoiceControl.Adapters
                     break;
                     
                 case "show_panel":
-                    {
-                        bool success = false;
-                        if (rangeUI != null)
-                        {
-                            rangeUI.SetVisibility(true);
-                            success = true;
-                        }
-                        if (filterUI != null)
-                        {
-                            filterUI.SetVisibility(true);
-                            success = true;
-                        }
-                        return success;
-                    }
+                    return SetRadarRootActive(true);
                     
                 case "hide_panel":
-                    {
-                        bool success = false;
-                        if (rangeUI != null)
-                        {
-                            rangeUI.SetVisibility(false);
-                            success = true;
-                        }
-                        if (filterUI != null)
-                        {
-                            filterUI.SetVisibility(false);
-                            success = true;
-                        }
-                        return success;
-                    }
+                    return SetRadarRootActive(false);
                     
                 case "toggle_panel":
-                    {
-                        bool success = false;
-                        if (rangeUI != null)
-                        {
-                            rangeUI.ToggleVisibility();
-                            success = true;
-                        }
-                        if (filterUI != null)
-                        {
-                            filterUI.ToggleVisibility();
-                            success = true;
-                        }
-                        return success;
-                    }
+                    return ToggleRadarRoot();
                     
                 // Visual settings commands
                 case "show_background":
@@ -608,6 +573,122 @@ namespace VoiceControl.Adapters
             
             return true;
         }
+
+        private bool SetRadarRootActive(bool active)
+        {
+            var root = ResolveRadarRoot();
+            if (root != null)
+            {
+                root.SetActive(active);
+                return true;
+            }
+
+            if (display != null)
+            {
+                display.gameObject.SetActive(active);
+                return true;
+            }
+
+            return false;
+        }
+
+        private bool ToggleRadarRoot()
+        {
+            var root = ResolveRadarRoot();
+            if (root != null)
+            {
+                root.SetActive(!root.activeSelf);
+                return true;
+            }
+
+            if (display != null)
+            {
+                display.gameObject.SetActive(!display.gameObject.activeSelf);
+                return true;
+            }
+
+            return false;
+        }
+
+        private GameObject ResolveRadarRoot()
+        {
+            if (radarRoot != null)
+                return radarRoot;
+
+            if (!string.IsNullOrEmpty(radarRootName))
+            {
+                radarRoot = FindRootByName(radarRootName);
+            }
+
+            if (radarRoot == null && display != null)
+            {
+                if (!string.IsNullOrEmpty(radarRootName))
+                {
+                    radarRoot = FindParentByName(display.transform, radarRootName);
+                }
+            }
+
+            if (radarRoot == null && controller != null)
+            {
+                if (!string.IsNullOrEmpty(radarRootName))
+                {
+                    radarRoot = FindParentByName(controller.transform, radarRootName);
+                }
+            }
+
+            return radarRoot;
+        }
+
+        private GameObject FindRootByName(string containsName)
+        {
+            if (string.IsNullOrEmpty(containsName)) return null;
+
+            var scene = UnityEngine.SceneManagement.SceneManager.GetActiveScene();
+            foreach (var root in scene.GetRootGameObjects())
+            {
+                var found = FindInChildren(root.transform, containsName);
+                if (found != null)
+                {
+                    return found.gameObject;
+                }
+            }
+
+            return null;
+        }
+
+        private Transform FindInChildren(Transform root, string containsName)
+        {
+            if (root.name.IndexOf(containsName, System.StringComparison.OrdinalIgnoreCase) >= 0)
+                return root;
+
+            foreach (Transform child in root)
+            {
+                var found = FindInChildren(child, containsName);
+                if (found != null)
+                    return found;
+            }
+
+            return null;
+        }
+
+        private GameObject FindParentByName(Transform start, string containsName)
+        {
+            if (start == null || string.IsNullOrEmpty(containsName))
+                return null;
+
+            Transform current = start;
+            Transform lastMatch = null;
+            while (current != null)
+            {
+                if (current.name.IndexOf(containsName, System.StringComparison.OrdinalIgnoreCase) >= 0)
+                {
+                    lastMatch = current;
+                }
+                current = current.parent;
+            }
+
+            return lastMatch != null ? lastMatch.gameObject : null;
+        }
         
         private void Log(string message)
         {
@@ -618,4 +699,3 @@ namespace VoiceControl.Adapters
         }
     }
 }
-

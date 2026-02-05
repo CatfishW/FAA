@@ -18,6 +18,8 @@ namespace VoiceControl.Adapters
         [Header("Target Components")]
         [SerializeField] private RadarControlPanel controlPanel;
         [SerializeField] private WeatherRadarDataProvider dataProvider;
+        [SerializeField] private GameObject radarRoot;
+        [SerializeField] private string radarRootName;
         
         [Header("Settings")]
         [SerializeField] private bool autoFindComponents = true;
@@ -63,6 +65,8 @@ namespace VoiceControl.Adapters
             {
                 dataProvider = FindObjectOfType<WeatherRadarDataProvider>();
             }
+
+            ResolveRadarRoot();
             
             Log($"Found components - ControlPanel: {controlPanel != null}, DataProvider: {dataProvider != null}");
         }
@@ -223,28 +227,13 @@ namespace VoiceControl.Adapters
                     return HandleSetMode(parameters);
                     
                 case "show_panel":
-                    if (controlPanel != null)
-                    {
-                        controlPanel.SetVisibility(true);
-                        return true;
-                    }
-                    break;
+                    return SetRadarRootActive(true);
                     
                 case "hide_panel":
-                    if (controlPanel != null)
-                    {
-                        controlPanel.SetVisibility(false);
-                        return true;
-                    }
-                    break;
+                    return SetRadarRootActive(false);
                     
                 case "toggle_panel":
-                    if (controlPanel != null)
-                    {
-                        controlPanel.ToggleVisibility();
-                        return true;
-                    }
-                    break;
+                    return ToggleRadarRoot();
                     
                 default:
                     Log($"Unknown command: {commandName}");
@@ -252,6 +241,122 @@ namespace VoiceControl.Adapters
             }
             
             return false;
+        }
+
+        private bool SetRadarRootActive(bool active)
+        {
+            var root = ResolveRadarRoot();
+            if (root != null)
+            {
+                root.SetActive(active);
+                return true;
+            }
+
+            if (controlPanel != null)
+            {
+                controlPanel.gameObject.SetActive(active);
+                return true;
+            }
+
+            return false;
+        }
+
+        private bool ToggleRadarRoot()
+        {
+            var root = ResolveRadarRoot();
+            if (root != null)
+            {
+                root.SetActive(!root.activeSelf);
+                return true;
+            }
+
+            if (controlPanel != null)
+            {
+                controlPanel.gameObject.SetActive(!controlPanel.gameObject.activeSelf);
+                return true;
+            }
+
+            return false;
+        }
+
+        private GameObject ResolveRadarRoot()
+        {
+            if (radarRoot != null)
+                return radarRoot;
+
+            if (!string.IsNullOrEmpty(radarRootName))
+            {
+                radarRoot = FindRootByName(radarRootName);
+            }
+
+            if (radarRoot == null && controlPanel != null)
+            {
+                if (!string.IsNullOrEmpty(radarRootName))
+                {
+                    radarRoot = FindParentByName(controlPanel.transform, radarRootName);
+                }
+            }
+
+            if (radarRoot == null && dataProvider != null)
+            {
+                if (!string.IsNullOrEmpty(radarRootName))
+                {
+                    radarRoot = FindParentByName(dataProvider.transform, radarRootName);
+                }
+            }
+
+            return radarRoot;
+        }
+
+        private GameObject FindRootByName(string containsName)
+        {
+            if (string.IsNullOrEmpty(containsName)) return null;
+
+            var scene = UnityEngine.SceneManagement.SceneManager.GetActiveScene();
+            foreach (var root in scene.GetRootGameObjects())
+            {
+                var found = FindInChildren(root.transform, containsName);
+                if (found != null)
+                {
+                    return found.gameObject;
+                }
+            }
+
+            return null;
+        }
+
+        private Transform FindInChildren(Transform root, string containsName)
+        {
+            if (root.name.IndexOf(containsName, System.StringComparison.OrdinalIgnoreCase) >= 0)
+                return root;
+
+            foreach (Transform child in root)
+            {
+                var found = FindInChildren(child, containsName);
+                if (found != null)
+                    return found;
+            }
+
+            return null;
+        }
+
+        private GameObject FindParentByName(Transform start, string containsName)
+        {
+            if (start == null || string.IsNullOrEmpty(containsName))
+                return null;
+
+            Transform current = start;
+            Transform lastMatch = null;
+            while (current != null)
+            {
+                if (current.name.IndexOf(containsName, System.StringComparison.OrdinalIgnoreCase) >= 0)
+                {
+                    lastMatch = current;
+                }
+                current = current.parent;
+            }
+
+            return lastMatch != null ? lastMatch.gameObject : null;
         }
         
         private bool HandleSetMode(Dictionary<string, object> parameters)

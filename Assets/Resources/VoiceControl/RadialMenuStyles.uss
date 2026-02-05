@@ -1,0 +1,345 @@
+/* Radial Menu Styles - UI Toolkit */
+/* Imports shared design system */
+@import url("project://database/Assets/Resources/VoiceControl/SharedDesignSystem.uss");
+
+/* Root container */
+.radial-menu-container {
+    position: absolute;
+    left: 50%;
+    top: 50%;
+    width: 0;
+    height: 0;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+/* Particle container */
+.particle-container {
+    position: absolute;
+    left: 0;
+    top: 0;
+    width: 0;
+    height: 0;
+}
+
+.particle {
+    position: absolute;
+    width: 4px;
+    height: 4px;
+    background-color: rgba(255, 255, 255, 0.6);
+    border-radius: 2px;
+}
+
+/* Segment styling */
+.segment-container {
+    position: absolute;
+    width: 140px;
+    height: 60px;
+    background-color: rgba(40, 45, 55, 0.9);
+    border-radius: 8px;
+    border-width: 1px;
+    border-color: rgba(255, 255, 255, 0.1);
+    cursor: pointer;
+    transition-property: scale, background-color, opacity;
+    transition-duration: 0.15s;
+    transition-timing-function: ease-out;
+    overflow: hidden;
+}
+
+.segment-container:hover {
+    background-color: rgba(60, 70, 85, 0.95);
+    border-color: rgba(255, 255, 255, 0.3);
+    scale: 1.05;
+}
+
+.segment-container:active {
+    scale: 0.95;
+}
+
+.segment-container.segment-selected {
+    background-color: rgba(80, 95, 115, 0.95);
+    border-color: rgba(255, 255, 255, 0.5);
+    scale: 1.1;
+}
+
+.segment-background {
+    position: absolute;
+    left: 0;
+    top: 0;
+    right: 0;
+    bottom: 0;
+    border-radius: 8px;
+    opacity: 0.3;
+}
+
+.segment-glow {
+    position: absolute;
+    left: -10px;
+    top: -10px;
+    right: -10px;
+    bottom: -10px;
+    background-color: rgba(255, 255, 255, 0.1);
+    border-radius: 12px;
+    opacity: 0;
+    transition-property: opacity, scale;
+    transition-duration: 0.2s;
+}
+
+.segment-icon {
+    position: absolute;
+    left: 8px;
+    top: 50%;
+    translate: 0 -50%;
+    font-size: 20px;
+    color: rgba(255, 255, 255, 0.9);
+    -unity-text-align: middle-center;
+    width: 24px;
+    height: 24px;
+}
+
+.segment-label {
+    position: absolute;
+    left: 36px;
+    right: 8px;
+    top: 50%;
+    translate: 0 -50%;
+    font-size: 11px;
+    color: rgba(230, 235, 240, 1);
+    -unity-text-align: middle-left;
+    -unity-font-style: bold;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+/* Center panel */
+.center-panel {
+    position: absolute;
+    width: 120px;
+    height: 120px;
+    left: -60px;
+    top: -60px;
+    background-color: rgba(25, 30, 38, 0.95);
+    border-radius: 60px;
+    border-width: 2px;
+    border-color: rgba(255, 255, 255, 0.15);
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    transition-property: scale, opacity;
+    transition-duration: 0.3s;
+    transition-timing-function: ease-out;
+}
+
+.center-title {
+    font-size: 12px;
+    color: rgba(100, 200, 255, 1);
+    -unity-text-align: middle-center;
+    -unity-font-style: bold;
+    margin-top: 20px;
+    padding: 0 8px;
+}
+
+.center-description {
+    font-size: 10px;
+    color: rgba(180, 190, 200, 1);
+    -unity-text-align: middle-center;
+    padding: 4px 12px;
+    margin-top: 2px;
+}
+
+.center-target {
+    font-size: 9px;
+    color: rgba(140, 150, 160, 1);
+    -unity-text-align: middle-center;
+    margin-top: 4px;
+    -unity-font-style: italic;
+}
+
+/* Animation keyframes (using transitions instead) */
+@keyframes expand-in {
+    0% {
+        scale: 0;
+        opacity: 0;
+    }
+    60% {
+        scale: 1.1;
+        opacity: 1;
+    }
+    100% {
+        scale: 1;
+        opacity: 1;
+    }
+}
+
+@keyframes collapse-out {
+    0% {
+        scale: 1;
+        opacity: 1;
+    }
+    100% {
+        scale: 0.5;
+        opacity: 0;
+    }
+}
+
+/* Responsive breakpoints */
+@media screen and (max-width: 1920px) {
+    .segment-container {
+        width: 130px;
+        height: 55px;
+    }
+
+    .segment-icon {
+        font-size: 18px;
+        width: 22px;
+        height: 22px;
+    }
+
+    .segment-label {
+        font-size: 10px;
+        left: 32px;
+    }
+
+    .center-panel {
+        width: 110px;
+        height: 110px;
+        left: -55px;
+        top: -55px;
+        border-radius: 55px;
+    }
+
+    .center-title {
+        font-size: 11px;
+    }
+
+    .center-description {
+        font-size: 9px;
+    }
+}
+
+@media screen and (max-width: 1366px) {
+    .segment-container {
+        width: 110px;
+        height: 48px;
+    }
+
+    .segment-icon {
+        font-size: 16px;
+        width: 20px;
+        height: 20px;
+    }
+
+    .segment-label {
+        font-size: 9px;
+        left: 28px;
+    }
+
+    .center-panel {
+        width: 100px;
+        height: 100px;
+        left: -50px;
+        top: -50px;
+        border-radius: 50px;
+    }
+
+    .center-title {
+        font-size: 10px;
+        margin-top: 15px;
+    }
+
+    .center-description {
+        font-size: 8px;
+    }
+}
+
+@media screen and (min-width: 2560px) {
+    .segment-container {
+        width: 160px;
+        height: 70px;
+    }
+
+    .segment-icon {
+        font-size: 24px;
+        width: 28px;
+        height: 28px;
+    }
+
+    .segment-label {
+        font-size: 13px;
+        left: 40px;
+    }
+
+    .center-panel {
+        width: 140px;
+        height: 140px;
+        left: -70px;
+        top: -70px;
+        border-radius: 70px;
+    }
+
+    .center-title {
+        font-size: 14px;
+        margin-top: 25px;
+    }
+
+    .center-description {
+        font-size: 12px;
+    }
+}
+
+/* Accessibility - high contrast mode */
+@media (prefers-contrast: high) {
+    .segment-container {
+        border-color: rgba(255, 255, 255, 0.8);
+        background-color: rgba(0, 0, 0, 0.9);
+    }
+
+    .segment-label {
+        color: rgba(255, 255, 255, 1);
+        -unity-font-style: bold;
+    }
+
+    .center-panel {
+        border-color: rgba(255, 255, 255, 0.8);
+        background-color: rgba(0, 0, 0, 0.95);
+    }
+}
+
+/* Reduced motion */
+@media (prefers-reduced-motion: reduce) {
+    .segment-container,
+    .segment-glow,
+    .center-panel {
+        transition-duration: 0.05s;
+    }
+
+    .particle {
+        display: none;
+    }
+}
+
+/* Dark/Light theme support */
+.theme-light .segment-container {
+    background-color: rgba(240, 242, 245, 0.95);
+    border-color: rgba(0, 0, 0, 0.1);
+}
+
+.theme-light .segment-label {
+    color: rgba(40, 45, 55, 1);
+}
+
+.theme-light .center-panel {
+    background-color: rgba(255, 255, 255, 0.95);
+    border-color: rgba(0, 0, 0, 0.15);
+}
+
+.theme-light .center-title {
+    color: rgba(0, 120, 200, 1);
+}
+
+.theme-light .center-description {
+    color: rgba(60, 70, 80, 1);
+}

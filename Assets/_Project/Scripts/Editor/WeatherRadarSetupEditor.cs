@@ -128,8 +128,10 @@ namespace WeatherRadar.Editor
                     break;
                 case ProviderType.NOAA:
                     EditorGUILayout.HelpBox(
-                        "NOAA nowCOAST MRMS radar. Updates every 4 min. " +
-                        "May have higher latency.", MessageType.Info);
+                        "Multi-source US radar provider (RainViewer, IEM NEXRAD, NOAA WMS, " +
+                        "Xweather, Tomorrow.io, Weatherbit, WeatherOptics, Weather Company). " +
+                        "Configure API keys and preferred service on the component.",
+                        MessageType.Info);
                     break;
                 case ProviderType.Simulated:
                     EditorGUILayout.HelpBox(

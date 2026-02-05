@@ -1,0 +1,238 @@
+/* Shared Design System - UI Toolkit */
+/* Common variables and shared styles for all radial menus */
+
+:root {
+    /* Color Palette */
+    --color-weather: rgb(51, 204, 255);
+    --color-traffic: rgb(255, 153, 51);
+    --color-indicators: rgb(102, 230, 102);
+    --color-symbology: rgb(230, 102, 230);
+    --color-vision: rgb(255, 204, 51);
+    --color-system: rgb(180, 180, 180);
+
+    --color-bg-primary: rgba(20, 25, 30, 0.95);
+    --color-bg-secondary: rgba(40, 45, 55, 0.9);
+    --color-bg-tertiary: rgba(60, 70, 85, 0.85);
+
+    --color-text-primary: rgba(255, 255, 255, 0.95);
+    --color-text-secondary: rgba(200, 210, 220, 0.85);
+    --color-text-tertiary: rgba(150, 160, 170, 0.7);
+
+    --color-border: rgba(255, 255, 255, 0.2);
+    --color-border-hover: rgba(255, 255, 255, 0.4);
+    --color-border-active: rgba(255, 255, 255, 0.6);
+
+    --color-accent-light: rgba(100, 200, 255, 1);
+    --color-accent-dark: rgba(0, 120, 200, 1);
+
+    /* Spacing */
+    --spacing-xs: 2px;
+    --spacing-sm: 4px;
+    --spacing-md: 8px;
+    --spacing-lg: 12px;
+    --spacing-xl: 16px;
+    --spacing-2xl: 24px;
+
+    /* Border Radius */
+    --radius-xs: 2px;
+    --radius-sm: 4px;
+    --radius-md: 8px;
+    --radius-lg: 12px;
+    --radius-full: 50%;
+
+    /* Typography */
+    --font-size-xs: 8px;
+    --font-size-sm: 9px;
+    --font-size-md: 11px;
+    --font-size-lg: 14px;
+    --font-size-xl: 18px;
+
+    --font-weight-normal: normal;
+    --font-weight-bold: bold;
+
+    /* Transitions */
+    --transition-fast: 0.1s;
+    --transition-base: 0.2s;
+    --transition-slow: 0.3s;
+
+    --timing-ease-in: ease-in;
+    --timing-ease-out: ease-out;
+    --timing-ease-in-out: ease-in-out;
+
+    /* Effects */
+    --shadow-sm: 0 2px 4px rgba(0, 0, 0, 0.1);
+    --shadow-md: 0 4px 8px rgba(0, 0, 0, 0.2);
+    --shadow-lg: 0 8px 16px rgba(0, 0, 0, 0.3);
+}
+
+/* Light theme overrides */
+.theme-light {
+    --color-bg-primary: rgba(240, 242, 245, 0.95);
+    --color-bg-secondary: rgba(220, 225, 230, 0.95);
+    --color-bg-tertiary: rgba(200, 210, 220, 0.9);
+
+    --color-text-primary: rgba(20, 25, 30, 0.95);
+    --color-text-secondary: rgba(60, 70, 80, 0.9);
+    --color-text-tertiary: rgba(100, 110, 120, 0.8);
+
+    --color-border: rgba(0, 0, 0, 0.1);
+    --color-border-hover: rgba(0, 0, 0, 0.2);
+    --color-border-active: rgba(0, 0, 0, 0.3);
+
+    --color-accent-light: rgba(100, 150, 200, 1);
+    --color-accent-dark: rgba(0, 80, 160, 1);
+}
+
+/* Base element styles */
+VisualElement {
+    --transition-base: 0.2s ease-out;
+}
+
+Label {
+    color: var(--color-text-primary);
+    font-size: var(--font-size-md);
+}
+
+/* Utility classes */
+.flex-center {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.flex-column {
+    display: flex;
+    flex-direction: column;
+}
+
+.flex-row {
+    display: flex;
+    flex-direction: row;
+}
+
+.absolute {
+    position: absolute;
+}
+
+.relative {
+    position: relative;
+}
+
+.hidden {
+    display: none;
+}
+
+.visible {
+    display: flex;
+}
+
+.no-pointer {
+    pointer-events: none;
+}
+
+.pointer-all {
+    pointer-events: auto;
+}
+
+/* Text utilities */
+.text-center {
+    -unity-text-align: middle-center;
+}
+
+.text-left {
+    -unity-text-align: middle-left;
+}
+
+.text-right {
+    -unity-text-align: middle-right;
+}
+
+.text-bold {
+    -unity-font-style: bold;
+}
+
+.text-italic {
+    -unity-font-style: italic;
+}
+
+.text-sm {
+    font-size: var(--font-size-sm);
+}
+
+.text-md {
+    font-size: var(--font-size-md);
+}
+
+.text-lg {
+    font-size: var(--font-size-lg);
+}
+
+/* Color utilities */
+.text-primary {
+    color: var(--color-text-primary);
+}
+
+.text-secondary {
+    color: var(--color-text-secondary);
+}
+
+.text-tertiary {
+    color: var(--color-text-tertiary);
+}
+
+.text-accent {
+    color: var(--color-accent-light);
+}
+
+.bg-primary {
+    background-color: var(--color-bg-primary);
+}
+
+.bg-secondary {
+    background-color: var(--color-bg-secondary);
+}
+
+.bg-tertiary {
+    background-color: var(--color-bg-tertiary);
+}
+
+/* Spacing utilities */
+.m-0 {
+    margin: 0;
+}
+
+.m-xs {
+    margin: var(--spacing-xs);
+}
+
+.m-sm {
+    margin: var(--spacing-sm);
+}
+
+.m-md {
+    margin: var(--spacing-md);
+}
+
+.m-lg {
+    margin: var(--spacing-lg);
+}
+
+.p-0 {
+    padding: 0;
+}
+
+.p-xs {
+    padding: var(--spacing-xs);
+}
+
+.p-sm {
+    padding: var(--spacing-sm);
+}
+
+.p-md {
+    padding: var(--spacing-md);
+}
+
+.p-lg {
+    padding: var(--spacing-lg);
+}

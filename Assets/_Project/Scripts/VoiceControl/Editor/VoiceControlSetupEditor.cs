@@ -1,6 +1,4 @@
 #if UNITY_EDITOR
-using System.Collections.Generic;
-using System.Linq;
 using UnityEngine;
 using UnityEditor;
 using UnityEngine.UI;
@@ -41,7 +39,7 @@ namespace VoiceControl.Editor
         
         private VoiceUIPosition _uiPosition = VoiceUIPosition.BottomRight;
         private bool _createAdapters = true;
-        private bool _createTestConnectivity = true;
+        private bool _createCommandWheel = true;
         
         #endregion
         
@@ -82,12 +80,8 @@ namespace VoiceControl.Editor
             window.PerformSetup();
         }
 
-        [MenuItem("Tools/Aviation/Voice Control/Create Command Controls Panel", priority = 102)]
-        public static void CreateCommandControlsPanelMenu()
-        {
-            var window = GetWindow<VoiceControlSetupEditor>("Voice Control Setup");
-            window.CreateCommandControlsOnly();
-        }
+        
+
         
         private void OnEnable()
         {
@@ -307,6 +301,12 @@ namespace VoiceControl.Editor
                 "Creates adapters for WeatherRadar, TrafficRadar, IndicatorSystem, SymbologyColor, and Vision Briefing.",
                 MessageType.None);
 
+            EditorGUILayout.Space(6);
+            _createCommandWheel = EditorGUILayout.Toggle("Create Command Wheel", _createCommandWheel);
+            EditorGUILayout.HelpBox(
+                "Creates the FAA-style radial command wheel (prefab + spawner). Commands will be clickable inside the expanded wheel.",
+                MessageType.None);
+
             EditorGUILayout.EndVertical();
         }
         
@@ -329,12 +329,6 @@ namespace VoiceControl.Editor
                 PerformSetup();
             }
             GUI.backgroundColor = Color.white;
-
-            EditorGUILayout.Space(6);
-            if (GUILayout.Button("Create Command Controls Panel", GUILayout.Height(28)))
-            {
-                CreateCommandControlsOnly();
-            }
             
             EditorGUILayout.EndVertical();
         }
@@ -490,6 +484,12 @@ namespace VoiceControl.Editor
                 
                 // 8. Create UI Canvas and components
                 CreateVoiceUI(voiceControlRoot, settings);
+
+                // 9. Create FAA-style command wheel
+                if (_createCommandWheel)
+                {
+                    CreateCommandWheelSpawner(voiceControlRoot);
+                }
                 
                 Undo.CollapseUndoOperations(undoGroup);
                 
@@ -595,369 +595,45 @@ namespace VoiceControl.Editor
             }
         }
 
-        private void CreateCommandControlsOnly()
+        private void CreateCommandWheelSpawner(GameObject root)
         {
-            var registry = FindObjectOfType<VoiceCommandRegistry>();
-            if (registry == null)
+            // Clean up legacy command controls if present
+            var legacyPanel = GameObject.Find("VoiceCommandControls");
+            if (legacyPanel != null)
             {
-                EditorUtility.DisplayDialog("Voice Control",
-                    "VoiceCommandRegistry not found. Run 'Setup Voice Control System' first.",
-                    "OK");
+                Undo.DestroyObjectImmediate(legacyPanel);
+            }
+
+            // Check if UI Toolkit radial menu already exists
+            var existingMenu = FindObjectOfType<UIToolkitRadialMenuAdvanced>();
+            if (existingMenu != null)
+            {
+                Debug.Log("[VoiceControlSetup] UI Toolkit Radial Menu already exists.");
                 return;
             }
 
-            VoiceControlSettings settings = CreateOrFindSettings();
-            CreateVoiceCommandControls(registry.gameObject, settings);
+            // Create UI Toolkit radial menu
+            GameObject menuObj = new GameObject("UI Toolkit Radial Menu (Advanced)");
+            menuObj.transform.SetParent(root.transform, false);
+
+            // Add UIDocument component
+            var uiDocument = menuObj.AddComponent<UnityEngine.UIElements.UIDocument>();
+
+            // Try to find PanelSettings - use existing or create reference
+            var panelSettings = AssetDatabase.LoadAssetAtPath<UnityEngine.UIElements.PanelSettings>(
+                "Assets/_Project/New Panel Settings.asset");
+            if (panelSettings != null)
+            {
+                uiDocument.panelSettings = panelSettings;
+            }
+
+            // Add the radial menu component
+            menuObj.AddComponent<UIToolkitRadialMenuAdvanced>();
+
+            Undo.RegisterCreatedObjectUndo(menuObj, "Create UI Toolkit Radial Menu");
+            Debug.Log("[VoiceControlSetup] Created UI Toolkit Radial Menu (Advanced)");
         }
 
-        private void CreateVoiceCommandControls(GameObject root, VoiceControlSettings settings)
-        {
-            // Find or create a dedicated Canvas for command controls
-            Canvas canvas = null;
-            GameObject canvasObj = GameObject.Find("VoiceCommandCanvas");
-            if (canvasObj != null)
-            {
-                canvas = canvasObj.GetComponent<Canvas>();
-            }
-            if (canvas == null)
-            {
-                canvasObj = new GameObject("VoiceCommandCanvas");
-                canvas = canvasObj.AddComponent<Canvas>();
-                canvas.renderMode = RenderMode.ScreenSpaceOverlay;
-                canvas.sortingOrder = 110;
-                canvasObj.AddComponent<UnityEngine.UI.CanvasScaler>();
-                canvasObj.AddComponent<GraphicRaycaster>();
-                Undo.RegisterCreatedObjectUndo(canvasObj, "Create Voice Command Canvas");
-            }
-            
-            var existingPanel = GameObject.Find("VoiceCommandControls");
-            if (existingPanel != null)
-            {
-                if (existingPanel.transform.IsChildOf(canvas.transform))
-                {
-                    return;
-                }
-                Undo.DestroyObjectImmediate(existingPanel);
-            }
-            
-            var registry = FindObjectOfType<VoiceCommandRegistry>();
-            if (registry == null)
-            {
-                Debug.LogWarning("[VoiceControlSetup] VoiceCommandRegistry not found. Skipping command UI.");
-                return;
-            }
-            
-            registry.DiscoverTargets();
-            var commands = registry.GetAllCommands();
-            var displayNames = registry.Targets.ToDictionary(k => k.Key, v => v.Value.DisplayName);
-            
-            if (commands == null || commands.Count == 0)
-            {
-                // Fallback to direct scene scan in case registry isn't populated in edit mode.
-                var targets = FindObjectsOfType<MonoBehaviour>().OfType<IVoiceCommandTarget>().ToList();
-                if (targets.Count == 0)
-                {
-                    Debug.LogWarning("[VoiceControlSetup] No voice commands found. Skipping command UI.");
-                    return;
-                }
-                
-                commands = new List<VoiceCommandInfo>();
-                displayNames = targets.ToDictionary(t => t.TargetId, t => t.DisplayName);
-                
-                foreach (var target in targets)
-                {
-                    foreach (var cmd in target.GetAvailableCommands())
-                    {
-                        var copy = new VoiceCommandInfo(cmd.Name, cmd.Description, cmd.Parameters);
-                        copy.TargetName = target.TargetId;
-                        commands.Add(copy);
-                    }
-                }
-            }
-            
-            GameObject panelObj = new GameObject("VoiceCommandControls");
-            panelObj.transform.SetParent(canvas.transform, false);
-            
-            RectTransform panelRect = panelObj.AddComponent<RectTransform>();
-            panelRect.anchorMin = new Vector2(0, 1);
-            panelRect.anchorMax = new Vector2(0, 1);
-            panelRect.pivot = new Vector2(0, 1);
-            panelRect.anchoredPosition = new Vector2(20, -20);
-            panelRect.sizeDelta = new Vector2(620, 520);
-            
-            Image panelBg = panelObj.AddComponent<Image>();
-            panelBg.color = new Color(0.05f, 0.07f, 0.1f, 0.95f);
-            
-            // Header
-            GameObject headerObj = new GameObject("Header");
-            headerObj.transform.SetParent(panelObj.transform, false);
-            RectTransform headerRect = headerObj.AddComponent<RectTransform>();
-            headerRect.anchorMin = new Vector2(0, 1);
-            headerRect.anchorMax = new Vector2(1, 1);
-            headerRect.pivot = new Vector2(0.5f, 1);
-            headerRect.anchoredPosition = Vector2.zero;
-            headerRect.sizeDelta = new Vector2(0, 42);
-            Image headerBg = headerObj.AddComponent<Image>();
-            headerBg.color = new Color(0.03f, 0.05f, 0.08f, 1f);
-            
-            TMP_Text headerText = CreateText(headerObj.transform, "VOICE COMMANDS", 18, FontStyles.Bold);
-            RectTransform headerTextRect = headerText.GetComponent<RectTransform>();
-            headerTextRect.anchorMin = Vector2.zero;
-            headerTextRect.anchorMax = Vector2.one;
-            headerTextRect.offsetMin = new Vector2(16, 0);
-            headerTextRect.offsetMax = new Vector2(-16, 0);
-            headerText.alignment = TextAlignmentOptions.Left;
-            headerText.color = settings != null ? settings.primaryColor : Color.cyan;
-            
-            // Scroll View
-            GameObject scrollObj = new GameObject("ScrollView");
-            scrollObj.transform.SetParent(panelObj.transform, false);
-            RectTransform scrollRect = scrollObj.AddComponent<RectTransform>();
-            scrollRect.anchorMin = new Vector2(0, 0);
-            scrollRect.anchorMax = new Vector2(1, 1);
-            scrollRect.offsetMin = new Vector2(10, 10);
-            scrollRect.offsetMax = new Vector2(-10, -52);
-            
-            ScrollRect scroll = scrollObj.AddComponent<ScrollRect>();
-            scroll.horizontal = false;
-            scroll.vertical = true;
-            scroll.movementType = ScrollRect.MovementType.Clamped;
-            
-            GameObject viewportObj = new GameObject("Viewport");
-            viewportObj.transform.SetParent(scrollObj.transform, false);
-            RectTransform viewportRect = viewportObj.AddComponent<RectTransform>();
-            viewportRect.anchorMin = Vector2.zero;
-            viewportRect.anchorMax = Vector2.one;
-            viewportRect.offsetMin = Vector2.zero;
-            viewportRect.offsetMax = Vector2.zero;
-            Image viewportImg = viewportObj.AddComponent<Image>();
-            viewportImg.color = new Color(0, 0, 0, 0.01f);
-            Mask viewportMask = viewportObj.AddComponent<Mask>();
-            viewportMask.showMaskGraphic = false;
-            
-            GameObject contentObj = new GameObject("Content");
-            contentObj.transform.SetParent(viewportObj.transform, false);
-            RectTransform contentRect = contentObj.AddComponent<RectTransform>();
-            contentRect.anchorMin = new Vector2(0, 1);
-            contentRect.anchorMax = new Vector2(1, 1);
-            contentRect.pivot = new Vector2(0.5f, 1);
-            contentRect.anchoredPosition = Vector2.zero;
-            contentRect.sizeDelta = new Vector2(0, 0);
-            
-            var layout = contentObj.AddComponent<VerticalLayoutGroup>();
-            layout.childAlignment = TextAnchor.UpperLeft;
-            layout.childControlHeight = true;
-            layout.childControlWidth = true;
-            layout.childForceExpandHeight = false;
-            layout.childForceExpandWidth = true;
-            layout.spacing = 6;
-            layout.padding = new RectOffset(8, 8, 8, 8);
-            
-            var fitter = contentObj.AddComponent<ContentSizeFitter>();
-            fitter.verticalFit = ContentSizeFitter.FitMode.PreferredSize;
-            
-            scroll.viewport = viewportRect;
-            scroll.content = contentRect;
-            
-            // Build UI entries grouped by target
-            var grouped = commands
-                .OrderBy(c => c.TargetName)
-                .ThenBy(c => c.Name)
-                .GroupBy(c => c.TargetName)
-                .ToList();
-            foreach (var group in grouped)
-            {
-                string targetId = group.Key;
-                string displayName = displayNames.ContainsKey(targetId) ? displayNames[targetId] : targetId;
-                
-                CreateSectionHeader(contentObj.transform, displayName);
-                
-                foreach (var cmd in group)
-                {
-                    CreateCommandRow(contentObj.transform, targetId, cmd, settings);
-                }
-            }
-            
-            Undo.RegisterCreatedObjectUndo(panelObj, "Create Voice Command Controls");
-        }
-
-        private TMP_Text CreateText(Transform parent, string text, int fontSize, FontStyles style = FontStyles.Normal)
-        {
-            GameObject textObj = new GameObject("Text");
-            textObj.transform.SetParent(parent, false);
-            var tmp = textObj.AddComponent<TextMeshProUGUI>();
-            tmp.text = text;
-            tmp.fontSize = fontSize;
-            tmp.fontStyle = style;
-            tmp.color = new Color(0.85f, 0.88f, 0.92f, 1f);
-            tmp.alignment = TextAlignmentOptions.Left;
-            return tmp;
-        }
-
-        private void CreateSectionHeader(Transform parent, string title)
-        {
-            GameObject headerObj = new GameObject($"Section_{title}");
-            headerObj.transform.SetParent(parent, false);
-            RectTransform rect = headerObj.AddComponent<RectTransform>();
-            rect.sizeDelta = new Vector2(0, 28);
-            var layout = headerObj.AddComponent<LayoutElement>();
-            layout.preferredHeight = 28;
-            
-            Image bg = headerObj.AddComponent<Image>();
-            bg.color = new Color(0.08f, 0.1f, 0.14f, 0.9f);
-            
-            TMP_Text text = CreateText(headerObj.transform, title.ToUpper(), 14, FontStyles.Bold);
-            RectTransform textRect = text.GetComponent<RectTransform>();
-            textRect.anchorMin = Vector2.zero;
-            textRect.anchorMax = Vector2.one;
-            textRect.offsetMin = new Vector2(8, 0);
-            textRect.offsetMax = new Vector2(-8, 0);
-        }
-
-        private void CreateCommandRow(Transform parent, string targetId, VoiceCommandInfo cmd, VoiceControlSettings settings)
-        {
-            GameObject rowObj = new GameObject($"{targetId}_{cmd.Name}");
-            rowObj.transform.SetParent(parent, false);
-            RectTransform rowRect = rowObj.AddComponent<RectTransform>();
-            rowRect.sizeDelta = new Vector2(0, 34);
-            
-            var rowLayout = rowObj.AddComponent<HorizontalLayoutGroup>();
-            rowLayout.childAlignment = TextAnchor.MiddleLeft;
-            rowLayout.spacing = 6;
-            rowLayout.childForceExpandHeight = false;
-            rowLayout.childForceExpandWidth = false;
-            
-            var rowLE = rowObj.AddComponent<LayoutElement>();
-            rowLE.preferredHeight = 34;
-            
-            TMP_Text label = CreateText(rowObj.transform, cmd.Name.Replace("_", " "), 13, FontStyles.Normal);
-            RectTransform labelRect = label.GetComponent<RectTransform>();
-            labelRect.sizeDelta = new Vector2(220, 28);
-            var labelLE = label.gameObject.AddComponent<LayoutElement>();
-            labelLE.preferredWidth = 220;
-            labelLE.preferredHeight = 28;
-            
-            var bindings = new List<VoiceCommandUIEntry.ParamBinding>();
-            if (cmd.Parameters != null)
-            {
-                foreach (var param in cmd.Parameters)
-                {
-                    TMP_InputField input = CreateInputField(rowObj.transform, param);
-                    bindings.Add(new VoiceCommandUIEntry.ParamBinding
-                    {
-                        name = param.Name,
-                        type = param.Type,
-                        required = param.Required,
-                        inputField = input
-                    });
-                }
-            }
-            
-            Button executeBtn = CreateButton(rowObj.transform, "Run", settings != null ? settings.primaryColor : new Color(0.2f, 0.7f, 1f));
-            var entry = rowObj.AddComponent<VoiceCommandUIEntry>();
-            entry.Configure(targetId, cmd.Name, label, executeBtn, bindings);
-        }
-
-        private TMP_InputField CreateInputField(Transform parent, VoiceCommandParameter param)
-        {
-            GameObject inputObj = new GameObject($"{param.Name}_Input");
-            inputObj.transform.SetParent(parent, false);
-            RectTransform rect = inputObj.AddComponent<RectTransform>();
-            rect.sizeDelta = new Vector2(130, 28);
-            
-            Image bg = inputObj.AddComponent<Image>();
-            bg.color = new Color(0.1f, 0.12f, 0.18f, 0.9f);
-            
-            TMP_InputField input = inputObj.AddComponent<TMP_InputField>();
-            input.contentType = GetContentType(param.Type);
-            input.characterValidation = TMP_InputField.CharacterValidation.None;
-            
-            TMP_Text text = CreateText(inputObj.transform, "", 12, FontStyles.Normal);
-            text.alignment = TextAlignmentOptions.MidlineLeft;
-            text.color = new Color(0.92f, 0.94f, 0.98f, 1f);
-            RectTransform textRect = text.GetComponent<RectTransform>();
-            textRect.anchorMin = Vector2.zero;
-            textRect.anchorMax = Vector2.one;
-            textRect.offsetMin = new Vector2(8, 3);
-            textRect.offsetMax = new Vector2(-8, -3);
-            
-            TMP_Text placeholder = CreateText(inputObj.transform, GetPlaceholder(param), 11, FontStyles.Italic);
-            placeholder.alignment = TextAlignmentOptions.MidlineLeft;
-            placeholder.color = new Color(0.6f, 0.65f, 0.72f, 0.9f);
-            RectTransform phRect = placeholder.GetComponent<RectTransform>();
-            phRect.anchorMin = Vector2.zero;
-            phRect.anchorMax = Vector2.one;
-            phRect.offsetMin = new Vector2(8, 3);
-            phRect.offsetMax = new Vector2(-8, -3);
-            
-            input.textComponent = text;
-            input.placeholder = placeholder;
-            
-            var le = inputObj.AddComponent<LayoutElement>();
-            le.preferredWidth = 130;
-            le.preferredHeight = 28;
-            
-            return input;
-        }
-
-        private Button CreateButton(Transform parent, string label, Color color)
-        {
-            GameObject btnObj = new GameObject("Execute");
-            btnObj.transform.SetParent(parent, false);
-            RectTransform rect = btnObj.AddComponent<RectTransform>();
-            rect.sizeDelta = new Vector2(60, 28);
-            
-            Image img = btnObj.AddComponent<Image>();
-            img.color = color;
-            
-            Button btn = btnObj.AddComponent<Button>();
-            
-            TMP_Text text = CreateText(btnObj.transform, label, 12, FontStyles.Bold);
-            text.alignment = TextAlignmentOptions.Center;
-            text.color = Color.black;
-            RectTransform textRect = text.GetComponent<RectTransform>();
-            textRect.anchorMin = Vector2.zero;
-            textRect.anchorMax = Vector2.one;
-            textRect.offsetMin = Vector2.zero;
-            textRect.offsetMax = Vector2.zero;
-            
-            var le = btnObj.AddComponent<LayoutElement>();
-            le.preferredWidth = 60;
-            le.preferredHeight = 28;
-            
-            return btn;
-        }
-
-        private TMP_InputField.ContentType GetContentType(string type)
-        {
-            if (string.IsNullOrEmpty(type)) return TMP_InputField.ContentType.Standard;
-            switch (type.ToLower())
-            {
-                case "number":
-                case "float":
-                case "double":
-                    return TMP_InputField.ContentType.DecimalNumber;
-                case "integer":
-                case "int":
-                    return TMP_InputField.ContentType.IntegerNumber;
-                case "boolean":
-                case "bool":
-                    return TMP_InputField.ContentType.Standard;
-                default:
-                    return TMP_InputField.ContentType.Standard;
-            }
-        }
-
-        private string GetPlaceholder(VoiceCommandParameter param)
-        {
-            if (param.EnumValues != null && param.EnumValues.Length > 0)
-            {
-                return $"{param.Name} ({string.Join("/", param.EnumValues)})";
-            }
-            
-            return param.Required ? $"{param.Name}*" : param.Name;
-        }
-        
         private void CreateVoiceUI(GameObject root, VoiceControlSettings settings)
         {
             // Find or create Canvas
