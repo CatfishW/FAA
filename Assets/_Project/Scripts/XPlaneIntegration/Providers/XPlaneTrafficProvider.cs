@@ -453,12 +453,37 @@ namespace FAA.XPlaneIntegration.Providers
                 return;
 
             var dataManager = trafficRadarController.GetComponentInChildren<TrafficRadarDataManager>();
-            if (dataManager != null)
+            if (dataManager == null)
             {
-                Log($"Ready to inject {_cachedAircraftStates.Count} traffic targets");
+                Debug.LogWarning("[XPlaneTrafficProvider] TrafficRadarDataManager not found");
+                return;
             }
 
-            OnTrafficDataReceived?.Invoke(_cachedAircraftStates.ToArray());
+            dataManager.aircraftMap.Clear();
+            dataManager.aircraftList.Clear();
+
+            foreach (var state in _cachedAircraftStates)
+            {
+                var aircraftData = new TrafficRadarDataManager.AircraftData
+                {
+                    icao24 = state.Icao24,
+                    callsign = state.Callsign,
+                    latitude = (float)state.Latitude,
+                    longitude = (float)state.Longitude,
+                    altitude = state.AltitudeMeters,
+                    velocity = state.VelocityMps,
+                    heading = state.Heading,
+                    verticalRate = state.VerticalRateMps,
+                    onGround = state.OnGround,
+                    lastUpdateTime = state.LastUpdate
+                };
+
+                dataManager.aircraftMap[state.Icao24.ToLower()] = aircraftData;
+                dataManager.aircraftList.Add(aircraftData);
+            }
+
+            dataManager.onDataUpdated?.Invoke(dataManager.aircraftList);
+            Log($"Injected {_cachedAircraftStates.Count} X-Plane traffic targets into TrafficRadarDataManager");
         }
 
         #endregion

@@ -511,6 +511,13 @@ namespace FAA.XPlaneIntegration.Providers
                 UpdateAircraftPosition();
             }
 
+            aircraftController.State.Pitch = _smoothedFlightData.pitch;
+            aircraftController.State.Roll = _smoothedFlightData.roll;
+            aircraftController.State.IndicatedAirspeedKnots = _smoothedFlightData.indicatedAirspeed;
+            aircraftController.State.VerticalSpeedFpm = _smoothedFlightData.verticalSpeed;
+            aircraftController.State.GroundSpeedKnots = _smoothedFlightData.groundSpeed;
+            aircraftController.State.TrueAirspeedKnots = _smoothedFlightData.trueAirspeed;
+
             if (disableUserControlWhenActive && _hasReceivedData)
             {
                 if (aircraftController.IsUserControlled)
