@@ -12,8 +12,8 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 23dd5e7cd37862c47964388305a727f3, type: 3}
   m_Name: VisionSettings
   m_EditorClassIdentifier: Assembly-CSharp::VisualUnderstanding.Core.VisionSettings
-  serverUrl: https://game.agaii.org/mllm/v1
-  modelName: Qwen/Qwen3-VL-32B-Instruct-FP8
+  serverUrl: https://game.agaii.org/llm/v1
+  modelName: Qwen/Qwen3-VL-8B-Instruct
   apiKey: empty
   timeout: 120
   temperature: 0.4
