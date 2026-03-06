@@ -179,20 +179,24 @@ namespace FAA.XPlaneIntegration.Providers
             _dataRefPaths.Clear();
             _slotDataMap.Clear();
 
-            for (int i = 0; i < maxTrafficSlots; i++)
+            for (int i = 1; i <= maxTrafficSlots; i++)
             {
-                string planeId = $"plane{i + 1}";
-                _dataRefPaths.Add($"sim/multiplayer/position/{planeId}/latitude");
-                _dataRefPaths.Add($"sim/multiplayer/position/{planeId}/longitude");
-                _dataRefPaths.Add($"sim/multiplayer/position/{planeId}/elevation");
-                _dataRefPaths.Add($"sim/multiplayer/position/{planeId}/psi");
-                _dataRefPaths.Add($"sim/multiplayer/position/{planeId}/indicated_airspeed");
-                _dataRefPaths.Add($"sim/multiplayer/position/{planeId}/gear_position");
+                _dataRefPaths.Add($"sim/multiplayer/position/plane{i}_lat");
+                _dataRefPaths.Add($"sim/multiplayer/position/plane{i}_lon");
+                _dataRefPaths.Add($"sim/multiplayer/position/plane{i}_el");
+                _dataRefPaths.Add($"sim/multiplayer/position/plane{i}_psi");
+                _dataRefPaths.Add($"sim/multiplayer/position/plane{i}_the");
+                _dataRefPaths.Add($"sim/multiplayer/position/plane{i}_phi");
+                _dataRefPaths.Add($"sim/multiplayer/position/plane{i}_v_x");
+                _dataRefPaths.Add($"sim/multiplayer/position/plane{i}_v_y");
+                _dataRefPaths.Add($"sim/multiplayer/position/plane{i}_v_z");
+                _dataRefPaths.Add($"sim/multiplayer/position/plane{i}_gear_deploy");
+                _dataRefPaths.Add($"sim/multiplayer/position/plane{i}_flap_ratio");
 
                 _slotDataMap[i] = new TrafficSlotData();
             }
 
-            Log($"Built {_dataRefPaths.Count} DataRef paths for {maxTrafficSlots} traffic slots");
+            Log($"Built {_dataRefPaths.Count} DataRef paths for {maxTrafficSlots} traffic slots (XP12 format)");
         }
 
         /// <summary>
@@ -338,7 +342,7 @@ namespace FAA.XPlaneIntegration.Providers
         /// </summary>
         private void ParseTrafficSlotData(Dictionary<string, float> data)
         {
-            int valuesPerSlot = 6;
+            int valuesPerSlot = 11;
             int maxSlots = data.Count / valuesPerSlot;
 
             for (int slotIndex = 0; slotIndex < Mathf.Min(maxSlots, maxTrafficSlots); slotIndex++)
@@ -349,8 +353,13 @@ namespace FAA.XPlaneIntegration.Providers
                 slotData.Longitude = GetSlotValue(data, slotIndex, 1);
                 slotData.AltitudeMeters = GetSlotValue(data, slotIndex, 2);
                 slotData.Heading = GetSlotValue(data, slotIndex, 3);
-                slotData.IndicatedAirspeedKnots = GetSlotValue(data, slotIndex, 4);
-                slotData.GearPosition = GetSlotValue(data, slotIndex, 5);
+                slotData.Pitch = GetSlotValue(data, slotIndex, 4);
+                slotData.Roll = GetSlotValue(data, slotIndex, 5);
+                slotData.VelocityX = GetSlotValue(data, slotIndex, 6);
+                slotData.VelocityY = GetSlotValue(data, slotIndex, 7);
+                slotData.VelocityZ = GetSlotValue(data, slotIndex, 8);
+                slotData.GearPosition = GetSlotValue(data, slotIndex, 9);
+                slotData.FlapRatio = GetSlotValue(data, slotIndex, 10);
 
                 slotData.HasValidData = Mathf.Abs(slotData.Latitude) > 0.001f &&
                                         Mathf.Abs(slotData.Longitude) > 0.001f;
@@ -359,7 +368,7 @@ namespace FAA.XPlaneIntegration.Providers
 
         private float GetSlotValue(Dictionary<string, float> data, int slotIndex, int valueIndex)
         {
-            int dataIndex = slotIndex * 6 + valueIndex;
+            int dataIndex = slotIndex * 11 + valueIndex;
             string key = $"dataref_{dataIndex}";
 
             return data.TryGetValue(key, out float value) ? value : 0f;
@@ -405,6 +414,8 @@ namespace FAA.XPlaneIntegration.Providers
                 trafficSlot.LastUpdateTime = Time.time;
                 trafficSlot.Data = slotData;
 
+                float groundSpeedMps = new Vector3(slotData.VelocityX, slotData.VelocityY, slotData.VelocityZ).magnitude;
+                
                 var aircraftState = new AircraftState
                 {
                     Icao24 = $"XPL{i:D4}",
@@ -413,8 +424,8 @@ namespace FAA.XPlaneIntegration.Providers
                     Longitude = slotData.Longitude,
                     AltitudeMeters = slotData.AltitudeMeters,
                     Heading = slotData.Heading,
-                    VelocityMps = slotData.IndicatedAirspeedKnots * 0.514444f,
-                    VerticalRateMps = 0f,
+                    VelocityMps = groundSpeedMps,
+                    VerticalRateMps = slotData.VelocityY,
                     OnGround = slotData.GearPosition > 0.5f,
                     LastUpdate = DateTime.Now
                 };
@@ -531,8 +542,13 @@ namespace FAA.XPlaneIntegration.Providers
             public float Longitude;
             public float AltitudeMeters;
             public float Heading;
-            public float IndicatedAirspeedKnots;
+            public float Pitch;
+            public float Roll;
+            public float VelocityX;
+            public float VelocityY;
+            public float VelocityZ;
             public float GearPosition;
+            public float FlapRatio;
             public bool HasValidData;
         }
 

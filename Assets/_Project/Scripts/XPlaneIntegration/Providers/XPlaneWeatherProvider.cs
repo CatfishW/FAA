@@ -3,7 +3,7 @@ using UnityEngine;
 using FAA.XPlaneIntegration;
 using AviationUI;
 
-namespace XPlaneIntegration.Providers
+namespace FAA.XPlaneIntegration.Providers
 {
     /// <summary>
     /// Weather data provider that integrates X-Plane simulation weather into Unity's HUD display.
@@ -215,12 +215,12 @@ namespace XPlaneIntegration.Providers
                 return;
             }
 
-            udpListener.SendRrefRequest("sim/weather/wind_speed_total[0]", (int)updateFrequency);
-            udpListener.SendRrefRequest("sim/weather/wind_direction_true[0]", (int)updateFrequency);
-            udpListener.SendRrefRequest("sim/weather/barometer[0]", (int)updateFrequency);
-            udpListener.SendRrefRequest("sim/weather/temperature_c[0]", (int)updateFrequency);
-            udpListener.SendRrefRequest("sim/weather/visibility_km[0]", (int)updateFrequency);
-            udpListener.SendRrefRequest("sim/weather/cloud_base[0]", (int)updateFrequency);
+            udpListener.SendRrefRequest("sim/weather/aircraft/wind_speed_kt", (int)updateFrequency);
+            udpListener.SendRrefRequest("sim/weather/aircraft/wind_direction_deg", (int)updateFrequency);
+            udpListener.SendRrefRequest("sim/weather/aircraft/barometer_sealevel_inhg", (int)updateFrequency);
+            udpListener.SendRrefRequest("sim/weather/aircraft/ambient_temperature_c", (int)updateFrequency);
+            udpListener.SendRrefRequest("sim/weather/aircraft/visibility_reported_m", (int)updateFrequency);
+            udpListener.SendRrefRequest("sim/weather/aircraft/cloud_base_msl_m", (int)updateFrequency);
 
             isSubscribed = true;
             Debug.Log("[XPlaneWeatherProvider] Subscribed to weather DataRefs");
@@ -237,12 +237,12 @@ namespace XPlaneIntegration.Providers
                 return;
             }
 
-            udpListener.SendRrefRequest("sim/weather/wind_speed_total[0]", 0);
-            udpListener.SendRrefRequest("sim/weather/wind_direction_true[0]", 0);
-            udpListener.SendRrefRequest("sim/weather/barometer[0]", 0);
-            udpListener.SendRrefRequest("sim/weather/temperature_c[0]", 0);
-            udpListener.SendRrefRequest("sim/weather/visibility_km[0]", 0);
-            udpListener.SendRrefRequest("sim/weather/cloud_base[0]", 0);
+            udpListener.SendRrefRequest("sim/weather/aircraft/wind_speed_kt", 0);
+            udpListener.SendRrefRequest("sim/weather/aircraft/wind_direction_deg", 0);
+            udpListener.SendRrefRequest("sim/weather/aircraft/barometer_sealevel_inhg", 0);
+            udpListener.SendRrefRequest("sim/weather/aircraft/ambient_temperature_c", 0);
+            udpListener.SendRrefRequest("sim/weather/aircraft/visibility_reported_m", 0);
+            udpListener.SendRrefRequest("sim/weather/aircraft/cloud_base_msl_m", 0);
 
             isSubscribed = false;
             isConnected = false;

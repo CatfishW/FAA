@@ -1,9 +1,9 @@
 using System;
 using UnityEngine;
-using XPlaneIntegration.Providers;
+using FAA.XPlaneIntegration.Providers;
 using WeatherRadar;
 
-namespace XPlaneIntegration.Bridges
+namespace FAA.XPlaneIntegration.Bridges
 {
     /// <summary>
     /// Bridge component that connects XPlaneWeatherProvider to the WeatherRadar system.

@@ -2,7 +2,7 @@ using UnityEngine;
 using System;
 using System.Collections.Generic;
 
-namespace AviationUI.XPlaneIntegration
+namespace FAA.XPlaneIntegration.Core
 {
     /// <summary>
     /// Data normalization layer that maps X-Plane DataRef names to AviationFlightData fields.
