@@ -29,9 +29,9 @@ namespace FAA.XPlaneIntegration.Providers
         [Tooltip("Enable X-Plane traffic data reading")]
         [SerializeField] private bool enableXPlaneTraffic = true;
 
-        [Tooltip("Maximum number of traffic slots to monitor (X-Plane supports up to 20)")]
-        [Range(1, 20)]
-        [SerializeField] private int maxTrafficSlots = 20;
+        [Tooltip("Maximum number of traffic slots to monitor (X-Plane supports 1-19)")]
+        [Range(1, 19)]
+        [SerializeField] private int maxTrafficSlots = 10;
 
         [Tooltip("Update interval in seconds for traffic data polling")]
         [Range(0.1f, 5f)]
@@ -181,12 +181,13 @@ namespace FAA.XPlaneIntegration.Providers
 
             for (int i = 0; i < maxTrafficSlots; i++)
             {
-                _dataRefPaths.Add($"sim/multiplayer/position/{i}/latitude");
-                _dataRefPaths.Add($"sim/multiplayer/position/{i}/longitude");
-                _dataRefPaths.Add($"sim/multiplayer/position/{i}/elevation");
-                _dataRefPaths.Add($"sim/multiplayer/position/{i}/psi");
-                _dataRefPaths.Add($"sim/multiplayer/position/{i}/indicated_airspeed");
-                _dataRefPaths.Add($"sim/multiplayer/position/{i}/gear_position");
+                string planeId = $"plane{i + 1}";
+                _dataRefPaths.Add($"sim/multiplayer/position/{planeId}/latitude");
+                _dataRefPaths.Add($"sim/multiplayer/position/{planeId}/longitude");
+                _dataRefPaths.Add($"sim/multiplayer/position/{planeId}/elevation");
+                _dataRefPaths.Add($"sim/multiplayer/position/{planeId}/psi");
+                _dataRefPaths.Add($"sim/multiplayer/position/{planeId}/indicated_airspeed");
+                _dataRefPaths.Add($"sim/multiplayer/position/{planeId}/gear_position");
 
                 _slotDataMap[i] = new TrafficSlotData();
             }
@@ -308,21 +309,19 @@ namespace FAA.XPlaneIntegration.Providers
 
         #region Data Processing
 
-        /// <summary>
-        /// Called when UDP data is received from X-Plane
-        /// </summary>
         private void OnUdpDataReceived(Dictionary<string, float> data)
         {
-            if (data == null || data.Count == 0)
+            if (data == null || data.Count == 0 || !enableXPlaneTraffic)
                 return;
+
+            ParseTrafficSlotData(data);
+            MapToAircraftStates();
+            InjectTrafficData();
         }
 
-        /// <summary>
-        /// Processes traffic data from UDP listener
-        /// </summary>
         private void ProcessTrafficData()
         {
-            if (udpListener == null)
+            if (udpListener == null || !enableXPlaneTraffic)
                 return;
 
             var data = udpListener.PollData();
@@ -358,26 +357,12 @@ namespace FAA.XPlaneIntegration.Providers
             }
         }
 
-        /// <summary>
-        /// Helper to extract slot value from data dictionary
-        /// </summary>
         private float GetSlotValue(Dictionary<string, float> data, int slotIndex, int valueIndex)
         {
             int dataIndex = slotIndex * 6 + valueIndex;
             string key = $"dataref_{dataIndex}";
 
-            if (data.TryGetValue(key, out float value))
-            {
-                return value;
-            }
-
-            key = $"sim_multiplayer_position_{slotIndex}_{valueIndex}";
-            if (data.TryGetValue(key, out value))
-            {
-                return value;
-            }
-
-            return 0f;
+            return data.TryGetValue(key, out float value) ? value : 0f;
         }
 
         /// <summary>
@@ -440,10 +425,13 @@ namespace FAA.XPlaneIntegration.Providers
             foreach (var slotKey in slotsToRemove)
             {
                 _activeTrafficSlots.Remove(slotKey);
-                Log($"Traffic removed from slot {slotKey}");
+                Log($"Traffic removed from {slotKey}");
             }
 
-            Log($"Mapped {_cachedAircraftStates.Count} active traffic slots");
+            if (verboseLogging)
+            {
+                Log($"Mapped {_cachedAircraftStates.Count} active traffic slots");
+            }
         }
 
         /// <summary>

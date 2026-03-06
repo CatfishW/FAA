@@ -204,6 +204,7 @@ namespace FAA.XPlaneIntegration.Providers
 
         private void OnDisable()
         {
+            CancelInvoke();
             UnsubscribeFromEvents();
             if (enableXPlaneInput)
             {
@@ -213,6 +214,7 @@ namespace FAA.XPlaneIntegration.Providers
 
         private void OnDestroy()
         {
+            CancelInvoke();
             Cleanup();
         }
 
@@ -520,28 +522,21 @@ namespace FAA.XPlaneIntegration.Providers
 
         private bool ShouldUpdatePosition()
         {
-            if (_lastPositionUpdateTime == 0f)
+            if (_lastPositionUpdateTime == 0f || _smoothedFlightData == null)
             {
                 return true;
             }
 
-            if (Time.time - _lastPositionUpdateTime < positionUpdateInterval)
-            {
-                return false;
-            }
-
             float altitudeChange = Mathf.Abs(_smoothedFlightData.altitudeMSL - _lastAltitude);
-            if (altitudeChange < positionChangeThreshold)
-            {
-                return false;
-            }
+            bool significantChange = altitudeChange >= positionChangeThreshold;
+            bool timeElapsed = Time.time - _lastPositionUpdateTime >= positionUpdateInterval;
 
-            return true;
+            return timeElapsed || significantChange;
         }
 
         private void UpdateAircraftPosition()
         {
-            if (_lastFlightData == null)
+            if (_lastFlightData == null || _smoothedFlightData == null || aircraftController == null)
             {
                 return;
             }

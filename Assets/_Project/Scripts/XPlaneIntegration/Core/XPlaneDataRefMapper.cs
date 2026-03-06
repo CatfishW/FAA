@@ -24,13 +24,17 @@ namespace AviationUI.XPlaneIntegration
         public const string DataRef_Longitude = "sim/flightmodel/position/longitude";
         public const string DataRef_Elevation = "sim/flightmodel/position/elevation";
 
-        public const string DataRef_WindSpeed = "sim/weather/wind_speed_total[0]";
-        public const string DataRef_WindDirection = "sim/weather/wind_direction_true[0]";
-        public const string DataRef_Pressure = "sim/weather/barometer[0]";
-        public const string DataRef_Temperature = "sim/weather/temperature_c[0]";
+        public const string DataRef_WindSpeed = "sim/weather/aircraft/wind_speed_kt";
+        public const string DataRef_WindDirection = "sim/weather/aircraft/wind_direction_degt";
+        public const string DataRef_Pressure = "sim/weather/aircraft/pressure_sealevel_inhg";
+        public const string DataRef_Temperature = "sim/weather/aircraft/temperature_ambient_deg_c";
 
         public const string DataRef_VerticalSpeed = "sim/flightmodel/position/vh_ind";
         public const string DataRef_AGL = "sim/flightmodel/position/y_agl";
+
+        public const string DataRef_GpsValid = "sim/cockpit2/gauges/indicators/gps_status";
+        public const string DataRef_AutopilotEngaged = "sim/cockpit2/autopilot/autopilot_mode";
+        public const string DataRef_IlsValid = "sim/cockpit2/radios/nav1_has_glideslope";
 
         #endregion
 
@@ -111,9 +115,6 @@ namespace AviationUI.XPlaneIntegration
 
         #region Safe Value Extraction
 
-        /// <summary>
-        /// Safely extract a float value from a dictionary, returning default if missing or invalid
-        /// </summary>
         private static float SafeGet(IDictionary<string, float> dataRefs, string key, float defaultValue = 0f)
         {
             if (dataRefs == null)
@@ -123,7 +124,7 @@ namespace AviationUI.XPlaneIntegration
 
             if (dataRefs.TryGetValue(key, out float value))
             {
-                return value;
+                return float.IsNaN(value) ? defaultValue : value;
             }
 
             return defaultValue;
@@ -165,19 +166,20 @@ namespace AviationUI.XPlaneIntegration
 
             flightData.altitudeMSL = MetersToFeet(SafeGet(dataRefs, DataRef_Elevation));
             flightData.altitudeAGL = MetersToFeet(SafeGet(dataRefs, DataRef_AGL));
-            flightData.verticalSpeed = MetersToFeet(SafeGet(dataRefs, DataRef_VerticalSpeed)) * 60f;
+            float vsFpm = MetersToFeet(SafeGet(dataRefs, DataRef_VerticalSpeed)) * 60f;
+            flightData.verticalSpeed = float.IsNaN(vsFpm) ? 0f : vsFpm;
 
-            flightData.windSpeed = MpsToKnots(SafeGet(dataRefs, DataRef_WindSpeed));
+            flightData.windSpeed = SafeGet(dataRefs, DataRef_WindSpeed);
             flightData.windDirection = NormalizeHeading(SafeGet(dataRefs, DataRef_WindDirection));
             
             float pressureHpa = SafeGet(dataRefs, DataRef_Pressure, 1013.25f);
             flightData.barometricSetting = HpaToInHg(pressureHpa);
             
-            _ = SafeGet(dataRefs, DataRef_Temperature, 15f);
+            flightData.outsideAirTemperature = SafeGet(dataRefs, DataRef_Temperature, 15f);
 
-            flightData.gpsValid = true;
-            flightData.ilsValid = false;
-            flightData.autopilotEngaged = false;
+            flightData.gpsValid = SafeGet(dataRefs, DataRef_GpsValid, 1f) > 0.5f;
+            flightData.ilsValid = SafeGet(dataRefs, DataRef_IlsValid, 0f) > 0.5f;
+            flightData.autopilotEngaged = SafeGet(dataRefs, DataRef_AutopilotEngaged, 0f) > 0.5f;
 
             return flightData;
         }
@@ -229,7 +231,10 @@ namespace AviationUI.XPlaneIntegration
                 idx++;
 
             if (idx < dataRefValues.Length)
-                flightData.verticalSpeed = MetersToFeet(dataRefValues[idx++]) * 60f;
+            {
+                float vsFpm = MetersToFeet(dataRefValues[idx++]) * 60f;
+                flightData.verticalSpeed = float.IsNaN(vsFpm) ? 0f : vsFpm;
+            }
 
             if (idx < dataRefValues.Length)
                 flightData.altitudeAGL = MetersToFeet(dataRefValues[idx++]);

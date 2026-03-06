@@ -174,10 +174,17 @@ namespace XPlaneIntegration.Providers
         {
             UnsubscribeFromDataRefs();
 
-            if (udpListener != null)
+            try
             {
-                udpListener.OnDataReceived -= OnWeatherDataReceived;
-                udpListener.OnConnectionStateChanged -= OnConnectionStateChanged;
+                if (udpListener != null)
+                {
+                    udpListener.OnDataReceived -= OnWeatherDataReceived;
+                    udpListener.OnConnectionStateChanged -= OnConnectionStateChanged;
+                }
+            }
+            catch (ObjectReferenceException)
+            {
+                // udpListener was destroyed first, ignore
             }
         }
 
@@ -266,52 +273,23 @@ namespace XPlaneIntegration.Providers
                 return;
             }
 
-            float windSpeed = 0f;
-            float windDirection = 0f;
-            float barometer = 29.92f;
-            float temperature = 15f;
-            float visibility = 10f;
-            float cloudBase = 3000f;
-
-            int dataIndex = 0;
-            foreach (var kvp in dataRefValues)
-            {
-                switch (dataIndex)
-                {
-                    case 0:
-                        windSpeed = kvp.Value;
-                        break;
-                    case 1:
-                        windDirection = kvp.Value;
-                        break;
-                    case 2:
-                        barometer = kvp.Value;
-                        break;
-                    case 3:
-                        temperature = kvp.Value;
-                        break;
-                    case 4:
-                        visibility = kvp.Value;
-                        break;
-                    case 5:
-                        cloudBase = kvp.Value;
-                        break;
-                }
-                dataIndex++;
-            }
-
-            currentWeather.WindSpeed = windSpeed;
-            currentWeather.WindDirection = windDirection;
-            currentWeather.BarometricPressure = barometer;
-            currentWeather.Temperature = temperature;
-            currentWeather.Visibility = visibility;
-            currentWeather.CloudBase = cloudBase;
+            currentWeather.WindSpeed = GetWeatherValue(dataRefValues, XPlaneDataRefMapper.DataRef_WindSpeed, 0f);
+            currentWeather.WindDirection = GetWeatherValue(dataRefValues, XPlaneDataRefMapper.DataRef_WindDirection, 0f);
+            currentWeather.BarometricPressure = GetWeatherValue(dataRefValues, XPlaneDataRefMapper.DataRef_Pressure, 29.92f);
+            currentWeather.Temperature = GetWeatherValue(dataRefValues, XPlaneDataRefMapper.DataRef_Temperature, 15f);
+            currentWeather.Visibility = GetWeatherValue(dataRefValues, "sim/weather/aircraft/visibility_reported_m", 10000f);
+            currentWeather.CloudBase = GetWeatherValue(dataRefValues, "sim/weather/aircraft/cloud_base_msl_m[0]", 3000f);
             currentWeather.LastUpdate = Time.time;
 
             ApplySmoothing();
             InjectWeatherData();
 
             lastUpdateTime = Time.time;
+        }
+
+        private static float GetWeatherValue(Dictionary<string, float> data, string key, float defaultValue)
+        {
+            return data.TryGetValue(key, out float value) ? value : defaultValue;
         }
 
         /// <summary>
@@ -336,10 +314,6 @@ namespace XPlaneIntegration.Providers
             smoothedWeather.CloudBase = cloudBaseSmoothed;
         }
 
-        /// <summary>
-        /// Inject smoothed weather data into AviationFlightDataProvider.
-        /// This updates the HUD display with current weather conditions.
-        /// </summary>
         private void InjectWeatherData()
         {
             if (flightDataProvider == null)
@@ -347,13 +321,22 @@ namespace XPlaneIntegration.Providers
                 return;
             }
 
-            flightDataProvider.FlightData.windSpeed = smoothedWeather.WindSpeed;
-            flightDataProvider.FlightData.windDirection = smoothedWeather.WindDirection;
-            flightDataProvider.FlightData.barometricSetting = smoothedWeather.BarometricPressure;
+            var flightData = flightDataProvider.FlightData;
+            if (flightData == null)
+            {
+                return;
+            }
 
-            Debug.Log($"[XPlaneWeatherProvider] Weather injected: Wind {smoothedWeather.WindDirection:F0}°@{smoothedWeather.WindSpeed:F1}kt, " +
-                      $"Baro {smoothedWeather.BarometricPressure:F2}inHg, Vis {smoothedWeather.Visibility:F1}km, " +
-                      $"Cloud Base {smoothedWeather.CloudBase:F0}m");
+            flightData.windSpeed = smoothedWeather.WindSpeed;
+            flightData.windDirection = smoothedWeather.WindDirection;
+            flightData.barometricSetting = smoothedWeather.BarometricPressure;
+
+            if (verboseLogging)
+            {
+                Debug.Log($"[XPlaneWeatherProvider] Weather injected: Wind {smoothedWeather.WindDirection:F0}°@{smoothedWeather.WindSpeed:F1}kt, " +
+                          $"Baro {smoothedWeather.BarometricPressure:F2}inHg, Vis {smoothedWeather.Visibility:F1}km, " +
+                          $"Cloud Base {smoothedWeather.CloudBase:F0}m");
+            }
         }
 
         #endregion

@@ -37,6 +37,11 @@ namespace FAA.XPlaneIntegration
 
         #region Configuration
 
+        private const int MaxQueueSize = 100;
+        private const int ReceiveTimeoutMs = 1000;
+        private const int ReconnectDelayMs = 1000;
+        private const int MaxReconnectAttempts = 5;
+
         /// <summary>
         /// X-Plane IP address. Default: 127.0.0.1 (localhost)
         /// </summary>
@@ -48,9 +53,38 @@ namespace FAA.XPlaneIntegration
         public int UdpPort { get; set; } = 49009;
 
         /// <summary>
-        /// List of DataRefs to request from X-Plane.
+        /// Maximum reconnection attempts after connection loss. Default: 5
         /// </summary>
-        public List<string> RequestedDataRefs { get; } = new List<string>();
+        public int MaxReconnectAttempts { get; set; } = MaxReconnectAttempts;
+
+        /// <summary>
+        /// Delay between reconnection attempts in milliseconds. Default: 1000
+        /// </summary>
+        public int ReconnectDelayMs { get; set; } = ReconnectDelayMs;
+
+        /// <summary>
+        /// List of DataRefs to request from X-Plane. Thread-safe.
+        /// </summary>
+        private readonly List<string> _requestedDataRefs = new List<string>();
+        public IReadOnlyList<string> RequestedDataRefs => _requestedDataRefs.AsReadOnly();
+
+        private void ValidateConfiguration()
+        {
+            if (string.IsNullOrWhiteSpace(XPlaneIp))
+            {
+                throw new ArgumentException("XPlaneIp cannot be null or empty", nameof(XPlaneIp));
+            }
+
+            if (!IPAddress.TryParse(XPlaneIp, out _))
+            {
+                throw new ArgumentException($"Invalid IP address format: {XPlaneIp}", nameof(XPlaneIp));
+            }
+
+            if (UdpPort < 1 || UdpPort > 65535)
+            {
+                throw new ArgumentOutOfRangeException(nameof(UdpPort), UdpPort, "UDP port must be between 1 and 65535");
+            }
+        }
 
         #endregion
 
@@ -68,10 +102,48 @@ namespace FAA.XPlaneIntegration
 
         private void SetState(ConnectionState newState)
         {
-            if (State != newState)
+            lock (_stateLock)
             {
-                State = newState;
-                OnConnectionStateChanged?.Invoke(newState);
+                if (State != newState)
+                {
+                    State = newState;
+                }
+            }
+        }
+
+        private void SafeInvokeError(string message)
+        {
+            try
+            {
+                OnError?.Invoke(message);
+            }
+            catch (Exception ex)
+            {
+                Debug.LogError($"[XPlaneUdpListener] Error handler threw exception: {ex.Message}");
+            }
+        }
+
+        private void SafeInvokeData(Dictionary<string, float> data)
+        {
+            try
+            {
+                OnDataReceived?.Invoke(data);
+            }
+            catch (Exception ex)
+            {
+                Debug.LogError($"[XPlaneUdpListener] Data handler threw exception: {ex.Message}");
+            }
+        }
+
+        private void SafeInvokeState(ConnectionState state)
+        {
+            try
+            {
+                OnConnectionStateChanged?.Invoke(state);
+            }
+            catch (Exception ex)
+            {
+                Debug.LogError($"[XPlaneUdpListener] State handler threw exception: {ex.Message}");
             }
         }
 
@@ -120,6 +192,9 @@ namespace FAA.XPlaneIntegration
 
         #region Public Methods
 
+        private int _connectAttempts;
+        private readonly object _stateLock = new object();
+
         /// <summary>
         /// Connects to X-Plane and starts listening for DATA packets.
         /// </summary>
@@ -131,9 +206,12 @@ namespace FAA.XPlaneIntegration
                 throw new ObjectDisposedException(nameof(XPlaneUdpListener));
             }
 
-            if (IsConnected)
+            lock (_stateLock)
             {
-                return;
+                if (IsConnected)
+                {
+                    return;
+                }
             }
 
             try
@@ -143,10 +221,14 @@ namespace FAA.XPlaneIntegration
                     XPlaneIp = ip;
                 }
 
+                ValidateConfiguration();
+
                 _udpClient = new UdpClient(UdpPort);
                 _udpClient.EnableBroadcast = true;
-                _udpClient.Client.ReceiveTimeout = 1000;
+                _udpClient.Client.ReceiveBufferSize = 524288;
+                _udpClient.Client.ReceiveTimeout = ReceiveTimeoutMs;
 
+                _connectAttempts = 0;
                 _cancellationTokenSource = new CancellationTokenSource();
                 _listenThread = new Thread(ListenLoop)
                 {
@@ -161,13 +243,13 @@ namespace FAA.XPlaneIntegration
             catch (SocketException ex)
             {
                 SetState(ConnectionState.Error);
-                OnError?.Invoke($"Failed to create UDP socket: {ex.Message}");
-                Debug.LogError($"[XPlaneUdpListener] Socket error: {ex.Message}");
+                SafeInvokeError($"Failed to create UDP socket: {ex.SocketErrorCode} - {ex.Message}");
+                Debug.LogError($"[XPlaneUdpListener] Socket error: {ex.SocketErrorCode} - {ex.Message}");
             }
             catch (Exception ex)
             {
                 SetState(ConnectionState.Error);
-                OnError?.Invoke($"Connection failed: {ex.Message}");
+                SafeInvokeError($"Connection failed: {ex.Message}");
                 Debug.LogError($"[XPlaneUdpListener] Connection error: {ex.Message}");
             }
         }
@@ -177,27 +259,37 @@ namespace FAA.XPlaneIntegration
         /// </summary>
         public void Disconnect()
         {
-            if (!IsConnected && _udpClient == null)
+            lock (_stateLock)
             {
-                return;
+                if (!IsConnected && _udpClient == null)
+                {
+                    return;
+                }
             }
 
             try
             {
-                _cancellationTokenSource?.Cancel();
+                var cts = _cancellationTokenSource;
+                if (cts != null && !cts.IsCancellationRequested)
+                {
+                    cts.Cancel();
+                }
+
                 _listenThread?.Join(2000);
 
                 _udpClient?.Close();
                 _udpClient?.Dispose();
-
                 _udpClient = null;
+
                 _listenThread = null;
-                _cancellationTokenSource?.Dispose();
-                _cancellationTokenSource = null;
+
+                var localCts = Interlocked.Exchange(ref _cancellationTokenSource, null);
+                localCts?.Dispose();
 
                 while (_dataQueue.TryDequeue(out _)) { }
 
                 SetState(ConnectionState.Disconnected);
+                _connectAttempts = 0;
                 Debug.Log("[XPlaneUdpListener] Disconnected");
             }
             catch (Exception ex)
@@ -226,13 +318,16 @@ namespace FAA.XPlaneIntegration
                 var endPoint = new IPEndPoint(IPAddress.Parse(XPlaneIp), 49009);
                 _udpClient.Send(rrefCommand, rrefCommand.Length, endPoint);
 
-                if (frequency > 0 && !RequestedDataRefs.Contains(dataRef))
+                lock (_requestedDataRefs)
                 {
-                    RequestedDataRefs.Add(dataRef);
-                }
-                else if (frequency == 0)
-                {
-                    RequestedDataRefs.Remove(dataRef);
+                    if (frequency > 0 && !_requestedDataRefs.Contains(dataRef))
+                    {
+                        _requestedDataRefs.Add(dataRef);
+                    }
+                    else if (frequency == 0)
+                    {
+                        _requestedDataRefs.Remove(dataRef);
+                    }
                 }
 
                 Debug.Log($"[XPlaneUdpListener] RREF sent: {dataRef} @ {frequency}Hz");
@@ -265,7 +360,7 @@ namespace FAA.XPlaneIntegration
         {
             while (_dataQueue.TryDequeue(out var data))
             {
-                OnDataReceived?.Invoke(data);
+                SafeInvokeData(data);
             }
         }
 
@@ -273,12 +368,11 @@ namespace FAA.XPlaneIntegration
 
         #region Private Methods
 
-        /// <summary>
-        /// Main UDP listening loop. Runs on separate thread.
-        /// </summary>
         private void ListenLoop(object tokenObj)
         {
             var token = (CancellationToken)tokenObj;
+            int consecutiveTimeouts = 0;
+            const int MaxTimeoutsBeforeReconnect = 30;
 
             try
             {
@@ -289,12 +383,17 @@ namespace FAA.XPlaneIntegration
                     try
                     {
                         byte[] data = _udpClient.Receive(ref endPoint);
+                        consecutiveTimeouts = 0;
 
                         if (data != null && data.Length > 0)
                         {
                             var parsedData = ParseDataPacket(data);
                             if (parsedData != null && parsedData.Count > 0)
                             {
+                                if (_dataQueue.Count >= MaxQueueSize)
+                                {
+                                    while (_dataQueue.TryDequeue(out _)) { }
+                                }
                                 _dataQueue.Enqueue(parsedData);
                             }
                         }
@@ -303,13 +402,44 @@ namespace FAA.XPlaneIntegration
                     {
                         if (ex.SocketErrorCode == SocketError.TimedOut)
                         {
+                            consecutiveTimeouts++;
+                            if (consecutiveTimeouts >= MaxTimeoutsBeforeReconnect)
+                            {
+                                SetState(ConnectionState.Error);
+                                SafeInvokeError($"X-Plane not responding for {consecutiveTimeouts} seconds");
+                                
+                                if (_connectAttempts < MaxReconnectAttempts)
+                                {
+                                    Thread.Sleep(ReconnectDelayMs);
+                                    AttemptReconnect(ref endPoint, ref consecutiveTimeouts);
+                                }
+                                else
+                                {
+                                    Debug.LogError($"[XPlaneUdpListener] Max reconnection attempts reached");
+                                    break;
+                                }
+                            }
                             continue;
                         }
+                        
                         if (token.IsCancellationRequested)
                         {
                             break;
                         }
-                        Debug.LogError($"[XPlaneUdpListener] Socket error during receive: {ex.Message}");
+
+                        SetState(ConnectionState.Error);
+                        SafeInvokeError($"Socket error: {ex.SocketErrorCode} - {ex.Message}");
+                        Debug.LogError($"[XPlaneUdpListener] Socket error: {ex.SocketErrorCode} - {ex.Message}");
+                        
+                        if (_connectAttempts < MaxReconnectAttempts)
+                        {
+                            Thread.Sleep(ReconnectDelayMs);
+                            AttemptReconnect(ref endPoint, ref consecutiveTimeouts);
+                        }
+                        else
+                        {
+                            break;
+                        }
                     }
                     catch (Exception ex)
                     {
@@ -317,13 +447,44 @@ namespace FAA.XPlaneIntegration
                         {
                             break;
                         }
+                        
+                        SafeInvokeError($"Listen loop error: {ex.Message}");
                         Debug.LogError($"[XPlaneUdpListener] Error in listen loop: {ex.Message}");
                     }
                 }
             }
             catch (Exception ex)
             {
+                SafeInvokeError($"Listen loop terminated: {ex.Message}");
                 Debug.LogError($"[XPlaneUdpListener] Listen loop terminated: {ex.Message}");
+            }
+        }
+
+        private void AttemptReconnect(ref IPEndPoint endPoint, ref int consecutiveTimeouts)
+        {
+            try
+            {
+                _connectAttempts++;
+                Debug.Log($"[XPlaneUdpListener] Reconnection attempt {_connectAttempts}/{MaxReconnectAttempts}");
+
+                _udpClient?.Close();
+                _udpClient?.Dispose();
+                _udpClient = null;
+
+                _udpClient = new UdpClient(UdpPort);
+                _udpClient.EnableBroadcast = true;
+                _udpClient.Client.ReceiveBufferSize = 524288;
+                _udpClient.Client.ReceiveTimeout = ReceiveTimeoutMs;
+
+                endPoint = new IPEndPoint(IPAddress.Any, UdpPort);
+                SetState(ConnectionState.Connected);
+                SafeInvokeError($"Reconnected after {_connectAttempts} attempts");
+                consecutiveTimeouts = 0;
+            }
+            catch (Exception ex)
+            {
+                SafeInvokeError($"Reconnection failed: {ex.Message}");
+                Debug.LogError($"[XPlaneUdpListener] Reconnection failed: {ex.Message}");
             }
         }
 
@@ -419,8 +580,8 @@ namespace FAA.XPlaneIntegration
             if (disposing)
             {
                 Disconnect();
-                _cancellationTokenSource?.Dispose();
-                _udpClient?.Dispose();
+                var cts = _cancellationTokenSource;
+                cts?.Dispose();
             }
 
             _disposed = true;
