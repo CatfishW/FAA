@@ -154,6 +154,33 @@ namespace AircraftControl.Core
         public bool IsOnGround;
         public bool GearDown = true;
         public bool AutopilotEngaged;
+
+        [Header("X-Plane Control Systems")]
+        [Range(0f, 1f)]
+        public float FlapsRatio;
+
+        [Range(0f, 1f)]
+        public float SpeedbrakeRatio;
+
+        [Range(0f, 1f)]
+        public float ParkingBrakeRatio;
+
+        [Range(0f, 1f)]
+        public float LeftBrakeRatio;
+
+        [Range(0f, 1f)]
+        public float RightBrakeRatio;
+
+        [Range(-1f, 1f)]
+        public float ElevatorTrim;
+
+        [Range(-1f, 1f)]
+        public float AileronTrim;
+
+        [Range(-1f, 1f)]
+        public float RudderTrim;
+
+        public int AutopilotMode;
         
         #endregion
         
@@ -195,7 +222,7 @@ namespace AircraftControl.Core
                 // Attitude
                 Pitch = Mathf.Lerp(a.Pitch, b.Pitch, t),
                 Roll = Mathf.Lerp(a.Roll, b.Roll, t),
-                Heading = Mathf.LerpAngle(a.Heading, b.Heading, t),
+                Heading = Mathf.Repeat(Mathf.LerpAngle(a.Heading, b.Heading, t), 360f),
 
                 // Velocity
                 IndicatedAirspeedKnots = Mathf.Lerp(a.IndicatedAirspeedKnots, b.IndicatedAirspeedKnots, t),
@@ -225,7 +252,17 @@ namespace AircraftControl.Core
                 // Status
                 IsOnGround = t < 0.5f ? a.IsOnGround : b.IsOnGround,
                 GearDown = t < 0.5f ? a.GearDown : b.GearDown,
-                AutopilotEngaged = t < 0.5f ? a.AutopilotEngaged : b.AutopilotEngaged
+                AutopilotEngaged = t < 0.5f ? a.AutopilotEngaged : b.AutopilotEngaged,
+
+                FlapsRatio = Mathf.Lerp(a.FlapsRatio, b.FlapsRatio, t),
+                SpeedbrakeRatio = Mathf.Lerp(a.SpeedbrakeRatio, b.SpeedbrakeRatio, t),
+                ParkingBrakeRatio = Mathf.Lerp(a.ParkingBrakeRatio, b.ParkingBrakeRatio, t),
+                LeftBrakeRatio = Mathf.Lerp(a.LeftBrakeRatio, b.LeftBrakeRatio, t),
+                RightBrakeRatio = Mathf.Lerp(a.RightBrakeRatio, b.RightBrakeRatio, t),
+                ElevatorTrim = Mathf.Lerp(a.ElevatorTrim, b.ElevatorTrim, t),
+                AileronTrim = Mathf.Lerp(a.AileronTrim, b.AileronTrim, t),
+                RudderTrim = Mathf.Lerp(a.RudderTrim, b.RudderTrim, t),
+                AutopilotMode = t < 0.5f ? a.AutopilotMode : b.AutopilotMode
             };
         }
         
@@ -274,6 +311,15 @@ namespace AircraftControl.Core
                 state.RotorDiscTiltDirection = 0f;
                 state.IsRotorSpooledUp = false;
                 state.IsInHover = true;
+                state.FlapsRatio = 0f;
+                state.SpeedbrakeRatio = 0f;
+                state.ParkingBrakeRatio = 1f;
+                state.LeftBrakeRatio = 0f;
+                state.RightBrakeRatio = 0f;
+                state.ElevatorTrim = 0f;
+                state.AileronTrim = 0f;
+                state.RudderTrim = 0f;
+                state.AutopilotMode = 0;
             }
             else
             {
@@ -284,6 +330,15 @@ namespace AircraftControl.Core
                 state.TrueAirspeedKnots = 260f;
                 state.ThrottlePercent = 50f;
                 state.GearDown = false;
+                state.FlapsRatio = 0f;
+                state.SpeedbrakeRatio = 0f;
+                state.ParkingBrakeRatio = 0f;
+                state.LeftBrakeRatio = 0f;
+                state.RightBrakeRatio = 0f;
+                state.ElevatorTrim = 0f;
+                state.AileronTrim = 0f;
+                state.RudderTrim = 0f;
+                state.AutopilotMode = 0;
             }
 
             return state;

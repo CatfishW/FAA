@@ -2,8 +2,6 @@
     "name": "AircraftControl.EditorTests",
     "rootNamespace": "AircraftControl.Tests.Editor",
     "references": [
-        "UnityEngine.TestRunner",
-        "UnityEditor.TestRunner",
         "AircraftControl"
     ],
     "includePlatforms": [
@@ -15,7 +13,10 @@
     "precompiledReferences": [
         "nunit.framework.dll"
     ],
-    "autoReferenced": false,
+    "autoReferenced": true,
+    "optionalUnityReferences": [
+        "TestAssemblies"
+    ],
     "defineConstraints": [
         "UNITY_INCLUDE_TESTS"
     ],

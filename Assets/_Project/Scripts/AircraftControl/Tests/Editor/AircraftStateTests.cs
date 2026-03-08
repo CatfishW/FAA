@@ -1,6 +1,5 @@
 using NUnit.Framework;
 using AircraftControl.Core;
-using UnityEngine;
 
 namespace AircraftControl.Tests.Editor
 {
@@ -174,6 +173,80 @@ namespace AircraftControl.Tests.Editor
             Assert.AreEqual(0f, state.CyclicLongitudinalInput, "Cyclic longitudinal should be 0 initially");
             Assert.AreEqual(0f, state.CyclicLateralInput, "Cyclic lateral should be 0 initially");
             Assert.AreEqual(0f, state.TailRotorInput, "Tail rotor input should be 0 initially");
+        }
+
+        [Test]
+        public void CreateDefault_FixedWing_InitializesXPlaneControlFields()
+        {
+            var state = AircraftState.CreateDefault(AircraftType.FixedWing);
+
+            Assert.AreEqual(0f, state.FlapsRatio, 0.0001f);
+            Assert.AreEqual(0f, state.SpeedbrakeRatio, 0.0001f);
+            Assert.AreEqual(0f, state.ParkingBrakeRatio, 0.0001f);
+            Assert.AreEqual(0f, state.LeftBrakeRatio, 0.0001f);
+            Assert.AreEqual(0f, state.RightBrakeRatio, 0.0001f);
+            Assert.AreEqual(0f, state.ElevatorTrim, 0.0001f);
+            Assert.AreEqual(0f, state.AileronTrim, 0.0001f);
+            Assert.AreEqual(0f, state.RudderTrim, 0.0001f);
+            Assert.AreEqual(0, state.AutopilotMode);
+        }
+
+        [Test]
+        public void CreateDefault_Helicopter_InitializesXPlaneControlFields()
+        {
+            var state = AircraftState.CreateDefault(AircraftType.Helicopter);
+
+            Assert.AreEqual(0f, state.FlapsRatio, 0.0001f);
+            Assert.AreEqual(0f, state.SpeedbrakeRatio, 0.0001f);
+            Assert.AreEqual(1f, state.ParkingBrakeRatio, 0.0001f);
+            Assert.AreEqual(0f, state.LeftBrakeRatio, 0.0001f);
+            Assert.AreEqual(0f, state.RightBrakeRatio, 0.0001f);
+            Assert.AreEqual(0f, state.ElevatorTrim, 0.0001f);
+            Assert.AreEqual(0f, state.AileronTrim, 0.0001f);
+            Assert.AreEqual(0f, state.RudderTrim, 0.0001f);
+            Assert.AreEqual(0, state.AutopilotMode);
+        }
+
+        [Test]
+        public void Lerp_XPlaneControlFields_InterpolatesAndSelectsCorrectly()
+        {
+            var a = new AircraftState
+            {
+                FlapsRatio = 0f,
+                SpeedbrakeRatio = 0f,
+                ParkingBrakeRatio = 0f,
+                LeftBrakeRatio = 0f,
+                RightBrakeRatio = 0f,
+                ElevatorTrim = -1f,
+                AileronTrim = -0.5f,
+                RudderTrim = -0.25f,
+                AutopilotMode = 1
+            };
+
+            var b = new AircraftState
+            {
+                FlapsRatio = 1f,
+                SpeedbrakeRatio = 1f,
+                ParkingBrakeRatio = 1f,
+                LeftBrakeRatio = 1f,
+                RightBrakeRatio = 1f,
+                ElevatorTrim = 1f,
+                AileronTrim = 0.5f,
+                RudderTrim = 0.25f,
+                AutopilotMode = 2
+            };
+
+            var result = AircraftState.Lerp(a, b, 0.5f);
+
+            Assert.AreEqual(0.5f, result.FlapsRatio, 0.0001f);
+            Assert.AreEqual(0.5f, result.SpeedbrakeRatio, 0.0001f);
+            Assert.AreEqual(0.5f, result.ParkingBrakeRatio, 0.0001f);
+            Assert.AreEqual(0.5f, result.LeftBrakeRatio, 0.0001f);
+            Assert.AreEqual(0.5f, result.RightBrakeRatio, 0.0001f);
+            Assert.AreEqual(0f, result.ElevatorTrim, 0.0001f);
+            Assert.AreEqual(0f, result.AileronTrim, 0.0001f);
+            Assert.AreEqual(0f, result.RudderTrim, 0.0001f);
+            Assert.AreEqual(2, result.AutopilotMode);
         }
     }
 }

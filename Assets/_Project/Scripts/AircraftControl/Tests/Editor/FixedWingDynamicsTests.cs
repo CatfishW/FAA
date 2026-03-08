@@ -201,6 +201,7 @@ namespace AircraftControl.Tests.Editor
         {
             _state.IndicatedAirspeedKnots = 200f;
             _state.ThrottlePercent = 50f;
+            _state.Heading = 90f;
 
             double initialLat = _state.Latitude;
             double initialLon = _state.Longitude;
@@ -215,7 +216,7 @@ namespace AircraftControl.Tests.Editor
         [Test]
         public void UpdatePhysics_VerticalSpeedFromPitch()
         {
-            _state.Pitch = 10f; // 10 degrees pitch up
+            _state.ElevatorInput = 1f;
             _state.TrueAirspeedKnots = 150f;
 
             _dynamics.UpdatePhysics(_state, 1f);

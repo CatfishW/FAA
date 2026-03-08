@@ -211,7 +211,7 @@ namespace AircraftControl.Core
 
         private void InitializeFlightDynamics()
         {
-            if (_flightDynamics != null) return;
+            if (_flightDynamics != null && _flightDynamics.AircraftType == aircraftType) return;
 
             if (aircraftType == AircraftType.Helicopter)
             {
@@ -635,21 +635,52 @@ namespace AircraftControl.Core
         public void SetThrottle(float value)
         {
             _targetThrottle = Mathf.Clamp01(value);
+            if (_state != null)
+            {
+                _state.ThrottlePercent = _targetThrottle * 100f;
+            }
         }
         
         public void SetPitch(float value)
         {
             _targetPitch = Mathf.Clamp(value, -1f, 1f);
+            _smoothedPitch = _targetPitch;
+            if (_state != null)
+            {
+                _state.ElevatorInput = _targetPitch;
+                if (aircraftType == AircraftType.Helicopter)
+                {
+                    _state.CyclicLongitudinalInput = _targetPitch;
+                }
+            }
         }
         
         public void SetRoll(float value)
         {
             _targetRoll = Mathf.Clamp(value, -1f, 1f);
+            _smoothedRoll = _targetRoll;
+            if (_state != null)
+            {
+                _state.AileronInput = _targetRoll;
+                if (aircraftType == AircraftType.Helicopter)
+                {
+                    _state.CyclicLateralInput = _targetRoll;
+                }
+            }
         }
         
         public void SetYaw(float value)
         {
             _targetYaw = Mathf.Clamp(value, -1f, 1f);
+            _smoothedYaw = _targetYaw;
+            if (_state != null)
+            {
+                _state.RudderInput = _targetYaw;
+                if (aircraftType == AircraftType.Helicopter)
+                {
+                    _state.TailRotorInput = _targetYaw;
+                }
+            }
         }
 
         #region Helicopter Control Methods
@@ -660,6 +691,11 @@ namespace AircraftControl.Core
         public void SetCollective(float value)
         {
             _targetCollective = Mathf.Clamp(value, -1f, 1f);
+            _smoothedCollective = _targetCollective;
+            if (_state != null)
+            {
+                _state.CollectiveInput = _targetCollective;
+            }
         }
 
         /// <summary>
@@ -669,6 +705,11 @@ namespace AircraftControl.Core
         public void SetCyclicLongitudinal(float value)
         {
             _targetCyclicLongitudinal = Mathf.Clamp(value, -1f, 1f);
+            _smoothedCyclicLongitudinal = _targetCyclicLongitudinal;
+            if (_state != null)
+            {
+                _state.CyclicLongitudinalInput = _targetCyclicLongitudinal;
+            }
         }
 
         /// <summary>
@@ -678,6 +719,11 @@ namespace AircraftControl.Core
         public void SetCyclicLateral(float value)
         {
             _targetCyclicLateral = Mathf.Clamp(value, -1f, 1f);
+            _smoothedCyclicLateral = _targetCyclicLateral;
+            if (_state != null)
+            {
+                _state.CyclicLateralInput = _targetCyclicLateral;
+            }
         }
 
         /// <summary>
@@ -687,6 +733,11 @@ namespace AircraftControl.Core
         public void SetTailRotor(float value)
         {
             _targetTailRotor = Mathf.Clamp(value, -1f, 1f);
+            _smoothedTailRotor = _targetTailRotor;
+            if (_state != null)
+            {
+                _state.TailRotorInput = _targetTailRotor;
+            }
         }
 
         /// <summary>

@@ -45,7 +45,7 @@ namespace AircraftControl.Core
         public bool AutoLevelRoll = true;
 
         [Tooltip("Auto-level rate in degrees per second")]
-        public float AutoLevelRate = 10f;
+        public float AutoLevelRate = 5f;
 
         [Tooltip("Pitch damping factor (0-1, higher = more damping)")]
         [Range(0f, 1f)]

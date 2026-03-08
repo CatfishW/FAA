@@ -213,6 +213,14 @@ namespace AircraftControl.Core
             // Determine if engine should be running
             _isEngineRunning = state.ThrottlePercent > 0.1f;
 
+            state.CollectiveInput = Mathf.Clamp(state.CollectiveInput, -1f, 1f);
+            state.CyclicLongitudinalInput = Mathf.Clamp(state.CyclicLongitudinalInput, -1f, 1f);
+            state.CyclicLateralInput = Mathf.Clamp(state.CyclicLateralInput, -1f, 1f);
+            state.TailRotorInput = Mathf.Clamp(state.TailRotorInput, -1f, 1f);
+            state.GroundEffectFactor = 0f;
+            state.RotorDiscTiltAngle = 0f;
+            state.RotorDiscTiltDirection = 0f;
+
             // Validate initial state
             state.IsRotorSpooledUp = _currentRotorRpm >= MinFlightRotorRpm;
             state.IsInHover = state.GroundSpeedKnots < 5f;
@@ -229,6 +237,8 @@ namespace AircraftControl.Core
             // Update rotor RPM based on throttle
             UpdateRotorRpm(state, deltaTime);
 
+            UpdateGroundEffect(state);
+
             // Only proceed with flight physics if rotors are spinning
             if (_currentRotorRpm < 50f)
             {
@@ -240,9 +250,6 @@ namespace AircraftControl.Core
                 }
                 return;
             }
-
-            // Calculate ground effect
-            UpdateGroundEffect(state);
 
             // Update cyclic/rotor disc tilt
             UpdateRotorDiscTilt(state, deltaTime);
@@ -267,8 +274,8 @@ namespace AircraftControl.Core
             state.IsInHover = state.GroundSpeedKnots < 5f && state.VerticalSpeedFpm < 100f;
 
             // Sync internal state to state object
-            state.MainRotorRpm = _currentRotorRpm;
-            state.TailRotorRpm = _currentRotorRpm * 3f; // Typical tail rotor ratio
+            state.MainRotorRpm = (_currentRotorRpm / MaxMainRotorRpm) * 100f;
+            state.TailRotorRpm = Mathf.Clamp(state.MainRotorRpm * 3f, 0f, 100f);
             state.RotorDiscTiltAngle = _currentRotorDiscTilt;
             state.RotorDiscTiltDirection = _currentRotorDiscTiltDirection;
         }
@@ -288,6 +295,7 @@ namespace AircraftControl.Core
             state.Pitch = 0f;
             state.Roll = 0f;
             state.Heading = state.Heading;
+            state.AltitudeMeters = 0f;
             state.IndicatedAirspeedKnots = 0f;
             state.GroundSpeedKnots = 0f;
             state.TrueAirspeedKnots = 0f;
@@ -321,7 +329,7 @@ namespace AircraftControl.Core
         public bool ValidateState(AircraftState state)
         {
             return state.MainRotorRpm >= 0f &&
-                   state.MainRotorRpm <= 100f &&
+                   state.MainRotorRpm <= MaxMainRotorRpm &&
                    state.CollectiveInput >= -1f &&
                    state.CollectiveInput <= 1f;
         }
@@ -424,7 +432,7 @@ namespace AircraftControl.Core
             // Helicopter attitude follows the rotor disc tilt with some lag and limits
 
             // Calculate target pitch based on longitudinal cyclic
-            float targetPitch = state.CyclicLongitudinalInput * 30f; // Max 30 degree pitch
+            float targetPitch = -state.CyclicLongitudinalInput * 30f; // Max 30 degree pitch
 
             // Calculate target roll based on lateral cyclic
             float targetRoll = -state.CyclicLateralInput * 30f; // Max 30 degree roll
@@ -713,6 +721,12 @@ namespace AircraftControl.Core
         public void SetRotorRpm(float rpm)
         {
             _currentRotorRpm = Mathf.Clamp(rpm, 0f, MaxMainRotorRpm);
+        }
+
+        public void ResetTranslationalVelocity()
+        {
+            _forwardSpeedKnots = 0f;
+            _lateralSpeedKnots = 0f;
         }
 
         #endregion
