@@ -1,8 +1,10 @@
 using System;
 using System.Collections.Generic;
+using System.Threading;
 using UnityEngine;
 using UnityEngine.Events;
 using FAA.XPlaneIntegration;
+using FAA.XPlaneIntegration.Providers;
 
 namespace FAA.XPlaneIntegration.Core
 {
@@ -455,6 +457,7 @@ namespace FAA.XPlaneIntegration.Core
             {
                 if (provider != null)
                 {
+                    provider.SetUdpListener(_udpListener);
                     provider.EnableXPlaneWeather = true;
                 }
             }
@@ -463,6 +466,7 @@ namespace FAA.XPlaneIntegration.Core
             {
                 if (provider != null)
                 {
+                    provider.SetUdpListener(_udpListener);
                     provider.EnableXPlaneTraffic = true;
                 }
             }

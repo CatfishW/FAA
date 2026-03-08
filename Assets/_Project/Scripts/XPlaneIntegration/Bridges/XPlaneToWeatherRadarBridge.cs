@@ -1,5 +1,6 @@
 using System;
 using UnityEngine;
+using AircraftControl.Core;
 using FAA.XPlaneIntegration.Providers;
 using WeatherRadar;
 
@@ -39,6 +40,10 @@ namespace FAA.XPlaneIntegration.Bridges
         [Tooltip("Reference to WeatherRadarProviderBase. Auto-finds if not assigned.")]
         [SerializeField]
         private WeatherRadarProviderBase weatherRadarProvider;
+
+        [Tooltip("Reference to AircraftController for own-ship position. Auto-finds if not assigned.")]
+        [SerializeField]
+        private AircraftController aircraftController;
 
         [Header("Position Sync Settings")]
         [Tooltip("Enable automatic position synchronization from X-Plane to weather radar")]
@@ -209,11 +214,21 @@ namespace FAA.XPlaneIntegration.Bridges
                 }
             }
 
+            if (aircraftController == null)
+            {
+                aircraftController = FindObjectOfType<AircraftController>();
+                if (aircraftController == null)
+                {
+                    LogWarning("AircraftController not found in scene. Position sync requires a valid aircraft source.");
+                }
+            }
+
             if (showDebugInfo)
             {
                 LogStatus($"Dependencies found:");
                 LogStatus($"  - XPlaneWeatherProvider: {(xPlaneWeatherProvider != null ? "✓" : "✗")}");
                 LogStatus($"  - WeatherRadarProvider: {(weatherRadarProvider != null ? "✓" : "✗")}");
+                LogStatus($"  - AircraftController: {(aircraftController != null ? "✓" : "✗")}");
             }
         }
 
@@ -231,6 +246,12 @@ namespace FAA.XPlaneIntegration.Bridges
             if (weatherRadarProvider == null)
             {
                 LogError("No WeatherRadarProvider found! Bridge cannot function without weather radar target.");
+                return false;
+            }
+
+            if (aircraftController == null)
+            {
+                LogError("No AircraftController found! Bridge cannot function without own-ship position source.");
                 return false;
             }
 
@@ -267,22 +288,16 @@ namespace FAA.XPlaneIntegration.Bridges
         {
             if (xPlaneWeatherProvider == null || weatherRadarProvider == null) return;
 
-            var flightDataProvider = GetFlightDataProvider();
-            if (flightDataProvider == null)
+            if (aircraftController == null || !aircraftController.IsValid)
             {
-                LogWarning("Cannot sync position: AviationFlightDataProvider not available");
+                LogWarning("Cannot sync position: AircraftController not available or invalid");
                 return;
             }
 
-            var flightData = flightDataProvider.FlightData;
-            if (flightData == null)
-            {
-                LogWarning("Cannot sync position: FlightData is null");
-                return;
-            }
+            var state = aircraftController.State;
 
-            float altitudeChange = Mathf.Abs(flightData.altitude - _lastAltitude);
-            float headingChange = Mathf.DeltaAngle(_lastHeading, flightData.heading);
+            float altitudeChange = Mathf.Abs(state.AltitudeFeet - _lastAltitude);
+            float headingChange = Mathf.DeltaAngle(_lastHeading, state.Heading);
 
             bool shouldUpdate = altitudeChange >= altitudeChangeThreshold ||
                                Mathf.Abs(headingChange) >= headingChangeThreshold ||
@@ -291,17 +306,17 @@ namespace FAA.XPlaneIntegration.Bridges
             if (shouldUpdate)
             {
                 weatherRadarProvider.SetAircraftPosition(
-                    flightData.altitude,
-                    (float)flightData.latitude,
-                    (float)flightData.longitude,
-                    flightData.heading
+                    state.AltitudeFeet,
+                    (float)state.Latitude,
+                    (float)state.Longitude,
+                    state.Heading
                 );
 
-                _lastAltitude = flightData.altitude;
-                _lastHeading = flightData.heading;
+                _lastAltitude = state.AltitudeFeet;
+                _lastHeading = state.Heading;
                 _lastPositionUpdateTime = Time.time;
 
-                LogDebug($"Position synced: ALT {flightData.altitude:F0}ft, LAT {flightData.latitude:F4}, LON {flightData.longitude:F4}, HDG {flightData.heading:F0}°");
+                LogDebug($"Position synced: ALT {state.AltitudeFeet:F0}ft, LAT {state.Latitude:F4}, LON {state.Longitude:F4}, HDG {state.Heading:F0}°");
 
                 if (autoRefreshOnWeatherUpdate &&
                     Time.time - _lastWeatherRefreshTime >= weatherRefreshInterval)
@@ -357,19 +372,9 @@ namespace FAA.XPlaneIntegration.Bridges
 
         #region Helper Methods
 
-        /// <summary>
-        /// Get AviationFlightDataProvider from XPlaneWeatherProvider
-        /// </summary>
-        private AviationFlightDataProvider GetFlightDataProvider()
+        public void SetAircraftController(AircraftController controller)
         {
-            if (xPlaneWeatherProvider == null) return null;
-
-            var field = typeof(XPlaneWeatherProvider).GetField(
-                "flightDataProvider",
-                System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Instance
-            );
-
-            return field?.GetValue(xPlaneWeatherProvider) as AviationFlightDataProvider;
+            aircraftController = controller;
         }
 
         /// <summary>

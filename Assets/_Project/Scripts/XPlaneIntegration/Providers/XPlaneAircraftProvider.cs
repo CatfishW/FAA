@@ -1,7 +1,8 @@
 using System;
 using UnityEngine;
 using AircraftControl.Core;
-using AviationUI.XPlaneIntegration;
+using AviationUI;
+using FAA.XPlaneIntegration.Core;
 
 namespace FAA.XPlaneIntegration.Providers
 {
@@ -146,6 +147,7 @@ namespace FAA.XPlaneIntegration.Providers
         private string _errorState = string.Empty;
         private bool _isInitialized;
         private bool _hasReceivedData;
+        private System.Collections.Generic.Dictionary<string, float> _lastRawDataRefs;
 
         // Smoothed values for gradual transitions
         private float _smoothedPitch;
@@ -231,7 +233,7 @@ namespace FAA.XPlaneIntegration.Providers
         {
             if (aircraftController == null)
             {
-                aircraftController = FindObjectOfType<AircraftController>();
+                aircraftController = FindFirstObjectByType<AircraftController>();
             }
 
             if (aircraftController == null)
@@ -355,6 +357,18 @@ namespace FAA.XPlaneIntegration.Providers
                 _udpListener.SendRrefRequest(XPlaneDataRefMapper.DataRef_VerticalSpeed, frequency);
             }
 
+            _udpListener.SendRrefRequest(XPlaneDataRefMapper.DataRef_AutopilotMode, frequency);
+            _udpListener.SendRrefRequest(XPlaneDataRefMapper.DataRef_GearHandleDown, frequency);
+            _udpListener.SendRrefRequest(XPlaneDataRefMapper.DataRef_GearDeployRatio, frequency);
+            _udpListener.SendRrefRequest(XPlaneDataRefMapper.DataRef_FlapsRatio, frequency);
+            _udpListener.SendRrefRequest(XPlaneDataRefMapper.DataRef_SpeedbrakeRatio, frequency);
+            _udpListener.SendRrefRequest(XPlaneDataRefMapper.DataRef_ParkingBrakeRatio, frequency);
+            _udpListener.SendRrefRequest(XPlaneDataRefMapper.DataRef_LeftBrakeRatio, frequency);
+            _udpListener.SendRrefRequest(XPlaneDataRefMapper.DataRef_RightBrakeRatio, frequency);
+            _udpListener.SendRrefRequest(XPlaneDataRefMapper.DataRef_ElevatorTrim, frequency);
+            _udpListener.SendRrefRequest(XPlaneDataRefMapper.DataRef_AileronTrim, frequency);
+            _udpListener.SendRrefRequest(XPlaneDataRefMapper.DataRef_RudderTrim, frequency);
+
             if (requestWind)
             {
                 _udpListener.SendRrefRequest(XPlaneDataRefMapper.DataRef_WindSpeed, frequency);
@@ -382,6 +396,7 @@ namespace FAA.XPlaneIntegration.Providers
 
             // Map X-Plane data to AviationFlightData
             _lastFlightData = XPlaneDataRefMapper.Map(dataRefs);
+            _lastRawDataRefs = new System.Collections.Generic.Dictionary<string, float>(dataRefs);
             _lastUpdateTime = Time.time;
             _hasReceivedData = true;
             _errorState = string.Empty;
@@ -513,10 +528,47 @@ namespace FAA.XPlaneIntegration.Providers
 
             aircraftController.State.Pitch = _smoothedFlightData.pitch;
             aircraftController.State.Roll = _smoothedFlightData.roll;
+            aircraftController.State.Heading = _smoothedFlightData.heading;
             aircraftController.State.IndicatedAirspeedKnots = _smoothedFlightData.indicatedAirspeed;
             aircraftController.State.VerticalSpeedFpm = _smoothedFlightData.verticalSpeed;
             aircraftController.State.GroundSpeedKnots = _smoothedFlightData.groundSpeed;
             aircraftController.State.TrueAirspeedKnots = _smoothedFlightData.trueAirspeed;
+
+            var sourceDataRefs = _lastRawDataRefs;
+            aircraftController.State.AutopilotMode = Mathf.RoundToInt(
+                XPlaneDataRefMapper.GetDataRef(sourceDataRefs, XPlaneDataRefMapper.DataRef_AutopilotMode, 0f));
+            aircraftController.State.AutopilotEngaged = aircraftController.State.AutopilotMode >= 2;
+
+            float gearDeployRatio = XPlaneDataRefMapper.GetDataRef(
+                sourceDataRefs,
+                XPlaneDataRefMapper.DataRef_GearDeployRatio,
+                -1f);
+            if (gearDeployRatio >= 0f)
+            {
+                aircraftController.State.GearDown = XPlaneDataRefMapper.ClampRatio01(gearDeployRatio) > 0.5f;
+            }
+            else
+            {
+                aircraftController.State.GearDown =
+                    XPlaneDataRefMapper.GetDataRef(sourceDataRefs, XPlaneDataRefMapper.DataRef_GearHandleDown, 1f) > 0.5f;
+            }
+
+            aircraftController.State.FlapsRatio = XPlaneDataRefMapper.ClampRatio01(
+                XPlaneDataRefMapper.GetDataRef(sourceDataRefs, XPlaneDataRefMapper.DataRef_FlapsRatio, aircraftController.State.FlapsRatio));
+            aircraftController.State.SpeedbrakeRatio = XPlaneDataRefMapper.ClampRatio01(
+                XPlaneDataRefMapper.GetDataRef(sourceDataRefs, XPlaneDataRefMapper.DataRef_SpeedbrakeRatio, aircraftController.State.SpeedbrakeRatio));
+            aircraftController.State.ParkingBrakeRatio = XPlaneDataRefMapper.ClampRatio01(
+                XPlaneDataRefMapper.GetDataRef(sourceDataRefs, XPlaneDataRefMapper.DataRef_ParkingBrakeRatio, aircraftController.State.ParkingBrakeRatio));
+            aircraftController.State.LeftBrakeRatio = XPlaneDataRefMapper.ClampRatio01(
+                XPlaneDataRefMapper.GetDataRef(sourceDataRefs, XPlaneDataRefMapper.DataRef_LeftBrakeRatio, aircraftController.State.LeftBrakeRatio));
+            aircraftController.State.RightBrakeRatio = XPlaneDataRefMapper.ClampRatio01(
+                XPlaneDataRefMapper.GetDataRef(sourceDataRefs, XPlaneDataRefMapper.DataRef_RightBrakeRatio, aircraftController.State.RightBrakeRatio));
+            aircraftController.State.ElevatorTrim = XPlaneDataRefMapper.ClampTrim(
+                XPlaneDataRefMapper.GetDataRef(sourceDataRefs, XPlaneDataRefMapper.DataRef_ElevatorTrim, aircraftController.State.ElevatorTrim));
+            aircraftController.State.AileronTrim = XPlaneDataRefMapper.ClampTrim(
+                XPlaneDataRefMapper.GetDataRef(sourceDataRefs, XPlaneDataRefMapper.DataRef_AileronTrim, aircraftController.State.AileronTrim));
+            aircraftController.State.RudderTrim = XPlaneDataRefMapper.ClampTrim(
+                XPlaneDataRefMapper.GetDataRef(sourceDataRefs, XPlaneDataRefMapper.DataRef_RudderTrim, aircraftController.State.RudderTrim));
 
             if (disableUserControlWhenActive && _hasReceivedData)
             {

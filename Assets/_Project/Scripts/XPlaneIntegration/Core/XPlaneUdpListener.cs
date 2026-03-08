@@ -39,8 +39,10 @@ namespace FAA.XPlaneIntegration
 
         private const int MaxQueueSize = 100;
         private const int ReceiveTimeoutMs = 1000;
-        private const int ReconnectDelayMs = 1000;
-        private const int MaxReconnectAttempts = 5;
+        private const int DefaultReconnectDelayMs = 1000;
+        private const int DefaultMaxReconnectAttempts = 5;
+        private const int XPlaneCommandPort = 49000;
+        private const int XPlaneDataRefFieldLength = 400;
 
         /// <summary>
         /// X-Plane IP address. Default: 127.0.0.1 (localhost)
@@ -55,18 +57,22 @@ namespace FAA.XPlaneIntegration
         /// <summary>
         /// Maximum reconnection attempts after connection loss. Default: 5
         /// </summary>
-        public int MaxReconnectAttempts { get; set; } = MaxReconnectAttempts;
+        public int MaxReconnectAttempts { get; set; } = DefaultMaxReconnectAttempts;
 
         /// <summary>
         /// Delay between reconnection attempts in milliseconds. Default: 1000
         /// </summary>
-        public int ReconnectDelayMs { get; set; } = ReconnectDelayMs;
+        public int ReconnectDelayMs { get; set; } = DefaultReconnectDelayMs;
 
         /// <summary>
         /// List of DataRefs to request from X-Plane. Thread-safe.
         /// </summary>
         private readonly List<string> _requestedDataRefs = new List<string>();
         public IReadOnlyList<string> RequestedDataRefs => _requestedDataRefs.AsReadOnly();
+
+        private readonly Dictionary<string, int> _dataRefToIndex = new Dictionary<string, int>(StringComparer.Ordinal);
+        private readonly Dictionary<int, string> _indexToDataRef = new Dictionary<int, string>();
+        private int _nextDataRefIndex;
 
         private void ValidateConfiguration()
         {
@@ -287,6 +293,13 @@ namespace FAA.XPlaneIntegration
                 localCts?.Dispose();
 
                 while (_dataQueue.TryDequeue(out _)) { }
+                lock (_requestedDataRefs)
+                {
+                    _requestedDataRefs.Clear();
+                    _dataRefToIndex.Clear();
+                    _indexToDataRef.Clear();
+                    _nextDataRefIndex = 0;
+                }
 
                 SetState(ConnectionState.Disconnected);
                 _connectAttempts = 0;
@@ -314,8 +327,14 @@ namespace FAA.XPlaneIntegration
 
             try
             {
-                byte[] rrefCommand = BuildRrefCommand(dataRef, frequency);
-                var endPoint = new IPEndPoint(IPAddress.Parse(XPlaneIp), 49009);
+                int dataRefIndex = GetOrCreateDataRefIndex(dataRef, frequency);
+                if (dataRefIndex < 0)
+                {
+                    return;
+                }
+
+                byte[] rrefCommand = BuildRrefCommand(dataRef, frequency, dataRefIndex);
+                var endPoint = new IPEndPoint(IPAddress.Parse(XPlaneIp), XPlaneCommandPort);
                 _udpClient.Send(rrefCommand, rrefCommand.Length, endPoint);
 
                 lock (_requestedDataRefs)
@@ -490,21 +509,24 @@ namespace FAA.XPlaneIntegration
 
         /// <summary>
         /// Builds an RREF command packet for X-Plane.
-        /// RREF format: "RREF&lt;dataRef&gt;\0" + frequency (4 bytes, little-endian float)
         /// </summary>
         /// <param name="dataRef">DataRef path</param>
         /// <param name="frequency">Update frequency in Hz</param>
         /// <returns>Byte array RREF command</returns>
-        private static byte[] BuildRrefCommand(string dataRef, int frequency)
+        private static byte[] BuildRrefCommand(string dataRef, int frequency, int dataRefIndex)
         {
-            var commandBuilder = new List<byte>();
+            byte[] packet = new byte[5 + 4 + 4 + XPlaneDataRefFieldLength];
+            Encoding.ASCII.GetBytes("RREF").CopyTo(packet, 0);
+            packet[4] = 0;
 
-            commandBuilder.AddRange(Encoding.ASCII.GetBytes("RREF"));
-            commandBuilder.AddRange(Encoding.ASCII.GetBytes(dataRef));
-            commandBuilder.Add(0);
-            commandBuilder.AddRange(BitConverter.GetBytes((float)frequency));
+            BitConverter.GetBytes(frequency).CopyTo(packet, 5);
+            BitConverter.GetBytes(dataRefIndex).CopyTo(packet, 9);
 
-            return commandBuilder.ToArray();
+            byte[] pathBytes = Encoding.ASCII.GetBytes(dataRef ?? string.Empty);
+            int pathLength = Math.Min(pathBytes.Length, XPlaneDataRefFieldLength - 1);
+            Array.Copy(pathBytes, 0, packet, 13, pathLength);
+
+            return packet;
         }
 
         /// <summary>
@@ -522,38 +544,97 @@ namespace FAA.XPlaneIntegration
 
             try
             {
-                if (data[0] != 'D' || data[1] != 'A' || data[2] != 'T' || data[3] != 'A')
+                if (data[0] == 'R' && data[1] == 'R' && data[2] == 'E' && data[3] == 'F')
                 {
-                    return null;
+                    return ParseRrefPacket(data);
                 }
 
-                var result = new Dictionary<string, float>();
-                int offset = 0;
-
-                while (offset + 28 <= data.Length)
+                if (data[0] == 'D' && data[1] == 'A' && data[2] == 'T' && data[3] == 'A')
                 {
-                    string header = Encoding.ASCII.GetString(data, offset, 4);
-                    if (header != "DATA")
-                    {
-                        break;
-                    }
-                    offset += 4;
-
-                    int dataRefIndex = BitConverter.ToInt32(data, offset);
-                    offset += 4;
-
-                    float value = BitConverter.ToSingle(data, offset);
-                    offset += 20;
-
-                    result[$"dataref_{dataRefIndex}"] = value;
+                    return ParseDataPacketLegacy(data);
                 }
 
-                return result.Count > 0 ? result : null;
+                return null;
             }
             catch (Exception ex)
             {
                 Debug.LogError($"[XPlaneUdpListener] Parse error: {ex.Message}");
                 return null;
+            }
+        }
+
+        private Dictionary<string, float> ParseRrefPacket(byte[] data)
+        {
+            var result = new Dictionary<string, float>(StringComparer.Ordinal);
+
+            for (int offset = 5; offset + 8 <= data.Length; offset += 8)
+            {
+                int dataRefIndex = BitConverter.ToInt32(data, offset);
+                float value = BitConverter.ToSingle(data, offset + 4);
+
+                if (TryGetDataRefByIndex(dataRefIndex, out string dataRefPath))
+                {
+                    result[dataRefPath] = value;
+                }
+                else
+                {
+                    result[$"dataref_{dataRefIndex}"] = value;
+                }
+            }
+
+            return result.Count > 0 ? result : null;
+        }
+
+        private Dictionary<string, float> ParseDataPacketLegacy(byte[] data)
+        {
+            var result = new Dictionary<string, float>(StringComparer.Ordinal);
+            int offset = 5;
+
+            while (offset + 36 <= data.Length)
+            {
+                int dataSetIndex = BitConverter.ToInt32(data, offset);
+                offset += 4;
+
+                float firstValue = BitConverter.ToSingle(data, offset);
+                offset += 32;
+
+                result[$"dataref_{dataSetIndex}"] = firstValue;
+            }
+
+            return result.Count > 0 ? result : null;
+        }
+
+        private int GetOrCreateDataRefIndex(string dataRef, int frequency)
+        {
+            lock (_requestedDataRefs)
+            {
+                if (_dataRefToIndex.TryGetValue(dataRef, out int existingIndex))
+                {
+                    if (frequency == 0)
+                    {
+                        _dataRefToIndex.Remove(dataRef);
+                        _indexToDataRef.Remove(existingIndex);
+                    }
+                    return existingIndex;
+                }
+
+                if (frequency == 0)
+                {
+                    return -1;
+                }
+
+                int newIndex = _nextDataRefIndex++;
+                _dataRefToIndex[dataRef] = newIndex;
+                _indexToDataRef[newIndex] = dataRef;
+                return newIndex;
+            }
+        }
+
+        private bool TryGetDataRefByIndex(int index, out string dataRefPath)
+        {
+            lock (_requestedDataRefs)
+            {
+                return _indexToDataRef.TryGetValue(index, out dataRefPath);
             }
         }
 

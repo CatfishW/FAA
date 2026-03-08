@@ -1,6 +1,8 @@
 using System;
+using System.Collections.Generic;
 using UnityEngine;
 using FAA.XPlaneIntegration;
+using FAA.XPlaneIntegration.Core;
 using AviationUI;
 
 namespace FAA.XPlaneIntegration.Providers
@@ -68,6 +70,11 @@ namespace FAA.XPlaneIntegration.Providers
         [SerializeField]
         private float lastUpdateTime;
 
+        [Header("Debug")]
+        [Tooltip("Enable verbose logging for debugging")]
+        [SerializeField]
+        private bool verboseLogging = false;
+
         #endregion
 
         #region Public Properties
@@ -132,11 +139,7 @@ namespace FAA.XPlaneIntegration.Providers
         {
             if (udpListener == null)
             {
-                udpListener = FindObjectOfType<XPlaneUdpListener>();
-                if (udpListener == null)
-                {
-                    Debug.LogWarning("[XPlaneWeatherProvider] XPlaneUdpListener not found in scene. Create one or assign manually.");
-                }
+                Debug.LogWarning("[XPlaneWeatherProvider] XPlaneUdpListener is a pure C# service. Assign via manager/wrapper at runtime.");
             }
 
             if (flightDataProvider == null)
@@ -182,7 +185,7 @@ namespace FAA.XPlaneIntegration.Providers
                     udpListener.OnConnectionStateChanged -= OnConnectionStateChanged;
                 }
             }
-            catch (ObjectReferenceException)
+            catch (MissingReferenceException)
             {
                 // udpListener was destroyed first, ignore
             }
@@ -278,7 +281,7 @@ namespace FAA.XPlaneIntegration.Providers
             currentWeather.BarometricPressure = GetWeatherValue(dataRefValues, XPlaneDataRefMapper.DataRef_Pressure, 29.92f);
             currentWeather.Temperature = GetWeatherValue(dataRefValues, XPlaneDataRefMapper.DataRef_Temperature, 15f);
             currentWeather.Visibility = GetWeatherValue(dataRefValues, "sim/weather/aircraft/visibility_reported_m", 10000f);
-            currentWeather.CloudBase = GetWeatherValue(dataRefValues, "sim/weather/aircraft/cloud_base_msl_m[0]", 3000f);
+            currentWeather.CloudBase = GetWeatherValue(dataRefValues, "sim/weather/aircraft/cloud_base_msl_m", 3000f);
             currentWeather.LastUpdate = Time.time;
 
             ApplySmoothing();

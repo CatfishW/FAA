@@ -1,6 +1,6 @@
 using UnityEngine;
-using System;
 using System.Collections.Generic;
+using AviationUI;
 
 namespace FAA.XPlaneIntegration.Core
 {
@@ -25,16 +25,28 @@ namespace FAA.XPlaneIntegration.Core
         public const string DataRef_Elevation = "sim/flightmodel/position/elevation";
 
         public const string DataRef_WindSpeed = "sim/weather/aircraft/wind_speed_kt";
-        public const string DataRef_WindDirection = "sim/weather/aircraft/wind_direction_degt";
-        public const string DataRef_Pressure = "sim/weather/aircraft/pressure_sealevel_inhg";
-        public const string DataRef_Temperature = "sim/weather/aircraft/temperature_ambient_deg_c";
+        public const string DataRef_WindDirection = "sim/weather/aircraft/wind_direction_deg";
+        public const string DataRef_Pressure = "sim/weather/aircraft/barometer_sealevel_inhg";
+        public const string DataRef_Temperature = "sim/weather/aircraft/ambient_temperature_c";
 
         public const string DataRef_VerticalSpeed = "sim/flightmodel/position/vh_ind";
         public const string DataRef_AGL = "sim/flightmodel/position/y_agl";
 
         public const string DataRef_GpsValid = "sim/cockpit2/gauges/indicators/gps_status";
-        public const string DataRef_AutopilotEngaged = "sim/cockpit2/autopilot/autopilot_mode";
+        public const string DataRef_AutopilotMode = "sim/cockpit2/autopilot/autopilot_mode";
+        public const string DataRef_AutopilotEngaged = DataRef_AutopilotMode;
         public const string DataRef_IlsValid = "sim/cockpit2/radios/nav1_has_glideslope";
+
+        public const string DataRef_FlapsRatio = "sim/cockpit2/controls/flap_ratio";
+        public const string DataRef_SpeedbrakeRatio = "sim/cockpit2/controls/speedbrake_ratio";
+        public const string DataRef_ParkingBrakeRatio = "sim/cockpit2/controls/parking_brake_ratio";
+        public const string DataRef_LeftBrakeRatio = "sim/cockpit2/controls/left_brake_ratio";
+        public const string DataRef_RightBrakeRatio = "sim/cockpit2/controls/right_brake_ratio";
+        public const string DataRef_ElevatorTrim = "sim/cockpit2/controls/elevator_trim";
+        public const string DataRef_AileronTrim = "sim/cockpit2/controls/aileron_trim";
+        public const string DataRef_RudderTrim = "sim/cockpit2/controls/rudder_trim";
+        public const string DataRef_GearHandleDown = "sim/cockpit/switches/gear_handle_status";
+        public const string DataRef_GearDeployRatio = "sim/flightmodel2/gear/deploy_ratio[0]";
 
         #endregion
 
@@ -130,6 +142,21 @@ namespace FAA.XPlaneIntegration.Core
             return defaultValue;
         }
 
+        public static float GetDataRef(IDictionary<string, float> dataRefs, string key, float defaultValue = 0f)
+        {
+            return SafeGet(dataRefs, key, defaultValue);
+        }
+
+        public static float ClampRatio01(float value)
+        {
+            return Mathf.Clamp01(float.IsNaN(value) ? 0f : value);
+        }
+
+        public static float ClampTrim(float value)
+        {
+            return Mathf.Clamp(float.IsNaN(value) ? 0f : value, -1f, 1f);
+        }
+
         /// <summary>
         /// Safely extract a float value from an array index, returning default if out of bounds
         /// </summary>
@@ -175,11 +202,9 @@ namespace FAA.XPlaneIntegration.Core
             float pressureHpa = SafeGet(dataRefs, DataRef_Pressure, 1013.25f);
             flightData.barometricSetting = HpaToInHg(pressureHpa);
             
-            flightData.outsideAirTemperature = SafeGet(dataRefs, DataRef_Temperature, 15f);
-
             flightData.gpsValid = SafeGet(dataRefs, DataRef_GpsValid, 1f) > 0.5f;
             flightData.ilsValid = SafeGet(dataRefs, DataRef_IlsValid, 0f) > 0.5f;
-            flightData.autopilotEngaged = SafeGet(dataRefs, DataRef_AutopilotEngaged, 0f) > 0.5f;
+            flightData.autopilotEngaged = SafeGet(dataRefs, DataRef_AutopilotMode, 0f) >= 2f;
 
             return flightData;
         }

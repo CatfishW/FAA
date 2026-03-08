@@ -1,8 +1,10 @@
 using System;
 using UnityEngine;
 using TrafficRadar.Core;
+using TrafficRadar;
 using AircraftControl.Core;
 using FAA.XPlaneIntegration.Providers;
+using XPlaneTrafficState = TrafficRadar.Core.AircraftState;
 
 namespace FAA.XPlaneIntegration.Bridges
 {
@@ -99,7 +101,7 @@ namespace FAA.XPlaneIntegration.Bridges
         /// <summary>
         /// Cached AircraftState array for current frame
         /// </summary>
-        private AircraftState[] _cachedXPlaneTraffic;
+        private XPlaneTrafficState[] _cachedXPlaneTraffic;
 
         /// <summary>
         /// Internal reference to position provider interface
@@ -413,7 +415,7 @@ namespace FAA.XPlaneIntegration.Bridges
         /// <summary>
         /// Handles X-Plane traffic data received event
         /// </summary>
-        private void OnXPlaneTrafficReceived(AircraftState[] trafficData)
+        private void OnXPlaneTrafficReceived(XPlaneTrafficState[] trafficData)
         {
             if (trafficData == null || trafficData.Length == 0)
             {
@@ -436,7 +438,7 @@ namespace FAA.XPlaneIntegration.Bridges
         /// <summary>
         /// Injects X-Plane traffic data into TrafficRadarDataManager
         /// </summary>
-        private void InjectTrafficIntoRadar(AircraftState[] trafficData)
+        private void InjectTrafficIntoRadar(XPlaneTrafficState[] trafficData)
         {
             if (dataManager == null)
             {
@@ -608,9 +610,9 @@ namespace FAA.XPlaneIntegration.Bridges
         [ContextMenu("Debug: Inject Test Traffic")]
         private void DebugInjectTestTraffic()
         {
-            var testTraffic = new AircraftState[]
+            var testTraffic = new XPlaneTrafficState[]
             {
-                new AircraftState
+                new XPlaneTrafficState
                 {
                     Icao24 = "TEST01",
                     Callsign = "TEST1",

@@ -1,6 +1,7 @@
 using System;
 using System.Collections.Generic;
 using UnityEngine;
+using TrafficRadar;
 using TrafficRadar.Core;
 using FAA.XPlaneIntegration;
 
@@ -164,7 +165,8 @@ namespace FAA.XPlaneIntegration.Providers
                 return;
 
             _lastUpdateTime = Time.time;
-            ProcessTrafficData();
+
+            CleanupStaleTrafficSlots();
         }
 
         #endregion
@@ -290,7 +292,7 @@ namespace FAA.XPlaneIntegration.Providers
                 udpListener.SendRrefRequest(dataRef, (int)frequency);
             }
 
-            Log($"Subscribed to {dataRefPaths.Count} DataRefs @ {frequency}Hz");
+            Log($"Subscribed to {_dataRefPaths.Count} DataRefs @ {frequency}Hz");
         }
 
         /// <summary>
@@ -321,57 +323,71 @@ namespace FAA.XPlaneIntegration.Providers
             ParseTrafficSlotData(data);
             MapToAircraftStates();
             InjectTrafficData();
-        }
 
-        private void ProcessTrafficData()
-        {
-            if (udpListener == null || !enableXPlaneTraffic)
-                return;
-
-            var data = udpListener.PollData();
-            if (data == null || data.Count == 0)
-                return;
-
-            ParseTrafficSlotData(data);
-            MapToAircraftStates();
-            InjectTrafficData();
-        }
-
-        /// <summary>
-        /// Parses raw DataRef data into traffic slot structures
-        /// </summary>
-        private void ParseTrafficSlotData(Dictionary<string, float> data)
-        {
-            int valuesPerSlot = 11;
-            int maxSlots = data.Count / valuesPerSlot;
-
-            for (int slotIndex = 0; slotIndex < Mathf.Min(maxSlots, maxTrafficSlots); slotIndex++)
+            if (_cachedAircraftStates.Count > 0)
             {
-                var slotData = _slotDataMap[slotIndex];
-
-                slotData.Latitude = GetSlotValue(data, slotIndex, 0);
-                slotData.Longitude = GetSlotValue(data, slotIndex, 1);
-                slotData.AltitudeMeters = GetSlotValue(data, slotIndex, 2);
-                slotData.Heading = GetSlotValue(data, slotIndex, 3);
-                slotData.Pitch = GetSlotValue(data, slotIndex, 4);
-                slotData.Roll = GetSlotValue(data, slotIndex, 5);
-                slotData.VelocityX = GetSlotValue(data, slotIndex, 6);
-                slotData.VelocityY = GetSlotValue(data, slotIndex, 7);
-                slotData.VelocityZ = GetSlotValue(data, slotIndex, 8);
-                slotData.GearPosition = GetSlotValue(data, slotIndex, 9);
-                slotData.FlapRatio = GetSlotValue(data, slotIndex, 10);
-
-                slotData.HasValidData = Mathf.Abs(slotData.Latitude) > 0.001f &&
-                                        Mathf.Abs(slotData.Longitude) > 0.001f;
+                OnTrafficDataReceived?.Invoke(_cachedAircraftStates.ToArray());
             }
         }
 
-        private float GetSlotValue(Dictionary<string, float> data, int slotIndex, int valueIndex)
+        private void CleanupStaleTrafficSlots()
         {
-            int dataIndex = slotIndex * 11 + valueIndex;
-            string key = $"dataref_{dataIndex}";
+            if (_activeTrafficSlots.Count == 0)
+            {
+                return;
+            }
 
-            return data.TryGetValue(key, out float value) ? value : 0f;
+            const float staleTimeoutSeconds = 10f;
+            var slotsToRemove = new List<string>();
+
+            foreach (var kvp in _activeTrafficSlots)
+            {
+                if (Time.time - kvp.Value.LastUpdateTime > staleTimeoutSeconds)
+                {
+                    slotsToRemove.Add(kvp.Key);
+                }
+            }
+
+            foreach (var slotKey in slotsToRemove)
+            {
+                _activeTrafficSlots.Remove(slotKey);
+            }
+        }
+
+        /// <summary>
+         /// Parses raw DataRef data into traffic slot structures
+         /// </summary>
+        private void ParseTrafficSlotData(Dictionary<string, float> data)
+        {
+            for (int slotNumber = 1; slotNumber <= maxTrafficSlots; slotNumber++)
+            {
+                if (!_slotDataMap.TryGetValue(slotNumber, out var slotData))
+                {
+                    continue;
+                }
+
+                slotData.Latitude = GetDataRefValue(data, $"sim/multiplayer/position/plane{slotNumber}_lat");
+                slotData.Longitude = GetDataRefValue(data, $"sim/multiplayer/position/plane{slotNumber}_lon");
+                slotData.AltitudeMeters = GetDataRefValue(data, $"sim/multiplayer/position/plane{slotNumber}_el");
+                slotData.Heading = GetDataRefValue(data, $"sim/multiplayer/position/plane{slotNumber}_psi");
+                slotData.Pitch = GetDataRefValue(data, $"sim/multiplayer/position/plane{slotNumber}_the");
+                slotData.Roll = GetDataRefValue(data, $"sim/multiplayer/position/plane{slotNumber}_phi");
+                slotData.VelocityX = GetDataRefValue(data, $"sim/multiplayer/position/plane{slotNumber}_v_x");
+                slotData.VelocityY = GetDataRefValue(data, $"sim/multiplayer/position/plane{slotNumber}_v_y");
+                slotData.VelocityZ = GetDataRefValue(data, $"sim/multiplayer/position/plane{slotNumber}_v_z");
+                slotData.GearPosition = GetDataRefValue(data, $"sim/multiplayer/position/plane{slotNumber}_gear_deploy");
+                slotData.FlapRatio = GetDataRefValue(data, $"sim/multiplayer/position/plane{slotNumber}_flap_ratio");
+
+                slotData.HasValidData = Mathf.Abs(slotData.Latitude) > 0.001f &&
+                                        Mathf.Abs(slotData.Longitude) > 0.001f;
+
+                _slotDataMap[slotNumber] = slotData;
+            }
+        }
+
+        private static float GetDataRefValue(Dictionary<string, float> data, string dataRefPath)
+        {
+            return data.TryGetValue(dataRefPath, out float value) ? value : 0f;
         }
 
         /// <summary>
@@ -382,16 +398,19 @@ namespace FAA.XPlaneIntegration.Providers
             _cachedAircraftStates.Clear();
             var slotsToRemove = new List<string>();
 
-            for (int i = 0; i < maxTrafficSlots; i++)
+            for (int i = 1; i <= maxTrafficSlots; i++)
             {
-                var slotData = _slotDataMap[i];
+                if (!_slotDataMap.TryGetValue(i, out var slotData))
+                {
+                    continue;
+                }
 
                 if (!slotData.HasValidData)
                 {
-                    string slotKey = $"slot_{i}";
-                    if (_activeTrafficSlots.ContainsKey(slotKey))
+                    string invalidSlotKey = $"slot_{i}";
+                    if (_activeTrafficSlots.ContainsKey(invalidSlotKey))
                     {
-                        slotsToRemove.Add(slotKey);
+                        slotsToRemove.Add(invalidSlotKey);
                     }
                     continue;
                 }
@@ -475,6 +494,17 @@ namespace FAA.XPlaneIntegration.Providers
 
             foreach (var state in _cachedAircraftStates)
             {
+                float distanceKm = CalculateDistanceKm(
+                    dataManager.referenceLatitude,
+                    dataManager.referenceLongitude,
+                    (float)state.Latitude,
+                    (float)state.Longitude);
+
+                if (distanceKm > dataManager.radiusFilterKm)
+                {
+                    continue;
+                }
+
                 var aircraftData = new TrafficRadarDataManager.AircraftData
                 {
                     icao24 = state.Icao24,
@@ -527,6 +557,47 @@ namespace FAA.XPlaneIntegration.Providers
         /// Fired when new traffic data is received and mapped
         /// </summary>
         public event Action<AircraftState[]> OnTrafficDataReceived;
+
+        private static float CalculateDistanceKm(float lat1, float lon1, float lat2, float lon2)
+        {
+            const float earthRadiusKm = 6371f;
+
+            float dLat = (lat2 - lat1) * Mathf.Deg2Rad;
+            float dLon = (lon2 - lon1) * Mathf.Deg2Rad;
+
+            float a = Mathf.Sin(dLat / 2f) * Mathf.Sin(dLat / 2f) +
+                      Mathf.Cos(lat1 * Mathf.Deg2Rad) * Mathf.Cos(lat2 * Mathf.Deg2Rad) *
+                      Mathf.Sin(dLon / 2f) * Mathf.Sin(dLon / 2f);
+
+            float c = 2f * Mathf.Atan2(Mathf.Sqrt(a), Mathf.Sqrt(1f - a));
+            return earthRadiusKm * c;
+        }
+
+        public void SetUdpListener(XPlaneUdpListener listener)
+        {
+            if (udpListener != null)
+            {
+                udpListener.OnDataReceived -= OnUdpDataReceived;
+            }
+
+            if (_internalUdpListener != null && _internalUdpListener != listener)
+            {
+                _internalUdpListener.Dispose();
+                _internalUdpListener = null;
+            }
+
+            udpListener = listener;
+
+            if (udpListener != null)
+            {
+                udpListener.OnDataReceived += OnUdpDataReceived;
+
+                if (enableXPlaneTraffic && IsMonitoring)
+                {
+                    SubscribeToTrafficDataRefs();
+                }
+            }
+        }
 
         #endregion
 
@@ -596,7 +667,9 @@ namespace FAA.XPlaneIntegration.Providers
         [ContextMenu("Debug: Force Refresh")]
         private void DebugForceRefresh()
         {
-            ProcessTrafficData();
+            udpListener?.ProcessQueuedData();
+            CleanupStaleTrafficSlots();
+            Log("Manual refresh requested");
         }
 #endif
 

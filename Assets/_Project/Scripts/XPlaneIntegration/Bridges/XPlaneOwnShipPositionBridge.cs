@@ -4,6 +4,7 @@ using AircraftControl.Core;
 using TrafficRadar;
 using TrafficRadar.Core;
 using WeatherRadar;
+using AircraftState = AircraftControl.Core.AircraftState;
 
 namespace FAA.XPlaneIntegration.Bridges
 {
