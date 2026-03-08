@@ -1,0 +1,875 @@
+Unity Editor version:    6000.3.6f1 (bbb010bdb8a3)
+Branch:                  6000.3/respin/6000.3.6f1-732c1ec89f18
+Build type:              Release
+Batch mode:              YES
+macOS version:           Version 26.2 (Build 25C56)
+Darwin version:          25.2.0
+Architecture:            arm64
+Running under Rosetta:   NO
+Available memory:        16384 MB
+Date:                    2026-03-07T06:20:51Z
+[Licensing::Module] Trying to connect to existing licensing client channel...
+[Licensing::IpcConnector] Successfully connected to: "LicenseClient-zladwu" at "2026-03-07T06:20:51.002776Z"
+Launching external process: /Applications/Unity/Hub/Editor/6000.3.6f1-arm64/Unity.app/Contents/Resources/PackageManager/Server/UnityPackageManager
+
+COMMAND LINE ARGUMENTS:
+/Applications/Unity/Hub/Editor/6000.3.6f1-arm64/Unity.app/Contents/MacOS/Unity
+-batchmode
+-nographics
+-runTests
+-quit
+-projectPath
+/Users/zladwu/Development/Projects/FAA
+-testPlatform
+EditMode
+-testResults
+/Users/zladwu/Development/Projects/FAA/ulw_test_results/editmode-results.xml
+-logFile
+/Users/zladwu/Development/Projects/FAA/ulw_test_results/editmode.log
+Successfully changed project path to: /Users/zladwu/Development/Projects/FAA
+/Users/zladwu/Development/Projects/FAA
+[UnityMemory] Configuration Parameters - Can be set up in boot.config
+    "memorysetup-allocator-temp-initial-block-size-main=262144"
+    "memorysetup-allocator-temp-initial-block-size-worker=262144"
+    "memorysetup-temp-allocator-size-background-worker=32768"
+    "memorysetup-temp-allocator-size-job-worker=262144"
+    "memorysetup-temp-allocator-size-preload-manager=33554432"
+    "memorysetup-temp-allocator-size-nav-mesh-worker=65536"
+    "memorysetup-temp-allocator-size-audio-worker=65536"
+    "memorysetup-temp-allocator-size-cloud-worker=32768"
+    "memorysetup-bucket-allocator-granularity=16"
+    "memorysetup-bucket-allocator-bucket-count=8"
+    "memorysetup-bucket-allocator-block-size=33554432"
+    "memorysetup-bucket-allocator-block-count=8"
+    "memorysetup-main-allocator-block-size=16777216"
+    "memorysetup-thread-allocator-block-size=16777216"
+    "memorysetup-gfx-main-allocator-block-size=16777216"
+    "memorysetup-gfx-thread-allocator-block-size=16777216"
+    "memorysetup-cache-allocator-block-size=4194304"
+    "memorysetup-typetree-allocator-block-size=2097152"
+    "memorysetup-profiler-bucket-allocator-granularity=16"
+    "memorysetup-profiler-bucket-allocator-bucket-count=8"
+    "memorysetup-profiler-bucket-allocator-block-size=33554432"
+    "memorysetup-profiler-bucket-allocator-block-count=8"
+    "memorysetup-profiler-allocator-block-size=16777216"
+    "memorysetup-profiler-editor-allocator-block-size=1048576"
+    "memorysetup-temp-allocator-size-main=16777216"
+    "memorysetup-job-temp-allocator-block-size=2097152"
+    "memorysetup-job-temp-allocator-block-size-background=1048576"
+    "memorysetup-job-temp-allocator-reduction-small-platforms=262144"
+    "memorysetup-temp-allocator-size-gi-baking-worker=262144"
+    "memorysetup-temp-allocator-size-gi-baking-worker=262144"
+    "memorysetup-temp-allocator-size-gi-baking-worker=262144"
+    "memorysetup-temp-allocator-size-gi-baking-worker=262144"
+    "memorysetup-temp-allocator-size-gi-baking-worker=262144"
+    "memorysetup-temp-allocator-size-gfx=262144"
+Player connection [8799005760]  Target information:
+
+Player connection [8799005760]  * "[IP] 192.168.1.186 [Port] 55504 [Flags] 2 [Guid] 3734954835 [EditorId] 3734954835 [Version] 1048832 [Id] OSXEditor(0,Zlads-Mac-mini.local) [Debug] 1 [PackageName] OSXEditor [ProjectName] Editor" 
+
+Player connection [8799005760] Host joined multi-casting on [225.0.0.222:54997]...
+Player connection [8799005760] Host joined alternative multi-casting on [225.0.0.222:34997]...
+Input System module state changed to: Initialized.
+[Physics::Module] Initialized fallback backend.
+[Physics::Module] Id: 0xdecafbad
+[Licensing::Client] Handshaking with LicensingClient:
+  Version:                 1.17.4+4293ba1
+  Session Id:              176c7297e96d43219ab2549c4f5caefe
+  Correlation Id:          26f8f06f50329e549a0359967e74991a
+  External correlation Id: 1423986639924595825
+  Machine Id:              kwQoJEPuOXcuHDYbJkV/s7dSuTA=
+[Licensing::Module] Successfully connected to LicensingClient on channel: "LicenseClient-zladwu" (connect: 0.00s, validation: 0.00s, handshake: 0.31s)
+[Licensing::IpcConnector] Successfully connected to: "LicenseClient-zladwu-notifications" at "2026-03-07T06:20:51.312347Z"
+[Licensing::Module] Error: Access token is unavailable; failed to update
+[Licensing::Client] Successfully resolved entitlement details
+[Licensing::Module] License group:
+  Id: 2475584806702-UnityPersXXXX
+  Product: Unity Personal
+  Type: Assigned
+  Expiration: Unlimited
+[Licensing::Client] Successfully updated license, isAsync: True, time: 0.00
+[Licensing::Module] Licensing Background thread has ended after 0.31s
+[Package Manager] Connected to IPC stream "Upm-47319" after 0.3 seconds.
+[Licensing::Client] Successfully resolved entitlement details
+Library Redirect Path: Library/
+[Physics::Module] Selected backend.
+[Physics::Module] Name: PhysX
+[Physics::Module] Id: 0xf2b8ea05
+[Physics::Module] SDK Version: 4.1.2
+[Physics::Module] Integration Version: 1.0.0
+[Physics::Module] Threading Mode: Multi-Threaded
+Refreshing native plugins compatible for Editor in 6.09 ms, found 0 plugins.
+Preloading 0 native plugins for Editor in 0.00 ms.
+Initialize engine version: 6000.3.6f1 (bbb010bdb8a3)
+[Subsystems] Discovering subsystems at path /Applications/Unity/Hub/Editor/6000.3.6f1-arm64/Unity.app/Contents/Resources/UnitySubsystems
+[Subsystems] Discovering subsystems at path /Users/zladwu/Development/Projects/FAA/Assets
+Forcing GfxDevice: Null
+GfxDevice: creating device client; kGfxThreadingModeNonThreaded
+NullGfxDevice:
+    Version:  NULL 1.0 [1.0]
+    Renderer: Null Device
+    Vendor:   Unity Technologies
+Initialize mono
+Mono path[0] = '/Applications/Unity/Hub/Editor/6000.3.6f1-arm64/Unity.app/Contents/Resources/Scripting/Managed'
+Mono path[1] = '/Applications/Unity/Hub/Editor/6000.3.6f1-arm64/Unity.app/Contents/Resources/Scripting/MonoBleedingEdge/lib/mono/unityjit-macos'
+Mono config path = '/Applications/Unity/Hub/Editor/6000.3.6f1-arm64/Unity.app/Contents/Resources/Scripting/MonoBleedingEdge/etc'
+Using monoOptions --debugger-agent=transport=dt_socket,embedding=1,server=y,suspend=n,address=127.0.0.1:56319
+Using cacheserver namespaces - metadata:defaultmetadata, artifacts:defaultartifacts
+Using cacheserver namespaces - metadata:defaultmetadata, artifacts:defaultartifacts
+ImportWorker Server TCP listen port: 0
+AcceleratorClientConnectionCallback - disconnected - :0
+Begin MonoManager ReloadAssembly
+Registering precompiled unity dll's ...
+Register platform support module: /Applications/Unity/Hub/Editor/6000.3.6f1-arm64/Unity.app/Contents/PlaybackEngines/MacStandaloneSupport/UnityEditor.OSXStandalone.Extensions.dll
+Registered in 0.002817 seconds.
+- Loaded All Assemblies, in  0.422 seconds
+Native extension for OSXStandalone target not found
+ScheduleIndexationOnStartup MainProcess:False IndexOnStartup:True
+Mono: successfully reloaded assembly
+- Finished resetting the current domain, in  0.384 seconds
+Domain Reload Profiling: 808ms
+	BeginReloadAssembly (175ms)
+		ExecutionOrderSort (0ms)
+		DisableScriptedObjects (0ms)
+		BackupInstance (0ms)
+		ReleaseScriptingObjects (0ms)
+		CreateAndSetChildDomain (9ms)
+	RebuildCommonClasses (33ms)
+	RebuildNativeTypeToScriptingClass (10ms)
+	initialDomainReloadingComplete (50ms)
+	LoadAllAssembliesAndSetupDomain (155ms)
+		LoadAssemblies (166ms)
+		RebuildTransferFunctionScriptingTraits (0ms)
+		AnalyzeDomain (150ms)
+			TypeCache.Refresh (148ms)
+				TypeCache.ScanAssembly (134ms)
+			BuildScriptInfoCaches (0ms)
+			ResolveRequiredComponents (1ms)
+	FinalizeReload (385ms)
+		ReleaseScriptCaches (0ms)
+		RebuildScriptCaches (0ms)
+		SetupLoadedEditorAssemblies (347ms)
+			LogAssemblyErrors (0ms)
+			InitializePlatformSupportModulesInManaged (35ms)
+			SetLoadedEditorAssemblies (4ms)
+			BeforeProcessingInitializeOnLoad (138ms)
+			ProcessInitializeOnLoadAttributes (100ms)
+			ProcessInitializeOnLoadMethodAttributes (69ms)
+			AfterProcessingInitializeOnLoad (0ms)
+			EditorAssembliesLoaded (0ms)
+		ExecutionOrderSort2 (0ms)
+		AwakeInstancesAfterBackupRestoration (0ms)
+[Licensing::Client] Successfully resolved entitlement details
+Application.AssetDatabase Initial Refresh Start
+Package Manager log level set to [2]
+[Package Manager] Restoring resolved packages state from cache
+[Licensing::Client] Successfully resolved entitlement details
+[Package Manager] Registered 71 packages:
+  Packages from [https://packages.unity.com]:
+    com.unity.ads@4.16.4 (location: /Users/zladwu/Development/Projects/FAA/Library/PackageCache/com.unity.ads@e89225828059)
+    com.unity.ai.navigation@2.0.9 (location: /Users/zladwu/Development/Projects/FAA/Library/PackageCache/com.unity.ai.navigation@5218e4bf7edc)
+    com.unity.analytics@3.8.2 (location: /Users/zladwu/Development/Projects/FAA/Library/PackageCache/com.unity.analytics@c9d14a6bdec6)
+    com.unity.collab-proxy@2.11.2 (location: /Users/zladwu/Development/Projects/FAA/Library/PackageCache/com.unity.collab-proxy@1ec4e416a4af)
+    com.unity.ide.visualstudio@2.0.26 (location: /Users/zladwu/Development/Projects/FAA/Library/PackageCache/com.unity.ide.visualstudio@a99d56dec63f)
+    com.unity.nuget.newtonsoft-json@3.2.2 (location: /Users/zladwu/Development/Projects/FAA/Library/PackageCache/com.unity.nuget.newtonsoft-json@4dfd81071c64)
+    com.unity.purchasing@4.14.2 (location: /Users/zladwu/Development/Projects/FAA/Library/PackageCache/com.unity.purchasing@039fd41c6e81)
+    com.unity.timeline@1.8.10 (location: /Users/zladwu/Development/Projects/FAA/Library/PackageCache/com.unity.timeline@7f8b2fb101b6)
+    com.unity.visualscripting@1.9.9 (location: /Users/zladwu/Development/Projects/FAA/Library/PackageCache/com.unity.visualscripting@191c0d7e3b69)
+    com.unity.xr.legacyinputhelpers@2.1.13 (location: /Users/zladwu/Development/Projects/FAA/Library/PackageCache/com.unity.xr.legacyinputhelpers@9535ff2c27ac)
+    com.unity.services.core@1.16.0 (location: /Users/zladwu/Development/Projects/FAA/Library/PackageCache/com.unity.services.core@8ba50f624741)
+    com.unity.ide.rider@3.0.39 (location: /Users/zladwu/Development/Projects/FAA/Library/PackageCache/com.unity.ide.rider@4504839d03f7)
+    com.unity.editorcoroutines@1.0.1 (location: /Users/zladwu/Development/Projects/FAA/Library/PackageCache/com.unity.editorcoroutines@54394ed3283c)
+    com.unity.performance.profile-analyzer@1.3.1 (location: /Users/zladwu/Development/Projects/FAA/Library/PackageCache/com.unity.performance.profile-analyzer@311968ce4be7)
+    com.unity.testtools.codecoverage@1.2.7 (location: /Users/zladwu/Development/Projects/FAA/Library/PackageCache/com.unity.testtools.codecoverage@e4e5058206c0)
+    com.unity.services.analytics@6.2.0 (location: /Users/zladwu/Development/Projects/FAA/Library/PackageCache/com.unity.services.analytics@b6335889ba61)
+    com.unity.mathematics@1.3.3 (location: /Users/zladwu/Development/Projects/FAA/Library/PackageCache/com.unity.mathematics@19a9377c4ffa)
+    com.unity.inputsystem@1.18.0 (location: /Users/zladwu/Development/Projects/FAA/Library/PackageCache/com.unity.inputsystem@57d0e36f6123)
+    com.unity.settings-manager@2.1.1 (location: /Users/zladwu/Development/Projects/FAA/Library/PackageCache/com.unity.settings-manager@0b8638c5ce86)
+    com.unity.searcher@4.9.4 (location: /Users/zladwu/Development/Projects/FAA/Library/PackageCache/com.unity.searcher@d45a78918735)
+    com.unity.burst@1.8.27 (location: /Users/zladwu/Development/Projects/FAA/Library/PackageCache/com.unity.burst@973857688024)
+    com.unity.collections@2.6.2 (location: /Users/zladwu/Development/Projects/FAA/Library/PackageCache/com.unity.collections@aea9d3bd5e19)
+    com.unity.nuget.mono-cecil@1.11.6 (location: /Users/zladwu/Development/Projects/FAA/Library/PackageCache/com.unity.nuget.mono-cecil@ecb9724e46ff)
+    com.unity.test-framework.performance@3.2.0 (location: /Users/zladwu/Development/Projects/FAA/Library/PackageCache/com.unity.test-framework.performance@0840f58e4562)
+  Packages from [https://unity.pkg.cesium.com]:
+    com.cesium.unity@1.20.0 (location: /Users/zladwu/Development/Projects/FAA/Library/PackageCache/com.cesium.unity@57778A6EB39E)
+  Built-in packages:
+    com.unity.2d.sprite@1.0.0 (location: /Users/zladwu/Development/Projects/FAA/Library/PackageCache/com.unity.2d.sprite@82f01c8c75ca)
+    com.unity.2d.tilemap@1.0.0 (location: /Users/zladwu/Development/Projects/FAA/Library/PackageCache/com.unity.2d.tilemap@2428aeee2f73)
+    com.unity.feature.development@1.0.2 (location: /Users/zladwu/Development/Projects/FAA/Library/PackageCache/com.unity.feature.development@767aadbc6eb7)
+    com.unity.multiplayer.center@1.0.1 (location: /Users/zladwu/Development/Projects/FAA/Library/PackageCache/com.unity.multiplayer.center@f01f4ba8d00a)
+    com.unity.test-framework@1.6.0 (location: /Users/zladwu/Development/Projects/FAA/Library/PackageCache/com.unity.test-framework@0b7a23ab2e1d)
+    com.unity.ugui@2.0.0 (location: /Users/zladwu/Development/Projects/FAA/Library/PackageCache/com.unity.ugui@b9d1dd437cb9)
+    com.unity.modules.accessibility@1.0.0 (location: /Users/zladwu/Development/Projects/FAA/Library/PackageCache/com.unity.modules.accessibility)
+    com.unity.modules.adaptiveperformance@1.0.0 (location: /Users/zladwu/Development/Projects/FAA/Library/PackageCache/com.unity.modules.adaptiveperformance)
+    com.unity.modules.ai@1.0.0 (location: /Users/zladwu/Development/Projects/FAA/Library/PackageCache/com.unity.modules.ai)
+    com.unity.modules.androidjni@1.0.0 (location: /Users/zladwu/Development/Projects/FAA/Library/PackageCache/com.unity.modules.androidjni)
+    com.unity.modules.animation@1.0.0 (location: /Users/zladwu/Development/Projects/FAA/Library/PackageCache/com.unity.modules.animation)
+    com.unity.modules.assetbundle@1.0.0 (location: /Users/zladwu/Development/Projects/FAA/Library/PackageCache/com.unity.modules.assetbundle)
+    com.unity.modules.audio@1.0.0 (location: /Users/zladwu/Development/Projects/FAA/Library/PackageCache/com.unity.modules.audio)
+    com.unity.modules.cloth@1.0.0 (location: /Users/zladwu/Development/Projects/FAA/Library/PackageCache/com.unity.modules.cloth)
+    com.unity.modules.director@1.0.0 (location: /Users/zladwu/Development/Projects/FAA/Library/PackageCache/com.unity.modules.director)
+    com.unity.modules.imageconversion@1.0.0 (location: /Users/zladwu/Development/Projects/FAA/Library/PackageCache/com.unity.modules.imageconversion)
+    com.unity.modules.imgui@1.0.0 (location: /Users/zladwu/Development/Projects/FAA/Library/PackageCache/com.unity.modules.imgui)
+    com.unity.modules.jsonserialize@1.0.0 (location: /Users/zladwu/Development/Projects/FAA/Library/PackageCache/com.unity.modules.jsonserialize)
+    com.unity.modules.particlesystem@1.0.0 (location: /Users/zladwu/Development/Projects/FAA/Library/PackageCache/com.unity.modules.particlesystem)
+    com.unity.modules.physics@1.0.0 (location: /Users/zladwu/Development/Projects/FAA/Library/PackageCache/com.unity.modules.physics)
+    com.unity.modules.physics2d@1.0.0 (location: /Users/zladwu/Development/Projects/FAA/Library/PackageCache/com.unity.modules.physics2d)
+    com.unity.modules.screencapture@1.0.0 (location: /Users/zladwu/Development/Projects/FAA/Library/PackageCache/com.unity.modules.screencapture)
+    com.unity.modules.terrain@1.0.0 (location: /Users/zladwu/Development/Projects/FAA/Library/PackageCache/com.unity.modules.terrain)
+    com.unity.modules.terrainphysics@1.0.0 (location: /Users/zladwu/Development/Projects/FAA/Library/PackageCache/com.unity.modules.terrainphysics)
+    com.unity.modules.tilemap@1.0.0 (location: /Users/zladwu/Development/Projects/FAA/Library/PackageCache/com.unity.modules.tilemap)
+    com.unity.modules.ui@1.0.0 (location: /Users/zladwu/Development/Projects/FAA/Library/PackageCache/com.unity.modules.ui)
+    com.unity.modules.uielements@1.0.0 (location: /Users/zladwu/Development/Projects/FAA/Library/PackageCache/com.unity.modules.uielements)
+    com.unity.modules.umbra@1.0.0 (location: /Users/zladwu/Development/Projects/FAA/Library/PackageCache/com.unity.modules.umbra)
+    com.unity.modules.unityanalytics@1.0.0 (location: /Users/zladwu/Development/Projects/FAA/Library/PackageCache/com.unity.modules.unityanalytics)
+    com.unity.modules.unitywebrequest@1.0.0 (location: /Users/zladwu/Development/Projects/FAA/Library/PackageCache/com.unity.modules.unitywebrequest)
+    com.unity.modules.unitywebrequestassetbundle@1.0.0 (location: /Users/zladwu/Development/Projects/FAA/Library/PackageCache/com.unity.modules.unitywebrequestassetbundle)
+    com.unity.modules.unitywebrequestaudio@1.0.0 (location: /Users/zladwu/Development/Projects/FAA/Library/PackageCache/com.unity.modules.unitywebrequestaudio)
+    com.unity.modules.unitywebrequesttexture@1.0.0 (location: /Users/zladwu/Development/Projects/FAA/Library/PackageCache/com.unity.modules.unitywebrequesttexture)
+    com.unity.modules.unitywebrequestwww@1.0.0 (location: /Users/zladwu/Development/Projects/FAA/Library/PackageCache/com.unity.modules.unitywebrequestwww)
+    com.unity.modules.vectorgraphics@1.0.0 (location: /Users/zladwu/Development/Projects/FAA/Library/PackageCache/com.unity.modules.vectorgraphics)
+    com.unity.modules.vehicles@1.0.0 (location: /Users/zladwu/Development/Projects/FAA/Library/PackageCache/com.unity.modules.vehicles)
+    com.unity.modules.video@1.0.0 (location: /Users/zladwu/Development/Projects/FAA/Library/PackageCache/com.unity.modules.video)
+    com.unity.modules.vr@1.0.0 (location: /Users/zladwu/Development/Projects/FAA/Library/PackageCache/com.unity.modules.vr)
+    com.unity.modules.wind@1.0.0 (location: /Users/zladwu/Development/Projects/FAA/Library/PackageCache/com.unity.modules.wind)
+    com.unity.modules.xr@1.0.0 (location: /Users/zladwu/Development/Projects/FAA/Library/PackageCache/com.unity.modules.xr)
+    com.unity.modules.subsystems@1.0.0 (location: /Users/zladwu/Development/Projects/FAA/Library/PackageCache/com.unity.modules.subsystems)
+    com.unity.modules.hierarchycore@1.0.0 (location: /Users/zladwu/Development/Projects/FAA/Library/PackageCache/com.unity.modules.hierarchycore)
+    com.unity.ext.nunit@2.0.5 (location: /Users/zladwu/Development/Projects/FAA/Library/PackageCache/com.unity.ext.nunit@d8c07649098d)
+    com.unity.shadergraph@17.3.0 (location: /Users/zladwu/Development/Projects/FAA/Library/PackageCache/com.unity.shadergraph@3e48e962d639)
+    com.unity.render-pipelines.core@17.3.0 (location: /Users/zladwu/Development/Projects/FAA/Library/PackageCache/com.unity.render-pipelines.core@9a9c0155552c)
+  Git packages:
+    com.coplaydev.unity-mcp@https://github.com/CoplayDev/unity-mcp.git?path=/MCPForUnity#beta (location: /Users/zladwu/Development/Projects/FAA/Library/PackageCache/com.coplaydev.unity-mcp@c7c27ff5f24c)
+[Subsystems] No new subsystems found in resolved package list.
+[Package Manager] Done registering packages in 0.01 seconds
+Detected Library folder embedded in an asset folder. Did you copy a project into this project? Use "Export Package" to move assets between projects. You need to remove the following Library folder from your project: Assets/Library. Until then it will be ignored but have a negative performance impact.
+[ScriptCompilation] Requested script compilation because: Assetdatabase observed changes in script compilation related files
+[40m[32minfo[39m[22m[49m: Microsoft.Hosting.Lifetime[14]
+      Now listening on: http://unix:/tmp/ilpp.sock-3e789b18783505894a25d41e91e2980d
+[40m[32minfo[39m[22m[49m: Microsoft.Hosting.Lifetime[0]
+      Application started. Press Ctrl+C to shut down.
+[40m[32minfo[39m[22m[49m: Microsoft.Hosting.Lifetime[0]
+      Hosting environment: Production
+[40m[32minfo[39m[22m[49m: Microsoft.Hosting.Lifetime[0]
+      Content root path: /Users/zladwu/Development/Projects/FAA/
+[40m[32minfo[39m[22m[49m: Microsoft.AspNetCore.Hosting.Diagnostics[1]
+      Request starting HTTP/2 POST http://ilpp/UnityILPP.PostProcessing/Ping application/grpc -
+[40m[32minfo[39m[22m[49m: Microsoft.AspNetCore.Routing.EndpointMiddleware[0]
+      Executing endpoint 'gRPC - /UnityILPP.PostProcessing/Ping'
+[40m[32minfo[39m[22m[49m: Microsoft.AspNetCore.Routing.EndpointMiddleware[1]
+      Executed endpoint 'gRPC - /UnityILPP.PostProcessing/Ping'
+[40m[32minfo[39m[22m[49m: Microsoft.AspNetCore.Hosting.Diagnostics[2]
+      Request finished HTTP/2 POST http://ilpp/UnityILPP.PostProcessing/Ping application/grpc - - 200 - application/grpc 49.3949ms
+Starting: /Applications/Unity/Hub/Editor/6000.3.6f1-arm64/Unity.app/Contents/Resources/BuildPipeline/bee_backend --ipc --defer-dag-verification --dagfile="Library/Bee/200b0aE.dag" --continue-on-failure --profile="Library/Bee/backend1.traceevents" ScriptAssemblies
+WorkingDir: /Users/zladwu/Development/Projects/FAA
+DisplayProgressbar: Compiling Scripts
+[40m[32minfo[39m[22m[49m: Microsoft.AspNetCore.Hosting.Diagnostics[1]
+      Request starting HTTP/2 POST http://ilpp/UnityILPP.PostProcessing/ConfigurePostProcessors application/grpc -
+[40m[32minfo[39m[22m[49m: Microsoft.AspNetCore.Routing.EndpointMiddleware[0]
+      Executing endpoint 'gRPC - /UnityILPP.PostProcessing/ConfigurePostProcessors'
+[40m[1m[33mwarn[39m[22m[49m: Unity.ILPP.Runner.PostProcessingAssemblyLoadContext[0]
+      Assembly system.runtime.interopservices.windowsruntime has duplicate hint path. Ignoring "/Applications/Unity/Hub/Editor/6000.3.6f1-arm64/Unity.app/Contents/Resources/Scripting/UnityReferenceAssemblies/unity-4.8-api/Facades/System.Runtime.InteropServices.WindowsRuntime.dll" in favor of "/Applications/Unity/Hub/Editor/6000.3.6f1-arm64/Unity.app/Contents/Resources/Scripting/NetStandard/Extensions/2.0.0/System.Runtime.InteropServices.WindowsRuntime.dll"
+[40m[1m[33mwarn[39m[22m[49m: Unity.ILPP.Runner.PostProcessingAssemblyLoadContext[0]
+      Assembly system.componentmodel.composition has duplicate hint path. Ignoring "/Applications/Unity/Hub/Editor/6000.3.6f1-arm64/Unity.app/Contents/Resources/Scripting/UnityReferenceAssemblies/unity-4.8-api/System.ComponentModel.Composition.dll" in favor of "/Applications/Unity/Hub/Editor/6000.3.6f1-arm64/Unity.app/Contents/Resources/Scripting/NetStandard/compat/2.1.0/shims/netfx/System.ComponentModel.Composition.dll"
+[40m[32minfo[39m[22m[49m: Unity.ILPP.Runner.PostProcessingAssemblyLoadContext[0]
+      Resolved Unity.Burst.Cecil, Version=0.11.4.0, Culture=neutral, PublicKeyToken=50cebf1cceb9d05e with Library/PackageCache/com.unity.burst@973857688024/Unity.Burst.CodeGen/Unity.Burst.Cecil.dll
+[40m[32minfo[39m[22m[49m: Unity.ILPP.Runner.PostProcessingAssemblyLoadContext[0]
+      Resolved Mono.Cecil, Version=0.11.5.0, Culture=neutral, PublicKeyToken=50cebf1cceb9d05e with Library/PackageCache/com.unity.nuget.mono-cecil@ecb9724e46ff/Mono.Cecil.dll
+[40m[32minfo[39m[22m[49m: Microsoft.AspNetCore.Routing.EndpointMiddleware[1]
+      Executed endpoint 'gRPC - /UnityILPP.PostProcessing/ConfigurePostProcessors'
+[40m[32minfo[39m[22m[49m: Microsoft.AspNetCore.Hosting.Diagnostics[2]
+      Request finished HTTP/2 POST http://ilpp/UnityILPP.PostProcessing/ConfigurePostProcessors application/grpc - - 200 - application/grpc 37.8372ms
+[40m[32minfo[39m[22m[49m: Microsoft.AspNetCore.Hosting.Diagnostics[1]
+      Request starting HTTP/2 POST http://ilpp/UnityILPP.PostProcessing/PostProcessAssembly application/grpc -
+[40m[32minfo[39m[22m[49m: Microsoft.AspNetCore.Routing.EndpointMiddleware[0]
+      Executing endpoint 'gRPC - /UnityILPP.PostProcessing/PostProcessAssembly'
+[40m[32minfo[39m[22m[49m: Unity.ILPP.Runner.PostProcessingPipeline[0]
+      Processing assembly Library/Bee/artifacts/200b0aE.dag/Assembly-CSharp-Editor.dll, with 132 defines and 385 references
+[40m[32minfo[39m[22m[49m: Unity.ILPP.Runner.PostProcessingPipeline[0]
+      processors: Unity.Jobs.CodeGen.JobsILPostProcessor, zzzUnity.Burst.CodeGen.BurstILPostProcessor
+[40m[32minfo[39m[22m[49m: Unity.ILPP.Runner.PostProcessingPipeline[0]
+      running Unity.Jobs.CodeGen.JobsILPostProcessor
+[40m[32minfo[39m[22m[49m: Unity.ILPP.Runner.PostProcessingAssemblyLoadContext[0]
+      Resolved Unity.Collections, Version=0.0.0.0, Culture=neutral, PublicKeyToken=null with Library/Bee/artifacts/200b0aE.dag/Unity.Collections.dll
+[40m[32minfo[39m[22m[49m: Unity.ILPP.Runner.PostProcessingAssemblyLoadContext[0]
+      Resolved UnityEditor.CoreModule, Version=0.0.0.0, Culture=neutral, PublicKeyToken=null with /Applications/Unity/Hub/Editor/6000.3.6f1-arm64/Unity.app/Contents/Resources/Scripting/Managed/UnityEngine/UnityEditor.CoreModule.dll
+[40m[32minfo[39m[22m[49m: Unity.ILPP.Runner.PostProcessingAssemblyLoadContext[0]
+      Resolved UnityEngine.CoreModule, Version=0.0.0.0, Culture=neutral, PublicKeyToken=null with /Applications/Unity/Hub/Editor/6000.3.6f1-arm64/Unity.app/Contents/Resources/Scripting/Managed/UnityEngine/UnityEngine.CoreModule.dll
+[40m[32minfo[39m[22m[49m: Unity.ILPP.Runner.PostProcessingPipeline[0]
+      running zzzUnity.Burst.CodeGen.BurstILPostProcessor
+[40m[32minfo[39m[22m[49m: Unity.ILPP.Runner.PostProcessingAssemblyLoadContext[0]
+      Resolved Unity.Burst.Cecil.Rocks, Version=0.11.4.0, Culture=neutral, PublicKeyToken=50cebf1cceb9d05e with Library/PackageCache/com.unity.burst@973857688024/Unity.Burst.CodeGen/Unity.Burst.Cecil.Rocks.dll
+[40m[32minfo[39m[22m[49m: Microsoft.AspNetCore.Routing.EndpointMiddleware[1]
+      Executed endpoint 'gRPC - /UnityILPP.PostProcessing/PostProcessAssembly'
+[40m[32minfo[39m[22m[49m: Microsoft.AspNetCore.Hosting.Diagnostics[2]
+      Request finished HTTP/2 POST http://ilpp/UnityILPP.PostProcessing/PostProcessAssembly application/grpc - - 200 - application/grpc 403.8591ms
+ExitCode: 0 Duration: 3s264ms
+[1016/1378  0s] ILPP-Configuration Library/ilpp-configuration.nevergeneratedoutput
+[1374/1378  2s] Csc Library/Bee/artifacts/200b0aE.dag/Assembly-CSharp-Editor.dll (+2 others)
+Assets/_Project/Scripts/HUDControl/Editor/HUDSetupWizard.cs(85,47): warning CS0618: 'Object.FindObjectOfType<T>()' is obsolete: 'Object.FindObjectOfType has been deprecated. Use Object.FindFirstObjectByType instead or if finding any instance is acceptable the faster Object.FindAnyObjectByType'
+Assets/_Project/Scripts/IndicatorSystem/Editor/IndicatorSystemSetupEditor.cs(762,41): warning CS0618: 'Object.FindObjectOfType<T>()' is obsolete: 'Object.FindObjectOfType has been deprecated. Use Object.FindFirstObjectByType instead or if finding any instance is acceptable the faster Object.FindAnyObjectByType'
+Assets/_Project/Scripts/IndicatorSystem/Editor/IndicatorSystemSetupEditor.cs(776,39): warning CS0618: 'Object.FindObjectOfType<T>()' is obsolete: 'Object.FindObjectOfType has been deprecated. Use Object.FindFirstObjectByType instead or if finding any instance is acceptable the faster Object.FindAnyObjectByType'
+Assets/_Project/Scripts/HUDControl/Editor/HUDSetupWizard.cs(155,40): warning CS0618: 'Object.FindObjectOfType<T>()' is obsolete: 'Object.FindObjectOfType has been deprecated. Use Object.FindFirstObjectByType instead or if finding any instance is acceptable the faster Object.FindAnyObjectByType'
+Assets/_Project/Scripts/HUDControl/Editor/HUDSetupWizard.cs(215,48): warning CS0618: 'Object.FindObjectOfType<T>()' is obsolete: 'Object.FindObjectOfType has been deprecated. Use Object.FindFirstObjectByType instead or if finding any instance is acceptable the faster Object.FindAnyObjectByType'
+Assets/_Project/Scripts/IndicatorSystem/Editor/IndicatorSystemSetupEditor.cs(34,38): warning CS0618: 'Object.FindObjectOfType<T>()' is obsolete: 'Object.FindObjectOfType has been deprecated. Use Object.FindFirstObjectByType instead or if finding any instance is acceptable the faster Object.FindAnyObjectByType'
+Assets/_Project/Scripts/IndicatorSystem/Editor/IndicatorSystemSetupEditor.cs(65,37): warning CS0618: 'Object.FindObjectOfType<T>()' is obsolete: 'Object.FindObjectOfType has been deprecated. Use Object.FindFirstObjectByType instead or if finding any instance is acceptable the faster Object.FindAnyObjectByType'
+Assets/_Project/Scripts/IndicatorSystem/Editor/IndicatorSystemSetupEditor.cs(72,35): warning CS0618: 'Object.FindObjectOfType<T>()' is obsolete: 'Object.FindObjectOfType has been deprecated. Use Object.FindFirstObjectByType instead or if finding any instance is acceptable the faster Object.FindAnyObjectByType'
+Assets/_Project/Scripts/IndicatorSystem/Editor/IndicatorSystemSetupEditor.cs(121,30): warning CS0618: 'Object.FindObjectOfType<T>()' is obsolete: 'Object.FindObjectOfType has been deprecated. Use Object.FindFirstObjectByType instead or if finding any instance is acceptable the faster Object.FindAnyObjectByType'
+Assets/_Project/Scripts/HUDControl/Editor/HUDSetupWizard.cs(337,38): warning CS0618: 'Object.FindObjectOfType<T>()' is obsolete: 'Object.FindObjectOfType has been deprecated. Use Object.FindFirstObjectByType instead or if finding any instance is acceptable the faster Object.FindAnyObjectByType'
+Assets/_Project/Scripts/Editor/SpriteAutoReplacerEditor.cs(301,33): warning CS0618: 'Object.FindObjectsOfType<T>(bool)' is obsolete: 'Object.FindObjectsOfType has been deprecated. Use Object.FindObjectsByType instead which lets you decide whether you need the results sorted or not.  FindObjectsOfType sorts the results by InstanceID but if you do not need this using FindObjectSortMode.None is considerably faster.'
+Assets/_Project/Scripts/VisualUnderstanding/Editor/VisualUnderstandingSetupEditor.cs(124,32): warning CS0618: 'Object.FindObjectOfType<T>()' is obsolete: 'Object.FindObjectOfType has been deprecated. Use Object.FindFirstObjectByType instead or if finding any instance is acceptable the faster Object.FindAnyObjectByType'
+Assets/_Project/Scripts/VisualUnderstanding/Editor/VisualUnderstandingSetupEditor.cs(125,31): warning CS0618: 'Object.FindObjectOfType<T>()' is obsolete: 'Object.FindObjectOfType has been deprecated. Use Object.FindFirstObjectByType instead or if finding any instance is acceptable the faster Object.FindAnyObjectByType'
+Assets/_Project/Scripts/VisualUnderstanding/Editor/VisualUnderstandingSetupEditor.cs(126,30): warning CS0618: 'Object.FindObjectOfType<T>()' is obsolete: 'Object.FindObjectOfType has been deprecated. Use Object.FindFirstObjectByType instead or if finding any instance is acceptable the faster Object.FindAnyObjectByType'
+Assets/_Project/Scripts/Editor/WeatherRadarSetupEditor.cs(193,32): warning CS0618: 'Object.FindObjectOfType<T>()' is obsolete: 'Object.FindObjectOfType has been deprecated. Use Object.FindFirstObjectByType instead or if finding any instance is acceptable the faster Object.FindAnyObjectByType'
+Assets/_Project/Scripts/HUDControl/Editor/HUDSetupWizard.cs(553,30): warning CS0618: 'Object.FindObjectOfType<T>()' is obsolete: 'Object.FindObjectOfType has been deprecated. Use Object.FindFirstObjectByType instead or if finding any instance is acceptable the faster Object.FindAnyObjectByType'
+Assets/_Project/Scripts/HUDControl/Editor/HUDSetupWizard.cs(573,40): warning CS0618: 'Object.FindObjectsOfType<T>()' is obsolete: 'Object.FindObjectsOfType has been deprecated. Use Object.FindObjectsByType instead which lets you decide whether you need the results sorted or not.  FindObjectsOfType sorts the results by InstanceID but if you do not need this using FindObjectSortMode.None is considerably faster.'
+Assets/_Project/Scripts/Editor/FAASymbologySetupWizard.cs(620,28): warning CS0618: 'Object.FindObjectOfType<T>()' is obsolete: 'Object.FindObjectOfType has been deprecated. Use Object.FindFirstObjectByType instead or if finding any instance is acceptable the faster Object.FindAnyObjectByType'
+Assets/_Project/Scripts/Editor/FAASymbologySetupWizard.cs(742,13): warning CS0618: 'TMP_Text.enableWordWrapping' is obsolete: 'The enabledWordWrapping property is now obsolete. Please use the textWrappingMode property instead.'
+Assets/_Project/Scripts/HUDControl/Editor/HUDSetupWizard.cs(637,30): warning CS0618: 'Object.FindObjectOfType<T>()' is obsolete: 'Object.FindObjectOfType has been deprecated. Use Object.FindFirstObjectByType instead or if finding any instance is acceptable the faster Object.FindAnyObjectByType'
+Assets/_Project/Scripts/HUDControl/Editor/HUDSetupWizard.cs(652,48): warning CS0618: 'Object.FindObjectOfType<T>()' is obsolete: 'Object.FindObjectOfType has been deprecated. Use Object.FindFirstObjectByType instead or if finding any instance is acceptable the faster Object.FindAnyObjectByType'
+Assets/_Project/Scripts/VoiceControl/UI/Editor/UIToolkitRadialMenuSetupWindow.cs(115,26): warning CS0618: 'Object.FindObjectOfType<T>()' is obsolete: 'Object.FindObjectOfType has been deprecated. Use Object.FindFirstObjectByType instead or if finding any instance is acceptable the faster Object.FindAnyObjectByType'
+Assets/_Project/Scripts/VoiceControl/UI/Editor/UIToolkitRadialMenuSetupWindow.cs(116,29): warning CS0618: 'Object.FindObjectOfType<T>()' is obsolete: 'Object.FindObjectOfType has been deprecated. Use Object.FindFirstObjectByType instead or if finding any instance is acceptable the faster Object.FindAnyObjectByType'
+Assets/_Project/Scripts/VisualUnderstanding/Editor/VisualUnderstandingSetupEditor.cs(438,29): warning CS0618: 'Object.FindObjectOfType<T>()' is obsolete: 'Object.FindObjectOfType has been deprecated. Use Object.FindFirstObjectByType instead or if finding any instance is acceptable the faster Object.FindAnyObjectByType'
+Assets/_Project/Scripts/VisualUnderstanding/Editor/VisualUnderstandingSetupEditor.cs(506,13): warning CS0618: 'TMP_Text.enableWordWrapping' is obsolete: 'The enabledWordWrapping property is now obsolete. Please use the textWrappingMode property instead.'
+Assets/_Project/Scripts/WeatherVisualization3D/Editor/VolumetricWeatherSetupWizard.cs(244,27): warning CS0618: 'Object.FindObjectOfType<T>()' is obsolete: 'Object.FindObjectOfType has been deprecated. Use Object.FindFirstObjectByType instead or if finding any instance is acceptable the faster Object.FindAnyObjectByType'
+Assets/_Project/Scripts/WeatherVisualization3D/Editor/VolumetricWeatherSetupWizard.cs(245,29): warning CS0618: 'Object.FindObjectOfType<T>()' is obsolete: 'Object.FindObjectOfType has been deprecated. Use Object.FindFirstObjectByType instead or if finding any instance is acceptable the faster Object.FindAnyObjectByType'
+Assets/_Project/Scripts/Editor/SpriteAutoSlicerEditor.cs(580,9): warning CS0618: 'TextureImporter.spritesheet' is obsolete: 'Support for accessing sprite meta data through spritesheet has been removed. Please use the UnityEditor.U2D.Sprites.ISpriteEditorDataProvider interface instead.'
+Assets/_Project/Scripts/VisualUnderstanding/Editor/VisualUnderstandingSetupEditor.cs(808,25): warning CS0618: 'Object.FindObjectOfType<T>()' is obsolete: 'Object.FindObjectOfType has been deprecated. Use Object.FindFirstObjectByType instead or if finding any instance is acceptable the faster Object.FindAnyObjectByType'
+Assets/_Project/Scripts/VisualUnderstanding/Editor/VisualUnderstandingSetupEditor.cs(839,25): warning CS0618: 'Object.FindObjectOfType<T>()' is obsolete: 'Object.FindObjectOfType has been deprecated. Use Object.FindFirstObjectByType instead or if finding any instance is acceptable the faster Object.FindAnyObjectByType'
+Assets/_Project/Scripts/VisualUnderstanding/Editor/VisualUnderstandingSetupEditor.cs(913,17): warning CS0618: 'TMP_Text.enableWordWrapping' is obsolete: 'The enabledWordWrapping property is now obsolete. Please use the textWrappingMode property instead.'
+Assets/_Project/Scripts/VoiceControl/UI/Editor/UIToolkitRadialMenuSetupWindow.cs(208,30): warning CS0618: 'Object.FindObjectOfType<T>()' is obsolete: 'Object.FindObjectOfType has been deprecated. Use Object.FindFirstObjectByType instead or if finding any instance is acceptable the faster Object.FindAnyObjectByType'
+Assets/_Project/Scripts/Editor/CesiumPhysicsFixerWindow.cs(15,42): warning CS0618: 'Object.FindObjectsOfType<T>()' is obsolete: 'Object.FindObjectsOfType has been deprecated. Use Object.FindObjectsByType instead which lets you decide whether you need the results sorted or not.  FindObjectsOfType sorts the results by InstanceID but if you do not need this using FindObjectSortMode.None is considerably faster.'
+Assets/_Project/Scripts/VoiceControl/UI/Editor/UIToolkitRadialMenuSetupWindow.cs(224,17): warning CS0618: 'Object.FindObjectOfType<T>()' is obsolete: 'Object.FindObjectOfType has been deprecated. Use Object.FindFirstObjectByType instead or if finding any instance is acceptable the faster Object.FindAnyObjectByType'
+Assets/_Project/Scripts/VoiceControl/UI/Editor/UIToolkitRadialMenuSetupWindow.cs(248,17): warning CS0618: 'Object.FindObjectOfType<T>()' is obsolete: 'Object.FindObjectOfType has been deprecated. Use Object.FindFirstObjectByType instead or if finding any instance is acceptable the faster Object.FindAnyObjectByType'
+Assets/_Project/Scripts/WeatherVisualization3D/Editor/VolumetricWeatherSetupWizard.cs(419,28): warning CS0618: 'Object.FindObjectsOfType<T>()' is obsolete: 'Object.FindObjectsOfType has been deprecated. Use Object.FindObjectsByType instead which lets you decide whether you need the results sorted or not.  FindObjectsOfType sorts the results by InstanceID but if you do not need this using FindObjectSortMode.None is considerably faster.'
+Assets/_Project/Scripts/WeatherVisualization3D/Editor/VolumetricWeatherSetupWizard.cs(420,30): warning CS0618: 'Object.FindObjectsOfType<T>()' is obsolete: 'Object.FindObjectsOfType has been deprecated. Use Object.FindObjectsByType instead which lets you decide whether you need the results sorted or not.  FindObjectsOfType sorts the results by InstanceID but if you do not need this using FindObjectSortMode.None is considerably faster.'
+Assets/_Project/Scripts/WeatherVisualization3D/Editor/VolumetricWeatherSetupWizard.cs(422,35): warning CS0618: 'Object.FindObjectsOfType<T>()' is obsolete: 'Object.FindObjectsOfType has been deprecated. Use Object.FindObjectsByType instead which lets you decide whether you need the results sorted or not.  FindObjectsOfType sorts the results by InstanceID but if you do not need this using FindObjectSortMode.None is considerably faster.'
+Assets/_Project/Scripts/WeatherVisualization3D/Editor/VolumetricWeatherSetupWizard.cs(423,36): warning CS0618: 'Object.FindObjectsOfType<T>()' is obsolete: 'Object.FindObjectsOfType has been deprecated. Use Object.FindObjectsByType instead which lets you decide whether you need the results sorted or not.  FindObjectsOfType sorts the results by InstanceID but if you do not need this using FindObjectSortMode.None is considerably faster.'
+Assets/_Project/Scripts/WeatherVisualization3D/Editor/VolumetricWeatherSetupWizard.cs(424,33): warning CS0618: 'Object.FindObjectsOfType<T>()' is obsolete: 'Object.FindObjectsOfType has been deprecated. Use Object.FindObjectsByType instead which lets you decide whether you need the results sorted or not.  FindObjectsOfType sorts the results by InstanceID but if you do not need this using FindObjectSortMode.None is considerably faster.'
+Assets/_Project/Scripts/VoiceControl/Editor/VoiceControlSetupEditor.cs(177,32): warning CS0618: 'Object.FindObjectOfType<T>()' is obsolete: 'Object.FindObjectOfType has been deprecated. Use Object.FindFirstObjectByType instead or if finding any instance is acceptable the faster Object.FindAnyObjectByType'
+Assets/_Project/Scripts/VoiceControl/Editor/VoiceControlSetupEditor.cs(178,33): warning CS0618: 'Object.FindObjectOfType<T>()' is obsolete: 'Object.FindObjectOfType has been deprecated. Use Object.FindFirstObjectByType instead or if finding any instance is acceptable the faster Object.FindAnyObjectByType'
+Assets/_Project/Scripts/VoiceControl/Editor/VoiceControlSetupEditor.cs(179,27): warning CS0618: 'Object.FindObjectOfType<T>()' is obsolete: 'Object.FindObjectOfType has been deprecated. Use Object.FindFirstObjectByType instead or if finding any instance is acceptable the faster Object.FindAnyObjectByType'
+Assets/_Project/Scripts/VoiceControl/Editor/VoiceControlSetupEditor.cs(192,56): warning CS0618: 'Object.FindObjectOfType<T>()' is obsolete: 'Object.FindObjectOfType has been deprecated. Use Object.FindFirstObjectByType instead or if finding any instance is acceptable the faster Object.FindAnyObjectByType'
+Assets/_Project/Scripts/VoiceControl/Editor/VoiceControlSetupEditor.cs(193,56): warning CS0618: 'Object.FindObjectOfType<T>()' is obsolete: 'Object.FindObjectOfType has been deprecated. Use Object.FindFirstObjectByType instead or if finding any instance is acceptable the faster Object.FindAnyObjectByType'
+Assets/_Project/Scripts/VoiceControl/Editor/VoiceControlSetupEditor.cs(194,59): warning CS0618: 'Object.FindObjectOfType<T>()' is obsolete: 'Object.FindObjectOfType has been deprecated. Use Object.FindFirstObjectByType instead or if finding any instance is acceptable the faster Object.FindAnyObjectByType'
+Assets/_Project/Scripts/VoiceControl/Editor/VoiceControlSetupEditor.cs(195,58): warning CS0618: 'Object.FindObjectOfType<T>()' is obsolete: 'Object.FindObjectOfType has been deprecated. Use Object.FindFirstObjectByType instead or if finding any instance is acceptable the faster Object.FindAnyObjectByType'
+Assets/_Project/Scripts/VoiceControl/Editor/VoiceControlSetupEditor.cs(196,50): warning CS0618: 'Object.FindObjectOfType<T>()' is obsolete: 'Object.FindObjectOfType has been deprecated. Use Object.FindFirstObjectByType instead or if finding any instance is acceptable the faster Object.FindAnyObjectByType'
+Assets/_Project/Scripts/VoiceControl/UI/Editor/AudioDownloadHelper.cs(186,24): warning CS0618: 'Object.FindObjectOfType<T>()' is obsolete: 'Object.FindObjectOfType has been deprecated. Use Object.FindFirstObjectByType instead or if finding any instance is acceptable the faster Object.FindAnyObjectByType'
+Assets/_Project/Scripts/VoiceControl/Editor/AddSymbologyColorVoiceAdapter.cs(18,28): warning CS0618: 'Object.FindObjectOfType<T>()' is obsolete: 'Object.FindObjectOfType has been deprecated. Use Object.FindFirstObjectByType instead or if finding any instance is acceptable the faster Object.FindAnyObjectByType'
+Assets/_Project/Scripts/VoiceControl/Editor/VoiceControlSetupEditor.cs(433,49): warning CS0618: 'Object.FindObjectOfType<T>()' is obsolete: 'Object.FindObjectOfType has been deprecated. Use Object.FindFirstObjectByType instead or if finding any instance is acceptable the faster Object.FindAnyObjectByType'
+Assets/_Project/Scripts/VoiceControl/Editor/VoiceControlSetupEditor.cs(441,47): warning CS0618: 'Object.FindObjectOfType<T>()' is obsolete: 'Object.FindObjectOfType has been deprecated. Use Object.FindFirstObjectByType instead or if finding any instance is acceptable the faster Object.FindAnyObjectByType'
+Assets/_Project/Scripts/VoiceControl/Editor/VoiceControlSetupEditor.cs(563,17): warning CS0618: 'Object.FindObjectOfType<T>()' is obsolete: 'Object.FindObjectOfType has been deprecated. Use Object.FindFirstObjectByType instead or if finding any instance is acceptable the faster Object.FindAnyObjectByType'
+Assets/_Project/Scripts/VoiceControl/Editor/VoiceControlSetupEditor.cs(570,17): warning CS0618: 'Object.FindObjectOfType<T>()' is obsolete: 'Object.FindObjectOfType has been deprecated. Use Object.FindFirstObjectByType instead or if finding any instance is acceptable the faster Object.FindAnyObjectByType'
+Assets/_Project/Scripts/VoiceControl/Editor/VoiceControlSetupEditor.cs(577,17): warning CS0618: 'Object.FindObjectOfType<T>()' is obsolete: 'Object.FindObjectOfType has been deprecated. Use Object.FindFirstObjectByType instead or if finding any instance is acceptable the faster Object.FindAnyObjectByType'
+Assets/_Project/Scripts/VoiceControl/Editor/VoiceControlSetupEditor.cs(584,17): warning CS0618: 'Object.FindObjectOfType<T>()' is obsolete: 'Object.FindObjectOfType has been deprecated. Use Object.FindFirstObjectByType instead or if finding any instance is acceptable the faster Object.FindAnyObjectByType'
+Assets/_Project/Scripts/VoiceControl/Editor/VoiceControlSetupEditor.cs(591,17): warning CS0618: 'Object.FindObjectOfType<T>()' is obsolete: 'Object.FindObjectOfType has been deprecated. Use Object.FindFirstObjectByType instead or if finding any instance is acceptable the faster Object.FindAnyObjectByType'
+Assets/_Project/Scripts/VoiceControl/Editor/VoiceControlSetupEditor.cs(608,32): warning CS0618: 'Object.FindObjectOfType<T>()' is obsolete: 'Object.FindObjectOfType has been deprecated. Use Object.FindFirstObjectByType instead or if finding any instance is acceptable the faster Object.FindAnyObjectByType'
+Assets/_Project/Scripts/VoiceControl/UI/Editor/ProceduralAudioGenerator.cs(260,24): warning CS0618: 'Object.FindObjectOfType<T>()' is obsolete: 'Object.FindObjectOfType has been deprecated. Use Object.FindFirstObjectByType instead or if finding any instance is acceptable the faster Object.FindAnyObjectByType'
+Assets/_Project/Scripts/XPlaneIntegration/Editor/XPlaneIntegrationSetupEditor.cs(399,30): warning CS0618: 'Object.FindObjectOfType<T>()' is obsolete: 'Object.FindObjectOfType has been deprecated. Use Object.FindFirstObjectByType instead or if finding any instance is acceptable the faster Object.FindAnyObjectByType'
+Assets/_Project/Scripts/XPlaneIntegration/Editor/XPlaneIntegrationSetupEditor.cs(401,33): warning CS0618: 'Object.FindObjectOfType<T>()' is obsolete: 'Object.FindObjectOfType has been deprecated. Use Object.FindFirstObjectByType instead or if finding any instance is acceptable the faster Object.FindAnyObjectByType'
+Assets/_Project/Scripts/XPlaneIntegration/Editor/XPlaneIntegrationSetupEditor.cs(402,32): warning CS0618: 'Object.FindObjectOfType<T>()' is obsolete: 'Object.FindObjectOfType has been deprecated. Use Object.FindFirstObjectByType instead or if finding any instance is acceptable the faster Object.FindAnyObjectByType'
+Assets/_Project/Scripts/XPlaneIntegration/Editor/XPlaneIntegrationSetupEditor.cs(403,32): warning CS0618: 'Object.FindObjectOfType<T>()' is obsolete: 'Object.FindObjectOfType has been deprecated. Use Object.FindFirstObjectByType instead or if finding any instance is acceptable the faster Object.FindAnyObjectByType'
+Assets/_Project/Scripts/XPlaneIntegration/Editor/XPlaneIntegrationSetupEditor.cs(404,35): warning CS0618: 'Object.FindObjectOfType<T>()' is obsolete: 'Object.FindObjectOfType has been deprecated. Use Object.FindFirstObjectByType instead or if finding any instance is acceptable the faster Object.FindAnyObjectByType'
+Assets/_Project/Scripts/XPlaneIntegration/Editor/XPlaneIntegrationSetupEditor.cs(405,39): warning CS0618: 'Object.FindObjectOfType<T>()' is obsolete: 'Object.FindObjectOfType has been deprecated. Use Object.FindFirstObjectByType instead or if finding any instance is acceptable the faster Object.FindAnyObjectByType'
+Assets/_Project/Scripts/XPlaneIntegration/Editor/XPlaneIntegrationSetupEditor.cs(406,37): warning CS0618: 'Object.FindObjectOfType<T>()' is obsolete: 'Object.FindObjectOfType has been deprecated. Use Object.FindFirstObjectByType instead or if finding any instance is acceptable the faster Object.FindAnyObjectByType'
+Assets/_Project/Scripts/XPlaneIntegration/Editor/XPlaneIntegrationSetupEditor.cs(417,34): warning CS0618: 'Object.FindObjectOfType<T>()' is obsolete: 'Object.FindObjectOfType has been deprecated. Use Object.FindFirstObjectByType instead or if finding any instance is acceptable the faster Object.FindAnyObjectByType'
+Assets/_Project/Scripts/XPlaneIntegration/Editor/XPlaneIntegrationSetupEditor.cs(610,35): warning CS0618: 'Object.FindObjectOfType<T>()' is obsolete: 'Object.FindObjectOfType has been deprecated. Use Object.FindFirstObjectByType instead or if finding any instance is acceptable the faster Object.FindAnyObjectByType'
+Assets/_Project/Scripts/XPlaneIntegration/Editor/XPlaneIntegrationSetupEditor.cs(616,39): warning CS0618: 'Object.FindObjectOfType<T>()' is obsolete: 'Object.FindObjectOfType has been deprecated. Use Object.FindFirstObjectByType instead or if finding any instance is acceptable the faster Object.FindAnyObjectByType'
+Assets/_Project/Scripts/XPlaneIntegration/Editor/XPlaneIntegrationSetupEditor.cs(622,37): warning CS0618: 'Object.FindObjectOfType<T>()' is obsolete: 'Object.FindObjectOfType has been deprecated. Use Object.FindFirstObjectByType instead or if finding any instance is acceptable the faster Object.FindAnyObjectByType'
+Assets/_Project/Scripts/VoiceControl/Editor/VoiceControlSetupEditor.cs(640,29): warning CS0618: 'Object.FindObjectOfType<T>()' is obsolete: 'Object.FindObjectOfType has been deprecated. Use Object.FindFirstObjectByType instead or if finding any instance is acceptable the faster Object.FindAnyObjectByType'
+Assets/_Project/Scripts/VoiceControl/Editor/VoiceControlSetupEditor.cs(653,17): warning CS0618: 'Object.FindObjectOfType<T>()' is obsolete: 'Object.FindObjectOfType has been deprecated. Use Object.FindFirstObjectByType instead or if finding any instance is acceptable the faster Object.FindAnyObjectByType'
+Assets/_Project/Scripts/VisualUnderstanding/Editor/VisualUnderstandingSetupEditor.cs(37,24): warning CS0414: The field 'VisualUnderstandingSetupEditor._panelPosition' is assigned but its value is never used
+Assets/_Project/Scripts/VoiceControl/Editor/VoiceControlSetupEditor.cs(59,22): warning CS0414: The field 'VoiceControlSetupEditor._checkedScene' is assigned but its value is never used
+[1375/1378  0s] ILPostProcess Library/Bee/artifacts/200b0aE.dag/post-processed/Assembly-CSharp-Editor.dll (+pdb)
+Processing assembly Library/Bee/artifacts/200b0aE.dag/Assembly-CSharp-Editor.dll, with 132 defines and 385 references
+processors: Unity.Jobs.CodeGen.JobsILPostProcessor, zzzUnity.Burst.CodeGen.BurstILPostProcessor
+running Unity.Jobs.CodeGen.JobsILPostProcessor
+running zzzUnity.Burst.CodeGen.BurstILPostProcessor
+[1376/1378  0s] CopyFiles Library/ScriptAssemblies/Assembly-CSharp-Editor.pdb
+[1377/1378  0s] CopyFiles Library/ScriptAssemblies/Assembly-CSharp-Editor.dll
+*** Tundra build success (3.24 seconds), 5 items updated, 1378 evaluated
+Assets/_Project/Scripts/HUDControl/Editor/HUDSetupWizard.cs(85,47): warning CS0618: 'Object.FindObjectOfType<T>()' is obsolete: 'Object.FindObjectOfType has been deprecated. Use Object.FindFirstObjectByType instead or if finding any instance is acceptable the faster Object.FindAnyObjectByType'
+Assets/_Project/Scripts/IndicatorSystem/Editor/IndicatorSystemSetupEditor.cs(762,41): warning CS0618: 'Object.FindObjectOfType<T>()' is obsolete: 'Object.FindObjectOfType has been deprecated. Use Object.FindFirstObjectByType instead or if finding any instance is acceptable the faster Object.FindAnyObjectByType'
+Assets/_Project/Scripts/IndicatorSystem/Editor/IndicatorSystemSetupEditor.cs(776,39): warning CS0618: 'Object.FindObjectOfType<T>()' is obsolete: 'Object.FindObjectOfType has been deprecated. Use Object.FindFirstObjectByType instead or if finding any instance is acceptable the faster Object.FindAnyObjectByType'
+Assets/_Project/Scripts/HUDControl/Editor/HUDSetupWizard.cs(155,40): warning CS0618: 'Object.FindObjectOfType<T>()' is obsolete: 'Object.FindObjectOfType has been deprecated. Use Object.FindFirstObjectByType instead or if finding any instance is acceptable the faster Object.FindAnyObjectByType'
+Assets/_Project/Scripts/HUDControl/Editor/HUDSetupWizard.cs(215,48): warning CS0618: 'Object.FindObjectOfType<T>()' is obsolete: 'Object.FindObjectOfType has been deprecated. Use Object.FindFirstObjectByType instead or if finding any instance is acceptable the faster Object.FindAnyObjectByType'
+Assets/_Project/Scripts/IndicatorSystem/Editor/IndicatorSystemSetupEditor.cs(34,38): warning CS0618: 'Object.FindObjectOfType<T>()' is obsolete: 'Object.FindObjectOfType has been deprecated. Use Object.FindFirstObjectByType instead or if finding any instance is acceptable the faster Object.FindAnyObjectByType'
+Assets/_Project/Scripts/IndicatorSystem/Editor/IndicatorSystemSetupEditor.cs(65,37): warning CS0618: 'Object.FindObjectOfType<T>()' is obsolete: 'Object.FindObjectOfType has been deprecated. Use Object.FindFirstObjectByType instead or if finding any instance is acceptable the faster Object.FindAnyObjectByType'
+Assets/_Project/Scripts/IndicatorSystem/Editor/IndicatorSystemSetupEditor.cs(72,35): warning CS0618: 'Object.FindObjectOfType<T>()' is obsolete: 'Object.FindObjectOfType has been deprecated. Use Object.FindFirstObjectByType instead or if finding any instance is acceptable the faster Object.FindAnyObjectByType'
+Assets/_Project/Scripts/IndicatorSystem/Editor/IndicatorSystemSetupEditor.cs(121,30): warning CS0618: 'Object.FindObjectOfType<T>()' is obsolete: 'Object.FindObjectOfType has been deprecated. Use Object.FindFirstObjectByType instead or if finding any instance is acceptable the faster Object.FindAnyObjectByType'
+Assets/_Project/Scripts/HUDControl/Editor/HUDSetupWizard.cs(337,38): warning CS0618: 'Object.FindObjectOfType<T>()' is obsolete: 'Object.FindObjectOfType has been deprecated. Use Object.FindFirstObjectByType instead or if finding any instance is acceptable the faster Object.FindAnyObjectByType'
+Assets/_Project/Scripts/Editor/SpriteAutoReplacerEditor.cs(301,33): warning CS0618: 'Object.FindObjectsOfType<T>(bool)' is obsolete: 'Object.FindObjectsOfType has been deprecated. Use Object.FindObjectsByType instead which lets you decide whether you need the results sorted or not.  FindObjectsOfType sorts the results by InstanceID but if you do not need this using FindObjectSortMode.None is considerably faster.'
+Assets/_Project/Scripts/VisualUnderstanding/Editor/VisualUnderstandingSetupEditor.cs(124,32): warning CS0618: 'Object.FindObjectOfType<T>()' is obsolete: 'Object.FindObjectOfType has been deprecated. Use Object.FindFirstObjectByType instead or if finding any instance is acceptable the faster Object.FindAnyObjectByType'
+Assets/_Project/Scripts/VisualUnderstanding/Editor/VisualUnderstandingSetupEditor.cs(125,31): warning CS0618: 'Object.FindObjectOfType<T>()' is obsolete: 'Object.FindObjectOfType has been deprecated. Use Object.FindFirstObjectByType instead or if finding any instance is acceptable the faster Object.FindAnyObjectByType'
+Assets/_Project/Scripts/VisualUnderstanding/Editor/VisualUnderstandingSetupEditor.cs(126,30): warning CS0618: 'Object.FindObjectOfType<T>()' is obsolete: 'Object.FindObjectOfType has been deprecated. Use Object.FindFirstObjectByType instead or if finding any instance is acceptable the faster Object.FindAnyObjectByType'
+Assets/_Project/Scripts/Editor/WeatherRadarSetupEditor.cs(193,32): warning CS0618: 'Object.FindObjectOfType<T>()' is obsolete: 'Object.FindObjectOfType has been deprecated. Use Object.FindFirstObjectByType instead or if finding any instance is acceptable the faster Object.FindAnyObjectByType'
+Assets/_Project/Scripts/HUDControl/Editor/HUDSetupWizard.cs(553,30): warning CS0618: 'Object.FindObjectOfType<T>()' is obsolete: 'Object.FindObjectOfType has been deprecated. Use Object.FindFirstObjectByType instead or if finding any instance is acceptable the faster Object.FindAnyObjectByType'
+Assets/_Project/Scripts/HUDControl/Editor/HUDSetupWizard.cs(573,40): warning CS0618: 'Object.FindObjectsOfType<T>()' is obsolete: 'Object.FindObjectsOfType has been deprecated. Use Object.FindObjectsByType instead which lets you decide whether you need the results sorted or not.  FindObjectsOfType sorts the results by InstanceID but if you do not need this using FindObjectSortMode.None is considerably faster.'
+Assets/_Project/Scripts/Editor/FAASymbologySetupWizard.cs(620,28): warning CS0618: 'Object.FindObjectOfType<T>()' is obsolete: 'Object.FindObjectOfType has been deprecated. Use Object.FindFirstObjectByType instead or if finding any instance is acceptable the faster Object.FindAnyObjectByType'
+Assets/_Project/Scripts/Editor/FAASymbologySetupWizard.cs(742,13): warning CS0618: 'TMP_Text.enableWordWrapping' is obsolete: 'The enabledWordWrapping property is now obsolete. Please use the textWrappingMode property instead.'
+Assets/_Project/Scripts/HUDControl/Editor/HUDSetupWizard.cs(637,30): warning CS0618: 'Object.FindObjectOfType<T>()' is obsolete: 'Object.FindObjectOfType has been deprecated. Use Object.FindFirstObjectByType instead or if finding any instance is acceptable the faster Object.FindAnyObjectByType'
+Assets/_Project/Scripts/HUDControl/Editor/HUDSetupWizard.cs(652,48): warning CS0618: 'Object.FindObjectOfType<T>()' is obsolete: 'Object.FindObjectOfType has been deprecated. Use Object.FindFirstObjectByType instead or if finding any instance is acceptable the faster Object.FindAnyObjectByType'
+Assets/_Project/Scripts/VoiceControl/UI/Editor/UIToolkitRadialMenuSetupWindow.cs(115,26): warning CS0618: 'Object.FindObjectOfType<T>()' is obsolete: 'Object.FindObjectOfType has been deprecated. Use Object.FindFirstObjectByType instead or if finding any instance is acceptable the faster Object.FindAnyObjectByType'
+Assets/_Project/Scripts/VoiceControl/UI/Editor/UIToolkitRadialMenuSetupWindow.cs(116,29): warning CS0618: 'Object.FindObjectOfType<T>()' is obsolete: 'Object.FindObjectOfType has been deprecated. Use Object.FindFirstObjectByType instead or if finding any instance is acceptable the faster Object.FindAnyObjectByType'
+Assets/_Project/Scripts/VisualUnderstanding/Editor/VisualUnderstandingSetupEditor.cs(438,29): warning CS0618: 'Object.FindObjectOfType<T>()' is obsolete: 'Object.FindObjectOfType has been deprecated. Use Object.FindFirstObjectByType instead or if finding any instance is acceptable the faster Object.FindAnyObjectByType'
+Assets/_Project/Scripts/VisualUnderstanding/Editor/VisualUnderstandingSetupEditor.cs(506,13): warning CS0618: 'TMP_Text.enableWordWrapping' is obsolete: 'The enabledWordWrapping property is now obsolete. Please use the textWrappingMode property instead.'
+Assets/_Project/Scripts/WeatherVisualization3D/Editor/VolumetricWeatherSetupWizard.cs(244,27): warning CS0618: 'Object.FindObjectOfType<T>()' is obsolete: 'Object.FindObjectOfType has been deprecated. Use Object.FindFirstObjectByType instead or if finding any instance is acceptable the faster Object.FindAnyObjectByType'
+Assets/_Project/Scripts/WeatherVisualization3D/Editor/VolumetricWeatherSetupWizard.cs(245,29): warning CS0618: 'Object.FindObjectOfType<T>()' is obsolete: 'Object.FindObjectOfType has been deprecated. Use Object.FindFirstObjectByType instead or if finding any instance is acceptable the faster Object.FindAnyObjectByType'
+Assets/_Project/Scripts/Editor/SpriteAutoSlicerEditor.cs(580,9): warning CS0618: 'TextureImporter.spritesheet' is obsolete: 'Support for accessing sprite meta data through spritesheet has been removed. Please use the UnityEditor.U2D.Sprites.ISpriteEditorDataProvider interface instead.'
+Assets/_Project/Scripts/VisualUnderstanding/Editor/VisualUnderstandingSetupEditor.cs(808,25): warning CS0618: 'Object.FindObjectOfType<T>()' is obsolete: 'Object.FindObjectOfType has been deprecated. Use Object.FindFirstObjectByType instead or if finding any instance is acceptable the faster Object.FindAnyObjectByType'
+Assets/_Project/Scripts/VisualUnderstanding/Editor/VisualUnderstandingSetupEditor.cs(839,25): warning CS0618: 'Object.FindObjectOfType<T>()' is obsolete: 'Object.FindObjectOfType has been deprecated. Use Object.FindFirstObjectByType instead or if finding any instance is acceptable the faster Object.FindAnyObjectByType'
+Assets/_Project/Scripts/VisualUnderstanding/Editor/VisualUnderstandingSetupEditor.cs(913,17): warning CS0618: 'TMP_Text.enableWordWrapping' is obsolete: 'The enabledWordWrapping property is now obsolete. Please use the textWrappingMode property instead.'
+Assets/_Project/Scripts/VoiceControl/UI/Editor/UIToolkitRadialMenuSetupWindow.cs(208,30): warning CS0618: 'Object.FindObjectOfType<T>()' is obsolete: 'Object.FindObjectOfType has been deprecated. Use Object.FindFirstObjectByType instead or if finding any instance is acceptable the faster Object.FindAnyObjectByType'
+Assets/_Project/Scripts/Editor/CesiumPhysicsFixerWindow.cs(15,42): warning CS0618: 'Object.FindObjectsOfType<T>()' is obsolete: 'Object.FindObjectsOfType has been deprecated. Use Object.FindObjectsByType instead which lets you decide whether you need the results sorted or not.  FindObjectsOfType sorts the results by InstanceID but if you do not need this using FindObjectSortMode.None is considerably faster.'
+Assets/_Project/Scripts/VoiceControl/UI/Editor/UIToolkitRadialMenuSetupWindow.cs(224,17): warning CS0618: 'Object.FindObjectOfType<T>()' is obsolete: 'Object.FindObjectOfType has been deprecated. Use Object.FindFirstObjectByType instead or if finding any instance is acceptable the faster Object.FindAnyObjectByType'
+Assets/_Project/Scripts/VoiceControl/UI/Editor/UIToolkitRadialMenuSetupWindow.cs(248,17): warning CS0618: 'Object.FindObjectOfType<T>()' is obsolete: 'Object.FindObjectOfType has been deprecated. Use Object.FindFirstObjectByType instead or if finding any instance is acceptable the faster Object.FindAnyObjectByType'
+Assets/_Project/Scripts/WeatherVisualization3D/Editor/VolumetricWeatherSetupWizard.cs(419,28): warning CS0618: 'Object.FindObjectsOfType<T>()' is obsolete: 'Object.FindObjectsOfType has been deprecated. Use Object.FindObjectsByType instead which lets you decide whether you need the results sorted or not.  FindObjectsOfType sorts the results by InstanceID but if you do not need this using FindObjectSortMode.None is considerably faster.'
+Assets/_Project/Scripts/WeatherVisualization3D/Editor/VolumetricWeatherSetupWizard.cs(420,30): warning CS0618: 'Object.FindObjectsOfType<T>()' is obsolete: 'Object.FindObjectsOfType has been deprecated. Use Object.FindObjectsByType instead which lets you decide whether you need the results sorted or not.  FindObjectsOfType sorts the results by InstanceID but if you do not need this using FindObjectSortMode.None is considerably faster.'
+Assets/_Project/Scripts/WeatherVisualization3D/Editor/VolumetricWeatherSetupWizard.cs(422,35): warning CS0618: 'Object.FindObjectsOfType<T>()' is obsolete: 'Object.FindObjectsOfType has been deprecated. Use Object.FindObjectsByType instead which lets you decide whether you need the results sorted or not.  FindObjectsOfType sorts the results by InstanceID but if you do not need this using FindObjectSortMode.None is considerably faster.'
+Assets/_Project/Scripts/WeatherVisualization3D/Editor/VolumetricWeatherSetupWizard.cs(423,36): warning CS0618: 'Object.FindObjectsOfType<T>()' is obsolete: 'Object.FindObjectsOfType has been deprecated. Use Object.FindObjectsByType instead which lets you decide whether you need the results sorted or not.  FindObjectsOfType sorts the results by InstanceID but if you do not need this using FindObjectSortMode.None is considerably faster.'
+Assets/_Project/Scripts/WeatherVisualization3D/Editor/VolumetricWeatherSetupWizard.cs(424,33): warning CS0618: 'Object.FindObjectsOfType<T>()' is obsolete: 'Object.FindObjectsOfType has been deprecated. Use Object.FindObjectsByType instead which lets you decide whether you need the results sorted or not.  FindObjectsOfType sorts the results by InstanceID but if you do not need this using FindObjectSortMode.None is considerably faster.'
+Assets/_Project/Scripts/VoiceControl/Editor/VoiceControlSetupEditor.cs(177,32): warning CS0618: 'Object.FindObjectOfType<T>()' is obsolete: 'Object.FindObjectOfType has been deprecated. Use Object.FindFirstObjectByType instead or if finding any instance is acceptable the faster Object.FindAnyObjectByType'
+Assets/_Project/Scripts/VoiceControl/Editor/VoiceControlSetupEditor.cs(178,33): warning CS0618: 'Object.FindObjectOfType<T>()' is obsolete: 'Object.FindObjectOfType has been deprecated. Use Object.FindFirstObjectByType instead or if finding any instance is acceptable the faster Object.FindAnyObjectByType'
+Assets/_Project/Scripts/VoiceControl/Editor/VoiceControlSetupEditor.cs(179,27): warning CS0618: 'Object.FindObjectOfType<T>()' is obsolete: 'Object.FindObjectOfType has been deprecated. Use Object.FindFirstObjectByType instead or if finding any instance is acceptable the faster Object.FindAnyObjectByType'
+Assets/_Project/Scripts/VoiceControl/Editor/VoiceControlSetupEditor.cs(192,56): warning CS0618: 'Object.FindObjectOfType<T>()' is obsolete: 'Object.FindObjectOfType has been deprecated. Use Object.FindFirstObjectByType instead or if finding any instance is acceptable the faster Object.FindAnyObjectByType'
+Assets/_Project/Scripts/VoiceControl/Editor/VoiceControlSetupEditor.cs(193,56): warning CS0618: 'Object.FindObjectOfType<T>()' is obsolete: 'Object.FindObjectOfType has been deprecated. Use Object.FindFirstObjectByType instead or if finding any instance is acceptable the faster Object.FindAnyObjectByType'
+Assets/_Project/Scripts/VoiceControl/Editor/VoiceControlSetupEditor.cs(194,59): warning CS0618: 'Object.FindObjectOfType<T>()' is obsolete: 'Object.FindObjectOfType has been deprecated. Use Object.FindFirstObjectByType instead or if finding any instance is acceptable the faster Object.FindAnyObjectByType'
+Assets/_Project/Scripts/VoiceControl/Editor/VoiceControlSetupEditor.cs(195,58): warning CS0618: 'Object.FindObjectOfType<T>()' is obsolete: 'Object.FindObjectOfType has been deprecated. Use Object.FindFirstObjectByType instead or if finding any instance is acceptable the faster Object.FindAnyObjectByType'
+Assets/_Project/Scripts/VoiceControl/Editor/VoiceControlSetupEditor.cs(196,50): warning CS0618: 'Object.FindObjectOfType<T>()' is obsolete: 'Object.FindObjectOfType has been deprecated. Use Object.FindFirstObjectByType instead or if finding any instance is acceptable the faster Object.FindAnyObjectByType'
+Assets/_Project/Scripts/VoiceControl/UI/Editor/AudioDownloadHelper.cs(186,24): warning CS0618: 'Object.FindObjectOfType<T>()' is obsolete: 'Object.FindObjectOfType has been deprecated. Use Object.FindFirstObjectByType instead or if finding any instance is acceptable the faster Object.FindAnyObjectByType'
+Assets/_Project/Scripts/VoiceControl/Editor/AddSymbologyColorVoiceAdapter.cs(18,28): warning CS0618: 'Object.FindObjectOfType<T>()' is obsolete: 'Object.FindObjectOfType has been deprecated. Use Object.FindFirstObjectByType instead or if finding any instance is acceptable the faster Object.FindAnyObjectByType'
+Assets/_Project/Scripts/VoiceControl/Editor/VoiceControlSetupEditor.cs(433,49): warning CS0618: 'Object.FindObjectOfType<T>()' is obsolete: 'Object.FindObjectOfType has been deprecated. Use Object.FindFirstObjectByType instead or if finding any instance is acceptable the faster Object.FindAnyObjectByType'
+Assets/_Project/Scripts/VoiceControl/Editor/VoiceControlSetupEditor.cs(441,47): warning CS0618: 'Object.FindObjectOfType<T>()' is obsolete: 'Object.FindObjectOfType has been deprecated. Use Object.FindFirstObjectByType instead or if finding any instance is acceptable the faster Object.FindAnyObjectByType'
+Assets/_Project/Scripts/VoiceControl/Editor/VoiceControlSetupEditor.cs(563,17): warning CS0618: 'Object.FindObjectOfType<T>()' is obsolete: 'Object.FindObjectOfType has been deprecated. Use Object.FindFirstObjectByType instead or if finding any instance is acceptable the faster Object.FindAnyObjectByType'
+Assets/_Project/Scripts/VoiceControl/Editor/VoiceControlSetupEditor.cs(570,17): warning CS0618: 'Object.FindObjectOfType<T>()' is obsolete: 'Object.FindObjectOfType has been deprecated. Use Object.FindFirstObjectByType instead or if finding any instance is acceptable the faster Object.FindAnyObjectByType'
+Assets/_Project/Scripts/VoiceControl/Editor/VoiceControlSetupEditor.cs(577,17): warning CS0618: 'Object.FindObjectOfType<T>()' is obsolete: 'Object.FindObjectOfType has been deprecated. Use Object.FindFirstObjectByType instead or if finding any instance is acceptable the faster Object.FindAnyObjectByType'
+Assets/_Project/Scripts/VoiceControl/Editor/VoiceControlSetupEditor.cs(584,17): warning CS0618: 'Object.FindObjectOfType<T>()' is obsolete: 'Object.FindObjectOfType has been deprecated. Use Object.FindFirstObjectByType instead or if finding any instance is acceptable the faster Object.FindAnyObjectByType'
+Assets/_Project/Scripts/VoiceControl/Editor/VoiceControlSetupEditor.cs(591,17): warning CS0618: 'Object.FindObjectOfType<T>()' is obsolete: 'Object.FindObjectOfType has been deprecated. Use Object.FindFirstObjectByType instead or if finding any instance is acceptable the faster Object.FindAnyObjectByType'
+Assets/_Project/Scripts/VoiceControl/Editor/VoiceControlSetupEditor.cs(608,32): warning CS0618: 'Object.FindObjectOfType<T>()' is obsolete: 'Object.FindObjectOfType has been deprecated. Use Object.FindFirstObjectByType instead or if finding any instance is acceptable the faster Object.FindAnyObjectByType'
+Assets/_Project/Scripts/VoiceControl/UI/Editor/ProceduralAudioGenerator.cs(260,24): warning CS0618: 'Object.FindObjectOfType<T>()' is obsolete: 'Object.FindObjectOfType has been deprecated. Use Object.FindFirstObjectByType instead or if finding any instance is acceptable the faster Object.FindAnyObjectByType'
+Assets/_Project/Scripts/XPlaneIntegration/Editor/XPlaneIntegrationSetupEditor.cs(399,30): warning CS0618: 'Object.FindObjectOfType<T>()' is obsolete: 'Object.FindObjectOfType has been deprecated. Use Object.FindFirstObjectByType instead or if finding any instance is acceptable the faster Object.FindAnyObjectByType'
+Assets/_Project/Scripts/XPlaneIntegration/Editor/XPlaneIntegrationSetupEditor.cs(401,33): warning CS0618: 'Object.FindObjectOfType<T>()' is obsolete: 'Object.FindObjectOfType has been deprecated. Use Object.FindFirstObjectByType instead or if finding any instance is acceptable the faster Object.FindAnyObjectByType'
+Assets/_Project/Scripts/XPlaneIntegration/Editor/XPlaneIntegrationSetupEditor.cs(402,32): warning CS0618: 'Object.FindObjectOfType<T>()' is obsolete: 'Object.FindObjectOfType has been deprecated. Use Object.FindFirstObjectByType instead or if finding any instance is acceptable the faster Object.FindAnyObjectByType'
+Assets/_Project/Scripts/XPlaneIntegration/Editor/XPlaneIntegrationSetupEditor.cs(403,32): warning CS0618: 'Object.FindObjectOfType<T>()' is obsolete: 'Object.FindObjectOfType has been deprecated. Use Object.FindFirstObjectByType instead or if finding any instance is acceptable the faster Object.FindAnyObjectByType'
+Assets/_Project/Scripts/XPlaneIntegration/Editor/XPlaneIntegrationSetupEditor.cs(404,35): warning CS0618: 'Object.FindObjectOfType<T>()' is obsolete: 'Object.FindObjectOfType has been deprecated. Use Object.FindFirstObjectByType instead or if finding any instance is acceptable the faster Object.FindAnyObjectByType'
+Assets/_Project/Scripts/XPlaneIntegration/Editor/XPlaneIntegrationSetupEditor.cs(405,39): warning CS0618: 'Object.FindObjectOfType<T>()' is obsolete: 'Object.FindObjectOfType has been deprecated. Use Object.FindFirstObjectByType instead or if finding any instance is acceptable the faster Object.FindAnyObjectByType'
+Assets/_Project/Scripts/XPlaneIntegration/Editor/XPlaneIntegrationSetupEditor.cs(406,37): warning CS0618: 'Object.FindObjectOfType<T>()' is obsolete: 'Object.FindObjectOfType has been deprecated. Use Object.FindFirstObjectByType instead or if finding any instance is acceptable the faster Object.FindAnyObjectByType'
+Assets/_Project/Scripts/XPlaneIntegration/Editor/XPlaneIntegrationSetupEditor.cs(417,34): warning CS0618: 'Object.FindObjectOfType<T>()' is obsolete: 'Object.FindObjectOfType has been deprecated. Use Object.FindFirstObjectByType instead or if finding any instance is acceptable the faster Object.FindAnyObjectByType'
+Assets/_Project/Scripts/XPlaneIntegration/Editor/XPlaneIntegrationSetupEditor.cs(610,35): warning CS0618: 'Object.FindObjectOfType<T>()' is obsolete: 'Object.FindObjectOfType has been deprecated. Use Object.FindFirstObjectByType instead or if finding any instance is acceptable the faster Object.FindAnyObjectByType'
+Assets/_Project/Scripts/XPlaneIntegration/Editor/XPlaneIntegrationSetupEditor.cs(616,39): warning CS0618: 'Object.FindObjectOfType<T>()' is obsolete: 'Object.FindObjectOfType has been deprecated. Use Object.FindFirstObjectByType instead or if finding any instance is acceptable the faster Object.FindAnyObjectByType'
+Assets/_Project/Scripts/XPlaneIntegration/Editor/XPlaneIntegrationSetupEditor.cs(622,37): warning CS0618: 'Object.FindObjectOfType<T>()' is obsolete: 'Object.FindObjectOfType has been deprecated. Use Object.FindFirstObjectByType instead or if finding any instance is acceptable the faster Object.FindAnyObjectByType'
+Assets/_Project/Scripts/VoiceControl/Editor/VoiceControlSetupEditor.cs(640,29): warning CS0618: 'Object.FindObjectOfType<T>()' is obsolete: 'Object.FindObjectOfType has been deprecated. Use Object.FindFirstObjectByType instead or if finding any instance is acceptable the faster Object.FindAnyObjectByType'
+Assets/_Project/Scripts/VoiceControl/Editor/VoiceControlSetupEditor.cs(653,17): warning CS0618: 'Object.FindObjectOfType<T>()' is obsolete: 'Object.FindObjectOfType has been deprecated. Use Object.FindFirstObjectByType instead or if finding any instance is acceptable the faster Object.FindAnyObjectByType'
+Assets/_Project/Scripts/VisualUnderstanding/Editor/VisualUnderstandingSetupEditor.cs(37,24): warning CS0414: The field 'VisualUnderstandingSetupEditor._panelPosition' is assigned but its value is never used
+Assets/_Project/Scripts/VoiceControl/Editor/VoiceControlSetupEditor.cs(59,22): warning CS0414: The field 'VoiceControlSetupEditor._checkedScene' is assigned but its value is never used
+dicatorSystem/Editor/IndicatorSystemSetupEditor.cs(762,41): warning CS0618: 'Object.FindObjectOfType<T>()' is obsolete: 'Object.FindObjectOfType has been deprecated. Use Object.FindFirstObjectByType instead or if finding any instance is acceptable the faster Object.FindAnyObjectByType'
+Assets/_Project/Scripts/IndicatorSystem/Editor/IndicatorSystemSetupEditor.cs(776,39): warning CS0618: 'Object.FindObjectOfType<T>()' is obsolete: 'Object.FindObjectOfType has been deprecated. Use Object.FindFirstObjectByType instead or if finding any instance is acceptable the faster Object.FindAnyObjectByType'
+Assets/_Project/Scripts/HUDControl/Editor/HUDSetupWizard.cs(155,40): warning CS0618: 'Object.FindObjectOfType<T>()' is obsolete: 'Object.FindObjectOfType has been deprecated. Use Object.FindFirstObjectByType instead or if finding any instance is acceptable the faster Object.FindAnyObjectByType'
+Assets/_Project/Scripts/HUDControl/Editor/HUDSetupWizard.cs(215,48): warning CS0618: 'Object.FindObjectOfType<T>()' is obsolete: 'Object.FindObjectOfType has been deprecated. Use Object.FindFirstObjectByType instead or if finding any instance is acceptable the faster Object.FindAnyObjectByType'
+Assets/_Project/Scripts/IndicatorSystem/Editor/IndicatorSystemSetupEditor.cs(34,38): warning CS0618: 'Object.FindObjectOfType<T>()' is obsolete: 'Object.FindObjectOfType has been deprecated. Use Object.FindFirstObjectByType instead or if finding any instance is acceptable the faster Object.FindAnyObjectByType'
+Assets/_Project/Scripts/IndicatorSystem/Editor/IndicatorSystemSetupEditor.cs(65,37): warning CS0618: 'Object.FindObjectOfType<T>()' is obsolete: 'Object.FindObjectOfType has been deprecated. Use Object.FindFirstObjectByType instead or if finding any instance is acceptable the faster Object.FindAnyObjectByType'
+Assets/_Project/Scripts/IndicatorSystem/Editor/IndicatorSystemSetupEditor.cs(72,35): warning CS0618: 'Object.FindObjectOfType<T>()' is obsolete: 'Object.FindObjectOfType has been deprecated. Use Object.FindFirstObjectByType instead or if finding any instance is acceptable the faster Object.FindAnyObjectByType'
+Assets/_Project/Scripts/IndicatorSystem/Editor/IndicatorSystemSetupEditor.cs(121,30): warning CS0618: 'Object.FindObjectOfType<T>()' is obsolete: 'Object.FindObjectOfType has been deprecated. Use Object.FindFirstObjectByType instead or if finding any instance is acceptable the faster Object.FindAnyObjectByType'
+Assets/_Project/Scripts/HUDControl/Editor/HUDSetupWizard.cs(337,38): warning CS0618: 'Object.FindObjectOfType<T>()' is obsolete: 'Object.FindObjectOfType has been deprecated. Use Object.FindFirstObjectByType instead or if finding any instance is acceptable the faster Object.FindAnyObjectByType'
+Assets/_Project/Scripts/Editor/SpriteAutoReplacerEditor.cs(301,33): warning CS0618: 'Object.FindObjectsOfType<T>(bool)' is obsolete: 'Object.FindObjectsOfType has been deprecated. Use Object.FindObjectsByType instead which lets you decide whether you need the results sorted or not.  FindObjectsOfType sorts the results by InstanceID but if you do not need this using FindObjectSortMode.None is considerably faster.'
+Assets/_Project/Scripts/VisualUnderstanding/Editor/VisualUnderstandingSetupEditor.cs(124,32): warning CS0618: 'Object.FindObjectOfType<T>()' is obsolete: 'Object.FindObjectOfType has been deprecated. Use Object.FindFirstObjectByType instead or if finding any instance is acceptable the faster Object.FindAnyObjectByType'
+Assets/_Project/Scripts/VisualUnderstanding/Editor/VisualUnderstandingSetupEditor.cs(125,31): warning CS0618: 'Object.FindObjectOfType<T>()' is obsolete: 'Object.FindObjectOfType has been deprecated. Use Object.FindFirstObjectByType instead or if finding any instance is acceptable the faster Object.FindAnyObjectByType'
+Assets/_Project/Scripts/VisualUnderstanding/Editor/VisualUnderstandingSetupEditor.cs(126,30): warning CS0618: 'Object.FindObjectOfType<T>()' is obsolete: 'Object.FindObjectOfType has been deprecated. Use Object.FindFirstObjectByType instead or if finding any instance is acceptable the faster Object.FindAnyObjectByType'
+Assets/_Project/Scripts/Editor/WeatherRadarSetupEditor.cs(193,32): warning CS0618: 'Object.FindObjectOfType<T>()' is obsolete: 'Object.FindObjectOfType has been deprecated. Use Object.FindFirstObjectByType instead or if finding any instance is acceptable the faster Object.FindAnyObjectByType'
+Assets/_Project/Scripts/HUDControl/Editor/HUDSetupWizard.cs(553,30): warning CS0618: 'Object.FindObjectOfType<T>()' is obsolete: 'Object.FindObjectOfType has been deprecated. Use Object.FindFirstObjectByType instead or if finding any instance is acceptable the faster Object.FindAnyObjectByType'
+Assets/_Project/Scripts/HUDControl/Editor/HUDSetupWizard.cs(573,40): warning CS0618: 'Object.FindObjectsOfType<T>()' is obsolete: 'Object.FindObjectsOfType has been deprecated. Use Object.FindObjectsByType instead which lets you decide whether you need the results sorted or not.  FindObjectsOfType sorts the results by InstanceID but if you do not need this using FindObjectSortMode.None is considerably faster.'
+Assets/_Project/Scripts/Editor/FAASymbologySetupWizard.cs(620,28): warning CS0618: 'Object.FindObjectOfType<T>()' is obsolete: 'Object.FindObjectOfType has been deprecated. Use Object.FindFirstObjectByType instead or if finding any instance is acceptable the faster Object.FindAnyObjectByType'
+Assets/_Project/Scripts/Editor/FAASymbologySetupWizard.cs(742,13): warning CS0618: 'TMP_Text.enableWordWrapping' is obsolete: 'The enabledWordWrapping property is now obsolete. Please use the textWrappingMode property instead.'
+Assets/_Project/Scripts/HUDControl/Editor/HUDSetupWizard.cs(637,30): warning CS0618: 'Object.FindObjectOfType<T>()' is obsolete: 'Object.FindObjectOfType has been deprecated. Use Object.FindFirstObjectByType instead or if finding any instance is acceptable the faster Object.FindAnyObjectByType'
+Assets/_Project/Scripts/HUDControl/Editor/HUDSetupWizard.cs(652,48): warning CS0618: 'Object.FindObjectOfType<T>()' is obsolete: 'Object.FindObjectOfType has been deprecated. Use Object.FindFirstObjectByType instead or if finding any instance is acceptable the faster Object.FindAnyObjectByType'
+Assets/_Project/Scripts/VoiceControl/UI/Editor/UIToolkitRadialMenuSetupWindow.cs(115,26): warning CS0618: 'Object.FindObjectOfType<T>()' is obsolete: 'Object.FindObjectOfType has been deprecated. Use Object.FindFirstObjectByType instead or if finding any instance is acceptable the faster Object.FindAnyObjectByType'
+Assets/_Project/Scripts/VoiceControl/UI/Editor/UIToolkitRadialMenuSetupWindow.cs(116,29): warning CS0618: 'Object.FindObjectOfType<T>()' is obsolete: 'Object.FindObjectOfType has been deprecated. Use Object.FindFirstObjectByType instead or if finding any instance is acceptable the faster Object.FindAnyObjectByType'
+Assets/_Project/Scripts/VisualUnderstanding/Editor/VisualUnderstandingSetupEditor.cs(438,29): warning CS0618: 'Object.FindObjectOfType<T>()' is obsolete: 'Object.FindObjectOfType has been deprecated. Use Object.FindFirstObjectByType instead or if finding any instance is acceptable the faster Object.FindAnyObjectByType'
+Assets/_Project/Scripts/VisualUnderstanding/Editor/VisualUnderstandingSetupEditor.cs(506,13): warning CS0618: 'TMP_Text.enableWordWrapping' is obsolete: 'The enabledWordWrapping property is now obsolete. Please use the textWrappingMode property instead.'
+Assets/_Project/Scripts/WeatherVisualization3D/Editor/VolumetricWeatherSetupWizard.cs(244,27): warning CS0618: 'Object.FindObjectOfType<T>()' is obsolete: 'Object.FindObjectOfType has been deprecated. Use Object.FindFirstObjectByType instead or if finding any instance is acceptable the faster Object.FindAnyObjectByType'
+Assets/_Project/Scripts/WeatherVisualization3D/Editor/VolumetricWeatherSetupWizard.cs(245,29): warning CS0618: 'Object.FindObjectOfType<T>()' is obsolete: 'Object.FindObjectOfType has been deprecated. Use Object.FindFirstObjectByType instead or if finding any instance is acceptable the faster Object.FindAnyObjectByType'
+Assets/_Project/Scripts/Editor/SpriteAutoSlicerEditor.cs(580,9): warning CS0618: 'TextureImporter.spritesheet' is obsolete: 'Support for accessing sprite meta data through spritesheet has been removed. Please use the UnityEditor.U2D.Sprites.ISpriteEditorDataProvider interface instead.'
+Assets/_Project/Scripts/VisualUnderstanding/Editor/VisualUnderstandingSetupEditor.cs(808,25): warning CS0618: 'Object.FindObjectOfType<T>()' is obsolete: 'Object.FindObjectOfType has been deprecated. Use Object.FindFirstObjectByType instead or if finding any instance is acceptable the faster Object.FindAnyObjectByType'
+Assets/_Project/Scripts/VisualUnderstanding/Editor/VisualUnderstandingSetupEditor.cs(839,25): warning CS0618: 'Object.FindObjectOfType<T>()' is obsolete: 'Object.FindObjectOfType has been deprecated. Use Object.FindFirstObjectByType instead or if finding any instance is acceptable the faster Object.FindAnyObjectByType'
+Assets/_Project/Scripts/VisualUnderstanding/Editor/VisualUnderstandingSetupEditor.cs(913,17): warning CS0618: 'TMP_Text.enableWordWrapping' is obsolete: 'The enabledWordWrapping property is now obsolete. Please use the textWrappingMode property instead.'
+Assets/_Project/Scripts/VoiceControl/UI/Editor/UIToolkitRadialMenuSetupWindow.cs(208,30): warning CS0618: 'Object.FindObjectOfType<T>()' is obsolete: 'Object.FindObjectOfType has been deprecated. Use Object.FindFirstObjectByType instead or if finding any instance is acceptable the faster Object.FindAnyObjectByType'
+Assets/_Project/Scripts/Editor/CesiumPhysicsFixerWindow.cs(15,42): warning CS0618: 'Object.FindObjectsOfType<T>()' is obsolete: 'Object.FindObjectsOfType has been deprecated. Use Object.FindObjectsByType instead which lets you decide whether you need the results sorted or not.  FindObjectsOfType sorts the results by InstanceID but if you do not need this using FindObjectSortMode.None is considerably faster.'
+Assets/_Project/Scripts/VoiceControl/UI/Editor/UIToolkitRadialMenuSetupWindow.cs(224,17): warning CS0618: 'Object.FindObjectOfType<T>()' is obsolete: 'Object.FindObjectOfTy
+AssetDatabase: script compilation time: 3.973328s
+Detected Library folder embedded in an asset folder. Did you copy a project into this project? Use "Export Package" to move assets between projects. You need to remove the following Library folder from your project: Assets/Library. Until then it will be ignored but have a negative performance impact.
+Begin MonoManager ReloadAssembly
+Total cache size 110270876
+Total cache size after purge 110270876, took 00:00:00.1761935
+Symbol file LoadedFromMemory is not a mono symbol file
+- Loaded All Assemblies, in  0.693 seconds
+'Packages/com.cesium.unity/Runtime/generated/Reinterop.RoslynSourceGenerator/CesiumGoogleMapTilesRasterOverlay-generated.cs' contains partial class of Unity.Object, exactly 1 of the partial classes needs to be in a file with the same filename. This is to know the one that can be referenced from ie. GameObjects
+'Packages/com.cesium.unity/Runtime/CesiumGoogleMapsTilesRasterOverlay.cs' contains partial class of Unity.Object, exactly 1 of the partial classes needs to be in a file with the same filename. This is to know the one that can be referenced from ie. GameObjects
+Detected Library folder embedded in an asset folder. Did you copy a project into this project? Use "Export Package" to move assets between projects. You need to remove the following Library folder from your project: Assets/Library. Until then it will be ignored but have a negative performance impact.
+Start importing Assets/UserSettings using Guid(6750fffdaf14649b7a26059b6fdf3d94) (DefaultImporter) -> (artifact id: 'b16d5338322782394a0287c630777c48') in 0.0175305 seconds
+Start importing Assets/ProjectSettings using Guid(88b7f8c89448440d2bf57549b33c27d6) (DefaultImporter) -> (artifact id: '69142c6db9f10f1de17a9ae55d60a1f6') in 0.001981291 seconds
+Start importing Assets/ulw_test_results using Guid(0aa9b46b2e98444e2bc41102d174b0d5) (DefaultImporter) -> (artifact id: '5da4394ce7c9bc5a55a645e923ddf0b8') in 0.000539333 seconds
+Start importing Assets/Packages using Guid(8a84575ecd4754e5c946123885b2115a) (DefaultImporter) -> (artifact id: '1a6e3ef63716b227b2d12482c3a94d18') in 0.000545959 seconds
+Start importing Assets/Assets using Guid(5f4a6c367094d459e9baf0bab6727a1c) (DefaultImporter) -> (artifact id: 'b08399956fca3dc28637bd3a5b9b7680') in 0.0007725 seconds
+Start importing Assets/Logs using Guid(ff5acdd8681d5418bab8afef8f4cc4ff) (DefaultImporter) -> (artifact id: '68cdd5c84fdd14e62ea03eb456c34b6d') in 0.000470625 seconds
+Start importing Assets/Assets/_Project using Guid(42421a20602d74d8490363d2c22ca806) (DefaultImporter) -> (artifact id: '605c96c91dde5a103743eeb49a67e74a') in 0.000230375 seconds
+Start importing Assets/_Project/Docs using Guid(27b46f18a19c04e0f9023778141ba3a6) (DefaultImporter) -> (artifact id: '423e2e80f5d636b277bbb736504be26e') in 0.000573083 seconds
+Start importing Assets/ProjectSettings/Packages using Guid(d92ba0238973a4c14960a0a6747cda06) (DefaultImporter) -> (artifact id: 'b43069687c62f297fc6cb6959411a11a') in 0.000535958 seconds
+Start importing Assets/ProjectSettings/Packages/com.unity.dedicated-server using Guid(525be320f3488451c8746e4d98c320b5) (DefaultImporter) -> (artifact id: '5f2a2ed93f61dd3b9eafac3022cfb450') in 0.000881 seconds
+Start importing Assets/Assets/_Project/Scripts using Guid(f97f261d0cdef407aa351882f1e123cd) (DefaultImporter) -> (artifact id: '99ccc42eae99795e6f654c3dddd1e02b') in 0.000291459 seconds
+Start importing Assets/_Project/Scripts/XPlaneIntegration using Guid(7b5263bb0d83843418704491084f231e) (DefaultImporter) -> (artifact id: 'a6eebf983550828b035bd5772c0017a6') in 0.000534375 seconds
+Start importing Assets/_Project/Scripts/XPlaneIntegration/Providers using Guid(a1a458e3f086d468f9757c211728d6a0) (DefaultImporter) -> (artifact id: '2563eda90af4e3f9aa248b70a8047ba3') in 0.000443917 seconds
+Start importing Assets/_Project/Scripts/XPlaneIntegration/Editor using Guid(16e2719320ac14f8bbfb59cefcba9137) (DefaultImporter) -> (artifact id: '945a43e1b320bad09ad1fd08c4dd4deb') in 0.000446458 seconds
+Start importing Assets/_Project/Scripts/XPlaneIntegration/Bridges using Guid(aac1322168b3d42a58de1a5c3c854710) (DefaultImporter) -> (artifact id: 'a8d2638240d4ee339feee0cd1684f53e') in 0.000458792 seconds
+Start importing Assets/_Project/Scripts/XPlaneIntegration/Core using Guid(9d187406c38b6462783dbf63820d711e) (DefaultImporter) -> (artifact id: '285cb2ddf7a45da0e6f62bc881b21e6f') in 0.00049875 seconds
+Start importing Assets/Assets/_Project/Scripts/XPlaneIntegration using Guid(7f97f43755f574cc6bd9bec9385175da) (DefaultImporter) -> (artifact id: 'ca53ab6edcbe9bbefef0a9afea877648') in 0.000290375 seconds
+Start importing Assets/Assets/_Project/Scripts/XPlaneIntegration/Core using Guid(d0a22322f75564eb2a246032f024ed79) (DefaultImporter) -> (artifact id: '7b9ca92212fc6f2431bd3eae9dc7eefd') in 0.000215666 seconds
+Start importing Assets/Assets/_Project/Scripts/XPlaneIntegration/Config using Guid(16b0249baaada422aada59c8d19a0ca7) (DefaultImporter) -> (artifact id: '3a6a9c68c16b4b7219cd0743545f2c39') in 0.00020375 seconds
+Start importing Assets/Assets/_Project/Scripts/XPlaneIntegration/Editor using Guid(36e18008c7def46d8a9a40ced90395fd) (DefaultImporter) -> (artifact id: '8cbb55ee8b958cb0ec50b5ec4b132909') in 0.000216 seconds
+Start importing Assets/Assets/_Project/Scripts/XPlaneIntegration/Providers using Guid(cf7e4f1b6308646d493af3fb3e676532) (DefaultImporter) -> (artifact id: 'bc616a11f2e39068490e578740b55701') in 0.000220708 seconds
+Start importing Assets/ExternalTools/Python/pyart/testing/data/__pycache__ using Guid(0a8b8a616e862438a84363e46ec9390a) (DefaultImporter) -> (artifact id: 'eb4ed051e9b274027edd69f69e4e7b3e') in 0.000794 seconds
+Refreshing native plugins compatible for Editor in 49.79 ms, found 3 plugins.
+Native extension for OSXStandalone target not found
+Refreshing native plugins compatible for Editor in 8.60 ms, found 3 plugins.
+ScheduleIndexationOnStartup MainProcess:True IndexOnStartup:True
+Mono: successfully reloaded assembly
+- Finished resetting the current domain, in  1.422 seconds
+Domain Reload Profiling: 2115ms
+	BeginReloadAssembly (150ms)
+		ExecutionOrderSort (0ms)
+		DisableScriptedObjects (7ms)
+		BackupInstance (0ms)
+		ReleaseScriptingObjects (0ms)
+		CreateAndSetChildDomain (48ms)
+	RebuildCommonClasses (18ms)
+	RebuildNativeTypeToScriptingClass (7ms)
+	initialDomainReloadingComplete (16ms)
+	LoadAllAssembliesAndSetupDomain (502ms)
+		LoadAssemblies (361ms)
+		RebuildTransferFunctionScriptingTraits (0ms)
+		AnalyzeDomain (206ms)
+			TypeCache.Refresh (160ms)
+				TypeCache.ScanAssembly (139ms)
+			BuildScriptInfoCaches (36ms)
+			ResolveRequiredComponents (6ms)
+	FinalizeReload (1422ms)
+		ReleaseScriptCaches (0ms)
+		RebuildScriptCaches (0ms)
+		SetupLoadedEditorAssemblies (1335ms)
+			LogAssemblyErrors (0ms)
+			InitializePlatformSupportModulesInManaged (9ms)
+			SetLoadedEditorAssemblies (3ms)
+			BeforeProcessingInitializeOnLoad (106ms)
+			ProcessInitializeOnLoadAttributes (1121ms)
+			ProcessInitializeOnLoadMethodAttributes (94ms)
+			AfterProcessingInitializeOnLoad (1ms)
+			EditorAssembliesLoaded (0ms)
+		ExecutionOrderSort2 (0ms)
+		AwakeInstancesAfterBackupRestoration (5ms)
+Detected Library folder embedded in an asset folder. Did you copy a project into this project? Use "Export Package" to move assets between projects. You need to remove the following Library folder from your project: Assets/Library. Until then it will be ignored but have a negative performance impact.
+Start importing Assets/ulw_test_results/editmode-aircraft.log using Guid(a0ca1ec0bb735424397d30ff0bc46cda) (DefaultImporter) -> (artifact id: '0b318c324fac79dda334130300366e85') in 0.691451625 seconds
+Start importing Assets/Logs/Packages-Update.log using Guid(7205e1912834d4ae4a405571a40040bb) (DefaultImporter) -> (artifact id: '4a57a4831a5d2ed3658fe51c6430a628') in 0.001774375 seconds
+Start importing Assets/UserSettings/Search.settings using Guid(c4f28ad98fb4440c5a3a2257ae80a74d) (DefaultImporter) -> (artifact id: '1feed1e9ca09e19537964d0b5a1f37a8') in 0.042360375 seconds
+Start importing Assets/ulw_test_results/playmode.log using Guid(2779a92577dfb4f6c800f7bf09f8021b) (DefaultImporter) -> (artifact id: '58ed156b1744765370efb4ca2269ce49') in 0.001321292 seconds
+Start importing Assets/ulw_test_results/editmode.log using Guid(8d7a87b9f798a480b86614c1d0854d45) (DefaultImporter) -> (artifact id: 'c540bf381963380887ba8007451ade02') in 0.001235125 seconds
+Start importing Assets/ExternalTools/Python/pyart/__pycache__/config.cpython-314.pyc using Guid(216f5ff4f37b74da6b1abe937b74bc23) (DefaultImporter) -> (artifact id: 'ae764c8f7772267454a954a50729e840') in 0.445148834 seconds
+Start importing Assets/ExternalTools/Python/pyart/__pycache__/lazydict.cpython-314.pyc using Guid(a54fed6a1134f4b1c9de25f26d84272c) (DefaultImporter) -> (artifact id: '2dcce66a224b52d2a281d3a587ec15d1') in 0.002505041 seconds
+Start importing Assets/ExternalTools/Python/pyart/__pycache__/__init__.cpython-314.pyc using Guid(9717f202dd5fd4b0093e03c7f962e378) (DefaultImporter) -> (artifact id: '24c58f5bec8574916c0e61747c93946d') in 0.001446167 seconds
+Start importing Assets/ExternalTools/Python/pyart/__pycache__/exceptions.cpython-314.pyc using Guid(4da8dd9d45bdf4be6b8dbb10ae9e6b7f) (DefaultImporter) -> (artifact id: '85e9b92f4fb76d5ecbe2fddf3795e329') in 0.001253084 seconds
+Start importing Assets/ExternalTools/Python/pyart/__pycache__/_debug_info.cpython-314.pyc using Guid(dfcb0d96b4dd04ba089dbb38f1302b12) (DefaultImporter) -> (artifact id: '90d11295ddb44570bc54eec0dd7954b3') in 0.000925542 seconds
+Start importing Assets/ExternalTools/Python/pyart/__pycache__/default_config.cpython-314.pyc using Guid(ef276f0d225344a3b8dce591e6af97a8) (DefaultImporter) -> (artifact id: 'd5242db1a4eaf6ddc1cf5c2fba27bb1e') in 0.000792708 seconds
+Start importing Assets/ExternalTools/Python/pyart/io/__pycache__/grid_io.cpython-314.pyc using Guid(200635371a0ad443e9580162633bfec2) (DefaultImporter) -> (artifact id: '4b9bff0e89e656325b416ff1b5639bbd') in 0.001780167 seconds
+Start importing Assets/ExternalTools/Python/pyart/retrieve/__pycache__/cappi.cpython-314.pyc using Guid(40c0db7ce29cc4a30ac9b7cca35c1ab7) (DefaultImporter) -> (artifact id: 'ae8a79b9ceb573f841746ebd278924b6') in 0.001106209 seconds
+Start importing Assets/ExternalTools/Python/pyart/io/__pycache__/_sigmet_noaa_hh.cpython-314.pyc using Guid(6038d374cedb5428b867d0c81e784438) (DefaultImporter) -> (artifact id: 'bb644c1a476bc3fde6410ba52363a450') in 0.001169833 seconds
+Start importing Assets/ExternalTools/Python/pyart/core/__pycache__/wind_profile.cpython-314.pyc using Guid(601d35ad7b3614f0c86f6fff635c21d5) (DefaultImporter) -> (artifact id: '62c9f55220a4188fac2a9a79ea56cbee') in 0.00083125 seconds
+Start importing Assets/ExternalTools/Python/pyart/retrieve/__pycache__/_echo_class.cpython-314.pyc using Guid(70df22227c9f048f0ac3fb1fab624abf) (DefaultImporter) -> (artifact id: '9951366a1cc4804c3ed11ef1448b5062') in 0.000805709 seconds
+Start importing Assets/ExternalTools/Python/pyart/util/__pycache__/met.cpython-314.pyc using Guid(113acd0fdd3ea47ff817335662a2c712) (DefaultImporter) -> (artifact id: '3e02517bf1cfce5aa8bdb4f0915273bf') in 0.000797125 seconds
+Start importing Assets/ExternalTools/Python/pyart/correct/__pycache__/despeckle.cpython-314.pyc using Guid(21d93b9d69acb4f3b94c7aa9ba082842) (DefaultImporter) -> (artifact id: 'ee5b13f641e514bbe832bd8df232ca78') in 0.000852083 seconds
+Start importing Assets/ExternalTools/Python/pyart/aux_io/__pycache__/rainbow_wrl.cpython-314.pyc using Guid(3162ba16c590540cab97cff249170e43) (DefaultImporter) -> (artifact id: 'd3951ca530fb666f22d3094bd4b3e944') in 0.000828625 seconds
+Start importing Assets/ExternalTools/Python/pyart/testing/__pycache__/sample_files.cpython-314.pyc using Guid(41b8575d287fd464f99709d6fb97a693) (DefaultImporter) -> (artifact id: '1063bad9ca9c371f8ad896b4c515e94c') in 0.004340083 seconds
+Start importing Assets/ExternalTools/Python/pyart/util/__pycache__/sigmath.cpython-314.pyc using Guid(61796aac0d42c48acbce107165b8e176) (DefaultImporter) -> (artifact id: '3c3c65504ce9555c63b9dc8ef1536d29') in 0.008099875 seconds
+Start importing Assets/ExternalTools/Python/pyart/io/__pycache__/arm_sonde.cpython-314.pyc using Guid(8151e34cf84e5405894fb90568b76d11) (DefaultImporter) -> (artifact id: '524d45da6dbc92a22449b651182385f2') in 0.000868583 seconds
+Start importing Assets/ExternalTools/Python/pyart/xradar/__pycache__/__init__.cpython-314.pyc using Guid(91c4b02f53e904afbbc092eaf15eba9f) (DefaultImporter) -> (artifact id: '00be251fec9aaa87c21ae27c5cd3c0d3') in 0.001144541 seconds
+Start importing Assets/ExternalTools/Python/pyart/aux_io/__pycache__/radx_grid.cpython-314.pyc using Guid(91b697eb9a9804f0a859373fe5828db1) (DefaultImporter) -> (artifact id: '05603a9d88d0397e4030088c26e18102') in 0.000929125 seconds
+Start importing Assets/ExternalTools/Python/pyart/io/__pycache__/nexrad_common.cpython-314.pyc using Guid(e1ba3db7c25824b94a3841680841dee2) (DefaultImporter) -> (artifact id: '2a00456d6fb829560a9df6fb395c8dea') in 0.0006295 seconds
+Start importing Assets/ExternalTools/Python/pyart/util/__pycache__/datetime_utils.cpython-314.pyc using Guid(e17d5fa9b2fcd418090ea946e91fb05c) (DefaultImporter) -> (artifact id: '3a1ad989e7bec87c7d630e5a9d1fc6ac') in 0.000605584 seconds
+Start importing Assets/ExternalTools/Python/pyart/graph/__pycache__/_cm_colorblind.cpython-314.pyc using Guid(c205a0eeaeae343bfa913d2f49be03fc) (DefaultImporter) -> (artifact id: '0216882d42482f6259af3f00c9f10472') in 0.001846791 seconds
+Start importing Assets/ExternalTools/Python/pyart/correct/__pycache__/region_dealias.cpython-314.pyc using Guid(e260b41e19652454c91a482a0b56d8bf) (DefaultImporter) -> (artifact id: '1bd4221c03dac4d8b99cf0c62e9d39ac') in 0.011118334 seconds
+Start importing Assets/ExternalTools/Python/pyart/aux_io/__pycache__/sinarame_h5.cpython-314.pyc using Guid(23821bc02860b4711837ac1aacfabee4) (DefaultImporter) -> (artifact id: '50662f44eff3bdf6a62f9b52a92a23e4') in 0.001348834 seconds
+Start importing Assets/ExternalTools/Python/pyart/testing/__pycache__/sample_objects.cpython-314.pyc using Guid(3326c652a61b849df9a1b858a7538c50) (DefaultImporter) -> (artifact id: 'af6ad08a3c7b3700da8bbb1d9784951e') in 0.000705583 seconds
+Start importing Assets/ExternalTools/Python/pyart/retrieve/__pycache__/srv.cpython-314.pyc using Guid(43dcf8dbd12d546149f09a6d8b3576c9) (DefaultImporter) -> (artifact id: '54234cb3e14f6de3869efbe032f3c23c') in 0.000633417 seconds
+Start importing Assets/ExternalTools/Python/pyart/io/__pycache__/uf_write.cpython-314.pyc using Guid(63ccc9f9b71b448e98514c6f1bcf13ce) (DefaultImporter) -> (artifact id: 'f53682c6cd3943f3e74e451660da8613') in 0.000747459 seconds
+Start importing Assets/ExternalTools/Python/pyart/graph/__pycache__/radarmapdisplay.cpython-314.pyc using Guid(f3b9e62dbd5834fde887f39fa92ac97e) (DefaultImporter) -> (artifact id: 'd29e5b7a5aca5e7d8667e5b592f189ed') in 0.0007805 seconds
+Start importing Assets/ExternalTools/Python/pyart/util/__pycache__/hildebrand_sekhon.cpython-314.pyc using Guid(04862394b797f4f338fb37e2b68c22ca) (DefaultImporter) -> (artifact id: 'f8c1c4dc4e4b6fc393de6eeb459a91b4') in 0.000612 seconds
+Start importing Assets/ExternalTools/Python/pyart/io/__pycache__/nexrad_cdm.cpython-314.pyc using Guid(341d80d1366214d6b80c0f15c4ba46d5) (DefaultImporter) -> (artifact id: '2ef89be5581bbd35babf8ecc78bb9b8d') in 0.000816625 seconds
+Start importing Assets/ExternalTools/Python/pyart/aux_io/__pycache__/radx.cpython-314.pyc using Guid(4499852502e06425e8982e2b121abb40) (DefaultImporter) -> (artifact id: '355ab5847b45a44be5a38cb5b7db9fe7') in 0.00072875 seconds
+Start importing Assets/ExternalTools/Python/pyart/bridge/__pycache__/__init__.cpython-314.pyc using Guid(b43bf46fcc6ff40679c1cf69ac854ca9) (DefaultImporter) -> (artifact id: '20f31dffe15632a15c515329274c5e26') in 0.000706625 seconds
+Start importing Assets/ExternalTools/Python/pyart/io/__pycache__/mdv_grid.cpython-314.pyc using Guid(c4d196b86fcc440d8bc02b09ab5dcecd) (DefaultImporter) -> (artifact id: '0bcd6ead207c99af9c7d6cb052617023') in 0.000579042 seconds
+Start importing Assets/ExternalTools/Python/pyart/aux_io/__pycache__/arm_vpt.cpython-314.pyc using Guid(c435c0bb8d64e4bd7ad7bed8804ac52b) (DefaultImporter) -> (artifact id: '00b1464f216e9ea8131e76cef442227b') in 0.000679625 seconds
+Start importing Assets/ExternalTools/Python/pyart/correct/__pycache__/unwrap.cpython-314.pyc using Guid(c43c08552fbe647b28bf51ae18c4f22f) (DefaultImporter) -> (artifact id: '295171cf779008777745bd58602183b1') in 0.000694333 seconds
+Start importing Assets/ExternalTools/Python/pyart/io/__pycache__/auto_read.cpython-314.pyc using Guid(c4df17384698c4b3f83e5ae634290b25) (DefaultImporter) -> (artifact id: 'a775b2479cef4deb9854cf1719f8ac56') in 0.00061725 seconds
+Start importing Assets/ExternalTools/Python/pyart/aux_io/__pycache__/rxm25.cpython-314.pyc using Guid(05f3c19dcf1d943e2818cd7a80c35be5) (DefaultImporter) -> (artifact id: '87a74bbcfd7b6cb6ada9e0a9a6cd6805') in 0.000549333 seconds
+Start importing Assets/ExternalTools/Python/pyart/io/__pycache__/sigmet.cpython-314.pyc using Guid(15671b1414ccc460da8dcea4b645cc40) (DefaultImporter) -> (artifact id: '9f6ea23d17ec9978924d9dbfc51eb6ae') in 0.000609834 seconds
+Start importing Assets/ExternalTools/Python/pyart/retrieve/__pycache__/spectra_calculations.cpython-314.pyc using Guid(2539b1237142248a9b80873ffd23799e) (DefaultImporter) -> (artifact id: '69cf3cef75f8c4ff5dea9977b707e555') in 0.000982917 seconds
+Start importing Assets/ExternalTools/Python/pyart/correct/__pycache__/bias_and_noise.cpython-314.pyc using Guid(35a6adae1a1e04390a08f26af1774402) (DefaultImporter) -> (artifact id: '94217bd7d07fc0db1ecc275c756f5d30') in 0.000816708 seconds
+Start importing Assets/ExternalTools/Python/pyart/retrieve/__pycache__/__init__.cpython-314.pyc using Guid(f547cb99febb2484f92b5593ac022e87) (DefaultImporter) -> (artifact id: '2d9d3242ec2024752e145fe3902eb784') in 0.000553458 seconds
+Start importing Assets/ExternalTools/Python/pyart/core/__pycache__/radar_spectra.cpython-314.pyc using Guid(566ef37edccb74b92b19032208d940e3) (DefaultImporter) -> (artifact id: '7f06cd86a679a4876e7205092298d4db') in 0.000574042 seconds
+Start importing Assets/ExternalTools/Python/pyart/map/__pycache__/gates_to_grid.cpython-314.pyc using Guid(865151552564043fd849b5b133fd51cd) (DefaultImporter) -> (artifact id: 'b3ac115312372ba42dab233de30690d7') in 0.00074575 seconds
+Start importing Assets/ExternalTools/Python/pyart/io/__pycache__/nexrad_archive.cpython-314.pyc using Guid(86b11a0c8d19a4a33a5027f0edb40d6b) (DefaultImporter) -> (artifact id: 'ae0e50b42f03a6cc8da423edb53cd9f4') in 0.000559125 seconds
+Start importing Assets/ExternalTools/Python/pyart/filters/__pycache__/gatefilter.cpython-314.pyc using Guid(86ca51f91ca054729a22400d32c2189e) (DefaultImporter) -> (artifact id: '49263c232a4dc9b04611b19a4737010b') in 0.000623542 seconds
+Start importing Assets/ExternalTools/Python/pyart/io/__pycache__/uffile.cpython-314.pyc using Guid(a6a1e4e70ee1e4345b3c5db74c9bea29) (DefaultImporter) -> (artifact id: '1b570ddfa97c4e0d3140b0e5ee03b819') in 0.000523833 seconds
+Start importing Assets/ExternalTools/Python/pyart/core/__pycache__/grid.cpython-314.pyc using Guid(b6b6bc255da4e4202a155233a3249b46) (DefaultImporter) -> (artifact id: 'fc51a1bac2bf16f4810059c45a4df346') in 0.000614583 seconds
+Start importing Assets/ExternalTools/Python/pyart/map/__pycache__/__init__.cpython-314.pyc using Guid(b6afc27413ca24c8a98741ba006453bf) (DefaultImporter) -> (artifact id: '70337b24f2f26b124cb41dc2a6d8a4c6') in 0.000606042 seconds
+Start importing Assets/ExternalTools/Python/pyart/aux_io/__pycache__/odim_h5.cpython-314.pyc using Guid(f6bd7a33dbd6841619f4ae405cba23b8) (DefaultImporter) -> (artifact id: '31094ea1054112b796382e3d64cc928f') in 0.000626042 seconds
+Start importing Assets/ExternalTools/Python/pyart/util/__pycache__/circular_stats.cpython-314.pyc using Guid(1743a82b884f345c7895abda695b8c47) (DefaultImporter) -> (artifact id: '5a46604eca06421ed587ef147d9dcaed') in 0.000543375 seconds
+Start importing Assets/ExternalTools/Python/pyart/graph/__pycache__/radardisplay_airborne.cpython-314.pyc using Guid(273758e8db49043998e226c89d857d5c) (DefaultImporter) -> (artifact id: 'b982fda1861d634d2aea981f95991eb1') in 0.000745042 seconds
+Start importing Assets/ExternalTools/Python/pyart/aux_io/__pycache__/noxp_iphex_nc.cpython-314.pyc using Guid(27e7a9f8d7c2f462ba539aa40107cbee) (DefaultImporter) -> (artifact id: '77fc6b04792be3f00740bd9d45bf65c8') in 0.000572625 seconds
+Start importing Assets/ExternalTools/Python/pyart/correct/__pycache__/_common_dealias.cpython-314.pyc using Guid(77e37ed2fe8b6441caf6afa3671a002c) (DefaultImporter) -> (artifact id: 'c0c30f6fccc6b1acf16b61307e584d96') in 0.000843917 seconds
+Start importing Assets/ExternalTools/Python/pyart/map/__pycache__/gate_mapper.cpython-314.pyc using Guid(97272650b0c74493d8dbff4abfa4507c) (DefaultImporter) -> (artifact id: '0eebb475554b4889a67a479c345006c2') in 0.000716167 seconds
+Start importing Assets/ExternalTools/Python/pyart/aux_io/__pycache__/gamicfile.cpython-314.pyc using Guid(b777886ef434042bcbe26d69a3b00cd3) (DefaultImporter) -> (artifact id: 'e2822baa859f1fadfca833e926c2d099') in 0.000711875 seconds
+Start importing Assets/ExternalTools/Python/pyart/graph/__pycache__/max_cappi.cpython-314.pyc using Guid(1872fb70967264a2b8cd13cb3eef3bcb) (DefaultImporter) -> (artifact id: 'a27d398bc1bb657fa07884b3dfa0b236') in 0.000587375 seconds
+Start importing Assets/ExternalTools/Python/pyart/io/__pycache__/mdv_radar.cpython-314.pyc using Guid(a80ae6a5b58d04a7797f67aa5bffd765) (DefaultImporter) -> (artifact id: 'ea22f8d662ce64709eae0b5481ab9ee3') in 0.000660208 seconds
+Start importing Assets/ExternalTools/Python/pyart/io/__pycache__/common.cpython-314.pyc using Guid(a86d27a235e914154a211477fa579792) (DefaultImporter) -> (artifact id: 'f1f35088b5e90c74d8e035619c760be9') in 0.000535625 seconds
+Start importing Assets/ExternalTools/Python/pyart/graph/__pycache__/_cm.cpython-314.pyc using Guid(c8c8c14bbc12546aca0aac962f9f7666) (DefaultImporter) -> (artifact id: 'eefc1d9186dd3f27ca9a45d24aaf1afe') in 0.000509875 seconds
+Start importing Assets/ExternalTools/Python/pyart/io/__pycache__/cfradial.cpython-314.pyc using Guid(19cc150e136d84b8784e71f048c08eeb) (DefaultImporter) -> (artifact id: '97c5ccac9ceb66f521a537082b89c644') in 0.000560333 seconds
+Start importing Assets/ExternalTools/Python/pyart/retrieve/__pycache__/qvp.cpython-314.pyc using Guid(196ecf67d5984429faa8054508066339) (DefaultImporter) -> (artifact id: 'abff4a1c65451887778e6e24fd985e47') in 0.000574833 seconds
+Start importing Assets/ExternalTools/Python/pyart/aux_io/__pycache__/pattern.cpython-314.pyc using Guid(39b667d826c10423981d1f6ce1a543c8) (DefaultImporter) -> (artifact id: 'd5a31ce2caf9707875a733ac61dbb6a3') in 0.00057425 seconds
+Start importing Assets/ExternalTools/Python/pyart/bridge/__pycache__/wradlib_bridge.cpython-314.pyc using Guid(693dc5c1fd9424c17b3fc90a1e5759b0) (DefaultImporter) -> (artifact id: '70ec24f8288e31c6c21605fcc3faedcb') in 0.000523041 seconds
+Start importing Assets/ExternalTools/Python/pyart/retrieve/__pycache__/kdp_proc.cpython-314.pyc using Guid(791c48c37c04d4a64b4fc66aaab21d5e) (DefaultImporter) -> (artifact id: '8d0c4fcc6ae3ce92f0885f069e002d86') in 0.000491208 seconds
+Start importing Assets/ExternalTools/Python/pyart/io/__pycache__/nexrad_level3.cpython-314.pyc using Guid(794d34e6fdeef4ed5b1ba3f718d1ca46) (DefaultImporter) -> (artifact id: 'eec99b832b3ccbf2f1c4fa5081128286') in 0.00050475 seconds
+Start importing Assets/ExternalTools/Python/pyart/util/__pycache__/xsect.cpython-314.pyc using Guid(794dcfedfd63749ab8a5cdbc32b88c95) (DefaultImporter) -> (artifact id: 'a9c591e06c7a8538bef35f73caf63ed4') in 0.000593542 seconds
+Start importing Assets/ExternalTools/Python/pyart/io/__pycache__/uf.cpython-314.pyc using Guid(992ab667919b8436a999323eab13e2cd) (DefaultImporter) -> (artifact id: '834f0319192d232e8742635a063ff646') in 0.000485416 seconds
+Start importing Assets/ExternalTools/Python/pyart/io/__pycache__/__init__.cpython-314.pyc using Guid(a958f66af5b4f484fb172d6c5c418d12) (DefaultImporter) -> (artifact id: 'b70d5ca61799f844adf16f7bc3d42329') in 0.000514709 seconds
+Start importing Assets/ExternalTools/Python/pyart/graph/__pycache__/gridmapdisplay_basemap.cpython-314.pyc using Guid(b9fcf7eb762fe4844a48975aa00f6b13) (DefaultImporter) -> (artifact id: '3f72fc82f815f7d61687af84c4b19402') in 0.000503084 seconds
+Start importing Assets/ExternalTools/Python/pyart/io/__pycache__/rsl.cpython-314.pyc using Guid(c90b5b0167eff44d4b053fe0fa9205b1) (DefaultImporter) -> (artifact id: '47f63b1e94e77f1a2dd0e3a7a29fb527') in 0.000469375 seconds
+Start importing Assets/ExternalTools/Python/pyart/io/__pycache__/mdv_common.cpython-314.pyc using Guid(f9b470fefe48a4f768112756e34592c7) (DefaultImporter) -> (artifact id: '04c7bd6140b6862ac2f04704a813ac57') in 0.000542708 seconds
+Start importing Assets/ExternalTools/Python/pyart/util/__pycache__/radar_utils.cpython-314.pyc using Guid(f94706180dc00475fbbce0e38a605bd3) (DefaultImporter) -> (artifact id: 'e48d6b3fdaeaaba9f4718d96153f4952') in 0.000658375 seconds
+Start importing Assets/ExternalTools/Python/pyart/graph/__pycache__/radardisplay.cpython-314.pyc using Guid(4a2f9cbb68da240d184470748e3cc919) (DefaultImporter) -> (artifact id: '2a015fa322b16386a8a7c6e025f2e4c3') in 0.000598875 seconds
+Start importing Assets/ExternalTools/Python/pyart/retrieve/__pycache__/echo_class.cpython-314.pyc using Guid(5a607304c5e624266b4799cc7cd54f8e) (DefaultImporter) -> (artifact id: '422cda2a4303a4246fbf046d2d0772ac') in 0.000550167 seconds
+Start importing Assets/ExternalTools/Python/pyart/aux_io/__pycache__/d3r_gcpex_nc.cpython-314.pyc using Guid(5a9e947fb5f434e58970d4efecbfcd62) (DefaultImporter) -> (artifact id: 'dbfcbf78b9143945db641684cf657a75') in 0.000632167 seconds
+Start importing Assets/ExternalTools/Python/pyart/core/__pycache__/__init__.cpython-314.pyc using Guid(6a4ab2be93e334b5abcbded038fc9742) (DefaultImporter) -> (artifact id: '9b42b7a082e5d4f2089e93382608d7a1') in 0.003228792 seconds
+Start importing Assets/ExternalTools/Python/pyart/graph/__pycache__/__init__.cpython-314.pyc using Guid(aaf352396d738463698bfcb2216664a4) (DefaultImporter) -> (artifact id: '646676a6cea59aeb3cd0489c959c3b98') in 0.000706417 seconds
+Start importing Assets/ExternalTools/Python/pyart/graph/__pycache__/gridmapdisplay.cpython-314.pyc using Guid(ca57da2d7f4f448d8a2656b366443eff) (DefaultImporter) -> (artifact id: 'addb9fbac439ddb47a9f102d77a9e03d') in 0.000524125 seconds
+Start importing Assets/ExternalTools/Python/pyart/retrieve/__pycache__/comp_z.cpython-314.pyc using Guid(fa5fad0a4d5264403867162ec755af72) (DefaultImporter) -> (artifact id: '6f2fae717169b321c145fc21216811d6') in 0.000590292 seconds
+Start importing Assets/ExternalTools/Python/pyart/graph/__pycache__/cm.cpython-314.pyc using Guid(0b1d4662dbc614f459597f3011347f87) (DefaultImporter) -> (artifact id: 'bf1ae2ba8a65da5b1eef509153a45556') in 0.000856083 seconds
+Start importing Assets/ExternalTools/Python/pyart/correct/__pycache__/phase_proc.cpython-314.pyc using Guid(2b54cf969fe0b4af787543f33c36a666) (DefaultImporter) -> (artifact id: '783669d644f63821dc04431242e237a8') in 0.000674125 seconds
+Start importing Assets/ExternalTools/Python/pyart/retrieve/__pycache__/_echo_class_wt.cpython-314.pyc using Guid(3b5804bf9f10949fc9b5483ba5925958) (DefaultImporter) -> (artifact id: 'd375073b4bdfccc34cafed80fe663063') in 0.000754792 seconds
+Start importing Assets/ExternalTools/Python/pyart/retrieve/__pycache__/gate_id.cpython-314.pyc using Guid(4b4deda32d42f45bda338350021b5c97) (DefaultImporter) -> (artifact id: '3e4e39bc42c948f4059d58447557fec9') in 0.00072925 seconds
+Start importing Assets/ExternalTools/Python/pyart/graph/__pycache__/radarmapdisplay_basemap.cpython-314.pyc using Guid(5b85f3d87acb74fd19ebaef2ead36993) (DefaultImporter) -> (artifact id: '20c0262f4e90eb143833137edfd9a6d1') in 0.0005935 seconds
+Start importing Assets/ExternalTools/Python/pyart/core/__pycache__/transforms.cpython-314.pyc using Guid(6b2c53bc8effd456c9a665bb3ccff4a5) (DefaultImporter) -> (artifact id: 'd21f1680a978a5bbadd86a179d3625e7') in 0.0006155 seconds
+Start importing Assets/ExternalTools/Python/pyart/filters/__pycache__/__init__.cpython-314.pyc using Guid(bbb4b3023f05d4144960a4efd6bc1a42) (DefaultImporter) -> (artifact id: 'b00b09f13a340ac79e0096090ba51b41') in 0.000547167 seconds
+Start importing Assets/ExternalTools/Python/pyart/retrieve/__pycache__/qpe.cpython-314.pyc using Guid(bbc73f5e9cafd4f2ebca57957e14316d) (DefaultImporter) -> (artifact id: 'd333b10a4a829aac60e3e8523657a456') in 0.00062725 seconds
+Start importing Assets/ExternalTools/Python/pyart/retrieve/__pycache__/simple_moment_calculations.cpython-314.pyc using Guid(eb674fcadc1774e588a19ebd8a8dae83) (DefaultImporter) -> (artifact id: 'c559dab3a7953a45852a4d92ca8651c6') in 0.000566042 seconds
+Start importing Assets/ExternalTools/Python/pyart/aux_io/__pycache__/gamic_hdf5.cpython-314.pyc using Guid(fb6e56a38508c4c6ca3cdbd862130813) (DefaultImporter) -> (artifact id: '0d50b137e10ee73219489f8a8d654619') in 0.000515708 seconds
+Start importing Assets/ExternalTools/Python/pyart/map/__pycache__/grid_mapper.cpython-314.pyc using Guid(2cbcb99ae92a04f56a1d7d3f9d1f64d8) (DefaultImporter) -> (artifact id: 'a988b8c5bc2b8e9be5e958ab9b066339') in 0.000596291 seconds
+Start importing Assets/ExternalTools/Python/pyart/aux_io/__pycache__/kazr_spectra.cpython-314.pyc using Guid(bcd8c91010e004ec491d1433573c0ea8) (DefaultImporter) -> (artifact id: '371b63d07d24dbf8dfcca36d755f2929') in 0.000509458 seconds
+Start importing Assets/ExternalTools/Python/pyart/io/__pycache__/nexradl3_read.cpython-314.pyc using Guid(fc03b37276f4540968a6a5f6400d795f) (DefaultImporter) -> (artifact id: '35603b7a0406016c360a3280190c2507') in 0.000632625 seconds
+Start importing Assets/ExternalTools/Python/pyart/aux_io/__pycache__/__init__.cpython-314.pyc using Guid(fcff497616c6348e3a9a3e49be60e54b) (DefaultImporter) -> (artifact id: '78072c95e026116039df1cf10df5813f') in 0.000555792 seconds
+Start importing Assets/ExternalTools/Python/pyart/retrieve/__pycache__/vad.cpython-314.pyc using Guid(2d7fee5b620b84c0981c1c7eaddf064c) (DefaultImporter) -> (artifact id: '05abf7195275feeb85bc3552779afffc') in 0.000564334 seconds
+Start importing Assets/ExternalTools/Python/pyart/correct/__pycache__/__init__.cpython-314.pyc using Guid(2def8e0d133a0421698d019a9329e04b) (DefaultImporter) -> (artifact id: 'afb1ab6877421b761d0afa5c85df68dc') in 0.000549583 seconds
+Start importing Assets/ExternalTools/Python/pyart/testing/__pycache__/__init__.cpython-314.pyc using Guid(5d3e94ba16c464d9591bd7585464f30d) (DefaultImporter) -> (artifact id: '05d9c329570631cc9f23e9f184376ae5') in 0.0026445 seconds
+Start importing Assets/ExternalTools/Python/pyart/io/__pycache__/output_to_geotiff.cpython-314.pyc using Guid(adc90dc058b2449dc80a96875efda402) (DefaultImporter) -> (artifact id: '76500218733952601ad4ea02f12cae7e') in 0.000777291 seconds
+Start importing Assets/ExternalTools/Python/pyart/testing/__pycache__/example_data.cpython-314.pyc using Guid(cdb1ab7aa6eee4b128f8eb3b344a3107) (DefaultImporter) -> (artifact id: '8d61ee71868b853549bec84a023468ae') in 0.000604792 seconds
+Start importing Assets/ExternalTools/Python/pyart/testing/__pycache__/tmpdirs.cpython-314.pyc using Guid(dd9ea7b2a72814f9db9f9b2342adadb4) (DefaultImporter) -> (artifact id: '49e1681a71f4630913476687b463f228') in 0.0005905 seconds
+Start importing Assets/ExternalTools/Python/pyart/xradar/__pycache__/accessor.cpython-314.pyc using Guid(edf5b6ffb923a43fabef845e56ee685d) (DefaultImporter) -> (artifact id: 'f92dddc514b54f8d107d81fc2b061667') in 0.000575625 seconds
+Start importing Assets/ExternalTools/Python/pyart/aux_io/__pycache__/edge_netcdf.cpython-314.pyc using Guid(5ed64918e94e5446ab6d04dec4d8bc55) (DefaultImporter) -> (artifact id: '00cca17bcb3d6c3c5b77b16e93bf8565') in 0.000590542 seconds
+Start importing Assets/ExternalTools/Python/pyart/io/__pycache__/chl.cpython-314.pyc using Guid(5e0e520e3358c49bb9035e7707b14329) (DefaultImporter) -> (artifact id: 'c9d1923989d84910003cee0e1452681f') in 0.000482625 seconds
+Start importing Assets/ExternalTools/Python/pyart/__check_build/__pycache__/__init__.cpython-314.pyc using Guid(ae4155c0dcad049959547a4c6a8cf4d5) (DefaultImporter) -> (artifact id: 'f21832422f2790c5891196449fd0220e') in 0.000573959 seconds
+Start importing Assets/ExternalTools/Python/pyart/retrieve/__pycache__/cfad.cpython-314.pyc using Guid(ae5b2938c261b4f728221d2c623a1d75) (DefaultImporter) -> (artifact id: 'bcff43e0355fdea047b2cade61b2d801') in 0.000507708 seconds
+Start importing Assets/ExternalTools/Python/pyart/io/__pycache__/nexrad_level2.cpython-314.pyc using Guid(ae8d653175eb64030863c6454570c5d3) (DefaultImporter) -> (artifact id: '5ed15147844d55e6d3e0cacfb7d2fb56') in 0.000482166 seconds
+Start importing Assets/ExternalTools/Python/pyart/util/__pycache__/columnsect.cpython-314.pyc using Guid(bea05a0308095422ca1132aba5168e08) (DefaultImporter) -> (artifact id: '865cd8ce1d46b32d3fae518e1fe8c899') in 0.000546666 seconds
+Start importing Assets/ExternalTools/Python/pyart/retrieve/__pycache__/advection.cpython-314.pyc using Guid(be151840bb8aa42b2b2c3a25c3774f7e) (DefaultImporter) -> (artifact id: '32f90292f324332163142d273cefe6c5') in 0.001648542 seconds
+Start importing Assets/ExternalTools/Python/pyart/graph/__pycache__/cm_colorblind.cpython-314.pyc using Guid(ce171426f33c3468899b0d9a4b7f7dc9) (DefaultImporter) -> (artifact id: 'a924923a4a5b501bcb56832c0ada1e3b') in 0.00449175 seconds
+Start importing Assets/ExternalTools/Python/pyart/correct/__pycache__/dealias.cpython-314.pyc using Guid(dedad2a21e9324ffcafedbeba9742534) (DefaultImporter) -> (artifact id: '1774afab8c8eab57858271664fefb631') in 0.000678 seconds
+Start importing Assets/ExternalTools/Python/pyart/core/__pycache__/radar.cpython-314.pyc using Guid(fe623485d13164fa48fb7035059f549d) (DefaultImporter) -> (artifact id: 'a47f6c0c99b659f0e294312e475cafc6') in 0.000678125 seconds
+Start importing Assets/ExternalTools/Python/pyart/util/__pycache__/simulated_vel.cpython-314.pyc using Guid(1f0909f19f7ee489287e1f91fea1bc7e) (DefaultImporter) -> (artifact id: '3946b6f3a603848f80c75a7521168764') in 0.000799292 seconds
+Start importing Assets/ExternalTools/Python/pyart/correct/__pycache__/attenuation.cpython-314.pyc using Guid(3fde46bcf8b5b4ffb8e8604b59fd52b7) (DefaultImporter) -> (artifact id: '4693e1255e7c3a78664415dc4fbca20b') in 0.000627041 seconds
+Start importing Assets/ExternalTools/Python/pyart/graph/__pycache__/common.cpython-314.pyc using Guid(5f756a2fbf09b4c939bd9d3b0c7066be) (DefaultImporter) -> (artifact id: '18ef81dffe40a7eb09a310cc06721fd3') in 0.000723667 seconds
+Start importing Assets/ExternalTools/Python/pyart/graph/__pycache__/convstrat_scheme_plot.cpython-314.pyc using Guid(bffa330cbd56848eea9e08cb8fe42724) (DefaultImporter) -> (artifact id: '3a11c8a2835d59c149c830d456c017df') in 0.003091958 seconds
+Start importing Assets/ExternalTools/Python/pyart/util/__pycache__/__init__.cpython-314.pyc using Guid(df1812afaa7e54344bc008f0f9ecc514) (DefaultImporter) -> (artifact id: 'dffa3365bba2b308e79175dac475ffa3') in 0.000897917 seconds
+Start importing Assets/ExternalTools/Python/pyart/testing/data/__pycache__/make_small_chl_rhi.cpython-314.pyc using Guid(4071eecb6165046b39b1539b4c11fba5) (DefaultImporter) -> (artifact id: '2227b39fe307c86801cbf574f7e8ff90') in 0.001058583 seconds
+Start importing Assets/ExternalTools/Python/pyart/testing/data/__pycache__/make_small_nexrad_archive_msg31_compressed.cpython-314.pyc using Guid(31a3b1e8c9e454415bb36423a7dc3136) (DefaultImporter) -> (artifact id: '28199e2d18cd705f04118bfc659b4073') in 0.000642208 seconds
+Start importing Assets/ExternalTools/Python/pyart/testing/data/__pycache__/quick_plot_cfradial_ppi.cpython-314.pyc using Guid(d22e82ae4de334012a3d4b44eacb9107) (DefaultImporter) -> (artifact id: 'ca9a79d203e3b453c4db4a977edbecbd') in 0.000747167 seconds
+Start importing Assets/ExternalTools/Python/pyart/testing/data/__pycache__/quick_plot_mdv_rhi.cpython-314.pyc using Guid(5391f5a9120104f5b891c364691b6352) (DefaultImporter) -> (artifact id: 'd52b7181dd3b14a3258ad119c3058ac8') in 0.000548541 seconds
+Start importing Assets/ExternalTools/Python/pyart/testing/data/__pycache__/check_nexrad_dummy.cpython-314.pyc using Guid(0443bb463bf4a4ca88bc4b53b6ac094a) (DefaultImporter) -> (artifact id: 'e0ad6fe15e492d7ac633b6b8b550bc69') in 0.000511833 seconds
+Start importing Assets/ExternalTools/Python/pyart/testing/data/__pycache__/make_small_sigmet_ppi.cpython-314.pyc using Guid(842640ebeac6f4aaa947aa56a4fe691f) (DefaultImporter) -> (artifact id: 'cbf4f67f6efb224c826e2f90949d1120') in 0.000550667 seconds
+Start importing Assets/ExternalTools/Python/pyart/testing/data/__pycache__/make_small_sigmet_rhi.cpython-314.pyc using Guid(a45eeea2843d244fabcd4f50489872d9) (DefaultImporter) -> (artifact id: '11ebdb0254fa765a05a669d969c218b2') in 0.000565042 seconds
+Start importing Assets/ExternalTools/Python/pyart/testing/data/__pycache__/quick_plot_mdv_ppi.cpython-314.pyc using Guid(351199d54d5474eeda8e99d0486c29e1) (DefaultImporter) -> (artifact id: '0b6a5717bbb09332b62f2fa5c897f5fd') in 0.00076475 seconds
+Start importing Assets/ExternalTools/Python/pyart/testing/data/__pycache__/dummify_nexrad_file.cpython-314.pyc using Guid(557168f2a2afb4d42a1c21d0b6f3878e) (DefaultImporter) -> (artifact id: 'f34b8ea8a18c1d34db18d9e92ea4aad1') in 0.000534459 seconds
+Start importing Assets/ExternalTools/Python/pyart/testing/data/__pycache__/make_small_cfradial_rhi.cpython-314.pyc using Guid(b6ab64cf4763a4959979aa801035cc8f) (DefaultImporter) -> (artifact id: '0186f797f944098f7a2b5cb5a4f8c638') in 0.000509042 seconds
+Start importing Assets/ExternalTools/Python/pyart/testing/data/__pycache__/make_single_ray.cpython-314.pyc using Guid(a7a36e2c4c4a44eb0972452898c0c2f3) (DefaultImporter) -> (artifact id: 'd91057bff2e0d6669a90e4f31f13eb17') in 0.00058875 seconds
+Start importing Assets/ExternalTools/Python/pyart/testing/data/__pycache__/make_small_mdv_ppi.cpython-314.pyc using Guid(a70a90b893e9c4a55bf845c3234b4aea) (DefaultImporter) -> (artifact id: 'c158cb4e9b236b64ce95c1018a69bf65') in 0.000571292 seconds
+Start importing Assets/ExternalTools/Python/pyart/testing/data/__pycache__/make_small_mdv_grid.cpython-314.pyc using Guid(1a43f6c1aeaf444faa3534a8fd031f90) (DefaultImporter) -> (artifact id: 'df493753200b0c633709fd47d0cb09d7') in 0.000543583 seconds
+Start importing Assets/ExternalTools/Python/pyart/testing/data/__pycache__/quick_plot_cfradial_rhi.cpython-314.pyc using Guid(6a7c3636febb3496a80a06bc4140d00b) (DefaultImporter) -> (artifact id: '4152f888a31079903000fa6933cd8cbc') in 0.000597292 seconds
+Start importing Assets/ExternalTools/Python/pyart/testing/data/__pycache__/make_small_mdv_rhi.cpython-314.pyc using Guid(9a24e5fdb193442aab1e607b5e4c78b7) (DefaultImporter) -> (artifact id: '5f682aedf793f11c5811f4c90d62a7aa') in 0.003771875 seconds
+Start importing Assets/ExternalTools/Python/pyart/testing/data/__pycache__/quick_plot_sigmet_rhi.cpython-314.pyc using Guid(fa852026e3c844637a0df6c2cd497126) (DefaultImporter) -> (artifact id: 'd8260d529d7b5b3b66a8dbf2449e3e47') in 0.000733125 seconds
+Start importing Assets/ExternalTools/Python/pyart/testing/data/__pycache__/make_small_cfradial_ppi.cpython-314.pyc using Guid(8b89f84a4f2c743a7856e29dde2001e9) (DefaultImporter) -> (artifact id: 'c60e33a39d895587c275fb342fbd6896') in 0.000587 seconds
+Start importing Assets/ExternalTools/Python/pyart/testing/data/__pycache__/quick_plot_sigmet_ppi.cpython-314.pyc using Guid(ebb37b6dfc0f24eb28fadc924449911b) (DefaultImporter) -> (artifact id: 'df39a833957d51e1e61eef62a6e5ee2e') in 0.000601042 seconds
+Start importing Assets/ExternalTools/Python/pyart/testing/data/__pycache__/make_small_interp_sonde.cpython-314.pyc using Guid(9c0c6b2ff66f84af8827f4b877573210) (DefaultImporter) -> (artifact id: '9b86696916298c411b2f6ed190a4437e') in 0.000528125 seconds
+Start importing Assets/ProjectSettings/ClusterInputManager.asset using Guid(f22b95e7b798d48d5ace6174f05fba4d) (NativeFormatImporter)You are trying to import an asset which contains a global game manager. This is not allowed.
+ -> (artifact id: 'bd20fb3540aae7db99b1680762806fa3') in 0.032252459 seconds
+Start importing Assets/ProjectSettings/GraphicsSettings.asset using Guid(13e0971db9d3747d6ac94efca2676eb0) (NativeFormatImporter)You are trying to import an asset which contains a global game manager. This is not allowed.
+ -> (artifact id: '47ff62690c49c90d04543f6141a3fd11') in 0.0128565 seconds
+Start importing Assets/ProjectSettings/PresetManager.asset using Guid(c4859a5bf24f04c748e7c2c4d785006a) (NativeFormatImporter) -> (artifact id: '6754d7ce7770509db1826a676c23ecbb') in 0.001286375 seconds
+Start importing Assets/ProjectSettings/Packages/com.unity.dedicated-server/MultiplayerRolesSettings.asset using Guid(e69ed6cb8f4fb4afeac8afcf0dbf5be9) (NativeFormatImporter)ScriptableSingleton already exists. Did you query the singleton in a constructor?
+UnityEngine.Debug:ExtractStackTraceNoAlloc (byte*,int,string)
+UnityEngine.StackTraceUtility:ExtractStackTrace () (at /Users/bokken/build/output/unity/unity/Runtime/Export/Scripting/StackTrace.cs:35)
+UnityEngine.DebugLogHandler:Internal_Log (UnityEngine.LogType,UnityEngine.LogOption,string,UnityEngine.Object)
+UnityEngine.DebugLogHandler:LogFormat (UnityEngine.LogType,UnityEngine.Object,string,object[])
+UnityEngine.Logger:Log (UnityEngine.LogType,object)
+UnityEngine.Debug:LogError (object)
+UnityEditor.ScriptableSingleton`1<UnityEditor.Multiplayer.Internal.MultiplayerRolesSettings>:.ctor () (at /Users/bokken/build/output/unity/unity/Editor/Mono/ScriptableSingleton.cs:83)
+UnityEditor.Multiplayer.Internal.MultiplayerRolesSettings:.ctor () (at /Users/bokken/build/output/unity/unity/Modules/MultiplayerEditor/Managed/MultiplayerRoles/MultiplayerRolesSettings.cs:33)
+
+(Filename: /Users/bokken/build/output/unity/unity/Editor/Mono/ScriptableSingleton.cs Line: 83)
+
+ -> (artifact id: '397ed8244a3ef1ed626e5ba27a667ad6') in 0.0041555 seconds
+Start importing Assets/ProjectSettings/QualitySettings.asset using Guid(87d78bb308c104749b30fbc42908802a) (NativeFormatImporter)You are trying to import an asset which contains a global game manager. This is not allowed.
+ -> (artifact id: 'c1c322182318b7f4af7de780d3ceaf0c') in 0.001021292 seconds
+Start importing Assets/ProjectSettings/ProjectSettings.asset using Guid(788d74d223a5d43a2ad3298528ba3d7b) (NativeFormatImporter)You are trying to import an asset which contains a global game manager. This is not allowed.
+ -> (artifact id: 'd5805104eb9f156879b90c0793d69801') in 0.001642083 seconds
+Start importing Assets/ProjectSettings/InputManager.asset using Guid(88e89b42a8d7b4389be9fa859239bd92) (NativeFormatImporter)You are trying to import an asset which contains a global game manager. This is not allowed.
+ -> (artifact id: '7a479d19a450a9d7220837dc1db5c880') in 0.001175958 seconds
+Start importing Assets/ProjectSettings/MultiplayerManager.asset using Guid(8988d7421a2d74ed0a5e160c05f8d1bb) (NativeFormatImporter)You are trying to import an asset which contains a global game manager. This is not allowed.
+ -> (artifact id: 'c278a9bbf2b70a959d1df00968310b73') in 0.000843333 seconds
+Start importing Assets/ProjectSettings/UnityConnectSettings.asset using Guid(3ac649e9a6067457bb56541111aa48fa) (NativeFormatImporter)You are trying to import an asset which contains a global game manager. This is not allowed.
+ -> (artifact id: 'fdee8b4ab3b3825edf1732347f8b1e88') in 0.000900084 seconds
+Start importing Assets/ProjectSettings/TimeManager.asset using Guid(fab73fb409d044ca2a1336bb8815c787) (NativeFormatImporter)You are trying to import an asset which contains a global game manager. This is not allowed.
+ -> (artifact id: '95d7e2cca4d8ff27ccf49738288c6d71') in 0.000874167 seconds
+Start importing Assets/ProjectSettings/DynamicsManager.asset using Guid(0b31b23a7f9cf4aa6bc0107530ea06ed) (NativeFormatImporter)You are trying to import an asset which contains a global game manager. This is not allowed.
+ -> (artifact id: '621044820828d2dfe6a5447b1528590c') in 0.000857375 seconds
+Start importing Assets/ProjectSettings/VFXManager.asset using Guid(3b58dc3f8493f40fcb71e8062aeda0f3) (NativeFormatImporter)You are trying to import an asset which contains a global game manager. This is not allowed.
+ -> (artifact id: '2795f31f33d9704eb8e0b4f915bf2567') in 0.001259959 seconds
+Start importing Assets/ProjectSettings/AudioManager.asset using Guid(5b1f02664d8c84b10964c676e4f35ca3) (NativeFormatImporter)You are trying to import an asset which contains a global game manager. This is not allowed.
+ -> (artifact id: 'bc542efc3e2dcb6856a89cc03a10cc81') in 0.000817166 seconds
+Start importing Assets/ProjectSettings/NavMeshAreas.asset using Guid(7b9c8df0c6e4d4a569594fa059656ce0) (NativeFormatImporter)You are trying to import an asset which contains a global game manager. This is not allowed.
+ -> (artifact id: '691224d9564b5f0a61b95807f632cb9a') in 0.000865834 seconds
+Start importing Assets/ProjectSettings/EditorSettings.asset using Guid(0cf96d78a78094fae9aeea4d8d707686) (NativeFormatImporter) -> (artifact id: '10aad513c42ef246c6dd5cbeeb2b4703') in 0.000963542 seconds
+Start importing Assets/ProjectSettings/VersionControlSettings.asset using Guid(3cc023d27acd34fa98772f34efac2852) (NativeFormatImporter) -> (artifact id: '718db9262262512d2bd80654059154cc') in 0.000862625 seconds
+Start importing Assets/UserSettings/PlayModeUserSettings.asset using Guid(bc6105ef9c2784df7ab8af2a8899496b) (NativeFormatImporter)ScriptableSingleton already exists. Did you query the singleton in a constructor?
+UnityEngine.Debug:ExtractStackTraceNoAlloc (byte*,int,string)
+UnityEngine.StackTraceUtility:ExtractStackTrace () (at /Users/bokken/build/output/unity/unity/Runtime/Export/Scripting/StackTrace.cs:35)
+UnityEngine.DebugLogHandler:Internal_Log (UnityEngine.LogType,UnityEngine.LogOption,string,UnityEngine.Object)
+UnityEngine.DebugLogHandler:LogFormat (UnityEngine.LogType,UnityEngine.Object,string,object[])
+UnityEngine.Logger:Log (UnityEngine.LogType,object)
+UnityEngine.Debug:LogError (object)
+UnityEditor.ScriptableSingleton`1<Unity.PlayMode.Editor.PlayModeUserSettings>:.ctor () (at /Users/bokken/build/output/unity/unity/Editor/Mono/ScriptableSingleton.cs:83)
+Unity.PlayMode.Editor.PlayModeUserSettings:.ctor ()
+
+(Filename: /Users/bokken/build/output/unity/unity/Editor/Mono/ScriptableSingleton.cs Line: 83)
+
+ -> (artifact id: 'b16be383e368fa219092cd1e6e4aea53') in 0.001006959 seconds
+Start importing Assets/ProjectSettings/TagManager.asset using Guid(ec84a80adca1343db9222b101790fe71) (NativeFormatImporter)You are trying to import an asset which contains a global game manager. This is not allowed.
+ -> (artifact id: 'a95a4ef207b8d2ce8e3fd63b1fd98210') in 0.000905917 seconds
+Start importing Assets/UserSettings/EditorUserSettings.asset using Guid(1da041ab068fa42e08e6a29070c71b9d) (NativeFormatImporter) -> (artifact id: '4a9baa13b5b8a4ae26e3b17ac6b2a116') in 0.001402584 seconds
+Start importing Assets/ProjectSettings/EditorBuildSettings.asset using Guid(dd4faf39fdf5a4d3aa753f7214360425) (NativeFormatImporter) -> (artifact id: 'ed482cb9b302cc4af4082e82b7c39e51') in 0.000827709 seconds
+Start importing Assets/ProjectSettings/MemorySettings.asset using Guid(6e912964a1e244f12923499422c06fd1) (NativeFormatImporter) -> (artifact id: '55cf28d81a7240e098f2a616809aa795') in 0.000809542 seconds
+Start importing Assets/ProjectSettings/Physics2DSettings.asset using Guid(efbec85d7e8164632b053aa313848372) (NativeFormatImporter)You are trying to import an asset which contains a global game manager. This is not allowed.
+ -> (artifact id: 'ee789a6effdfc5738ad9b32435aed164') in 0.000798917 seconds
+Start importing Packages/com.unity.render-pipelines.core/Tests/Editor/UnifiedRayTracing/TraceRays.urtshader using Guid(1142bbad8b9e8c44c83a9775ff120d37) (ScriptedImporter)Launching external process: /Applications/Unity/Hub/Editor/6000.3.6f1-arm64/Unity.app/Contents/Helpers/UnityShaderCompiler
+Launched and connected shader compiler UnityShaderCompiler after 0.46 seconds
+ -> (artifact id: '8214c9428d734bc4e871bbf1e5795df4') in 0.488214666 seconds
+Start importing Assets/ProjectSettings/ProjectVersion.txt using Guid(c1f4504c2a8dc4bc1978b6fd87104073) (TextScriptImporter) -> (artifact id: '43d06d979a445aa0e2bc7504467d6083') in 0.001495833 seconds
+Start importing Packages/com.unity.render-pipelines.core/Editor/Lighting/ProbeVolume/RenderingLayerMask/TraceRenderingLayerMask.urtshader using Guid(94a070d33e408384bafc1dea4a565df9) (ScriptedImporter) -> (artifact id: '2689fee2df19fc7f0eef43aeaad197b4') in 0.011637125 seconds
+Start importing Packages/com.unity.render-pipelines.core/Tests/Editor/UnifiedRayTracing/TraceTransparentRays.urtshader using Guid(6513c3b892e933c4f8d00c19d5c47532) (ScriptedImporter) -> (artifact id: 'fd7fb70784edcb1ef907b66a9014c218') in 0.002338875 seconds
+Start importing Assets/Packages/manifest.json using Guid(85b7ba6668415441f801047225aed80e) (TextScriptImporter) -> (artifact id: 'f073586f40dcb9ea17c521756fe8ae17') in 0.0117385 seconds
+Start importing Assets/Packages/packages-lock.json using Guid(9589a7c1ad17a44f0889f4ed2bc670d5) (TextScriptImporter) -> (artifact id: '5c2eb024ff51f96b7946a7d7764bdfc9') in 0.001303041 seconds
+Start importing Assets/X-Plane_UDP_Protocol_Specification.md using Guid(461efff8a6d494eaeac46cb170b0c0ec) (TextScriptImporter) -> (artifact id: 'd77c10d70a87f82c82f194cef7c64d61') in 0.001002334 seconds
+Start importing Assets/_Project/Scripts/XPlaneIntegration/README_XP12_INTEGRATION.md using Guid(c7220b945a5e945339e5033cb9ca4738) (TextScriptImporter) -> (artifact id: 'c66a1169d6b3b006a348045d672ff255') in 0.001078792 seconds
+Start importing Packages/com.unity.render-pipelines.core/Editor/Lighting/ProbeVolume/DynamicGI/DynamicGISkyOcclusion.urtshader using Guid(5a2a534753fbdb44e96c3c78b5a6999d) (ScriptedImporter) -> (artifact id: '79c9c83231d16831effc98f6ec2dc6b4') in 0.003529458 seconds
+Start importing Packages/com.unity.render-pipelines.core/Tests/Editor/UnifiedRayTracing/TraceRaysAndFetchAttributes.urtshader using Guid(fbc59f55df2416344b008dc23753cae2) (ScriptedImporter) -> (artifact id: '8ca6d2b6dda040ce6d15e66bf9b9e17c') in 0.002666583 seconds
+Start importing Assets/Docs/XPlane-Traffic-DataRef-Specification.md using Guid(bd246c42c61054862bcd9a054e554679) (TextScriptImporter) -> (artifact id: '9e5dd07fb65db7815d8a34551a3fe348') in 0.001041333 seconds
+Start importing Assets/_Project/Docs/XPlane_Weather_Integration_Architecture.md using Guid(bf1b3f79b266e4d72a2930bdba891b86) (TextScriptImporter) -> (artifact id: 'e0dd73c0da4f5fb6fdf384fb1fe3024d') in 0.00110875 seconds
+Start importing Packages/com.unity.render-pipelines.core/Editor/Lighting/ProbeVolume/VirtualOffset/TraceVirtualOffset.urtshader using Guid(ff2cbab5da58bf04d82c5f34037ed123) (ScriptedImporter) -> (artifact id: 'a5bfe2bf0d1f3d62df785e5637b5f557') in 0.005614167 seconds
+Refreshing native plugins compatible for Editor in 13.21 ms, found 3 plugins.
+Preloading 0 native plugins for Editor in 0.00 ms.
+Asset Pipeline Refresh (id=db65c06d29bca4a79934c76bdcb97440): Total: 9.675 seconds - Initiated by InitialRefreshV2(ForceSynchronousImport)
+	Summary:
+		Imports: total=196 (actual=196, local cache=0, cache server=0)
+		Asset DB Process Time: managed=5 ms, native=4527 ms
+		Asset DB Callback time: managed=362 ms, native=38 ms
+		Scripting: domain reloads=1, domain reload time=693 ms, compile time=3978 ms, other=68 ms
+		Project Asset Count: scripts=2107, non-scripts=4439
+		Asset File Changes: new=0, changed=2, moved=0, deleted=0
+		Scan Filter Count: 1
+	InvokeCustomDependenciesCallbacks: 0.001ms
+	InvokePackagesCallback: 11.998ms
+	ApplyChangesToAssetFolders: 0.321ms
+	Scan: 602.939ms
+	OnSourceAssetsModified: 0.981ms
+	CategorizeAssetsWithTransientArtifact: 145.899ms
+	ProcessAssetsWithTransientArtifactChanges: 53.950ms
+	CategorizeAssets: 56.963ms
+	ImportOutOfDateAssets: 3487.920ms (-2488.994ms without children)
+		ImportManagerImport: 1997.068ms (6.347ms without children)
+			ImportInProcess: 1989.663ms
+			UpdateCategorizedAssets: 1.058ms
+		CompileScripts: 3978.039ms
+		ReloadNativeAssets: 0.000ms
+		UnloadImportedAssets: 0.375ms
+		ReloadImportedAssets: 0.009ms
+		EnsureUptoDateAssetsAreRegisteredWithGuidPM: 0.691ms
+		InitializingProgressBar: 0.041ms
+		PostProcessAllAssetNotificationsAddChangedAssets: 0.000ms
+		OnDemandSchedulerStart: 0.690ms
+	PostProcessAllAssets: 370.169ms
+	Hotreload: 18.824ms
+	GatherAllCurrentPrimaryArtifactRevisions: 0.000ms
+	UnloadStreamsBegin: 1.723ms
+	PersistCurrentRevisions: 0.605ms
+	UnloadStreamsEnd: 0.001ms
+	GenerateScriptTypeHashes: 2.773ms
+	Untracked: 4922.750ms
+
+Application.AssetDatabase Initial Refresh End
+Scanning for USB devices : 0.391ms
+Initializing Unity extensions:
+[MODES] ModeService[none].Initialize
+[MODES] ModeService[none].LoadModes
+[MODES] Loading mode Default (0) for mode-current-id-FAA_symbology_unity_project
+Unloading 217 Unused Serialized files (Serialized files now loaded: 0)
+Unloading 8802 unused Assets / (3.4 MB). Loaded Objects now: 8982.
+Memory consumption went from 301.0 MB to 297.6 MB.
+Total: 14.527458 ms (FindLiveObjects: 0.312083 ms CreateObjectMapping: 0.201500 ms MarkObjects: 10.289542 ms  DeleteObjects: 3.723917 ms)
+
+Batchmode quit successfully invoked - shutting down!
+<b><color=#2EA3FF>MCP-FOR-UNITY</color></b>: No process found listening on port 8080
+UnityEngine.Debug:ExtractStackTraceNoAlloc (byte*,int,string)
+UnityEngine.StackTraceUtility:ExtractStackTrace () (at /Users/bokken/build/output/unity/unity/Runtime/Export/Scripting/StackTrace.cs:35)
+UnityEngine.DebugLogHandler:Internal_Log (UnityEngine.LogType,UnityEngine.LogOption,string,UnityEngine.Object)
+UnityEngine.DebugLogHandler:LogFormat (UnityEngine.LogType,UnityEngine.Object,string,object[])
+UnityEngine.Logger:Log (UnityEngine.LogType,object)
+UnityEngine.Debug:Log (object)
+MCPForUnity.Editor.Helpers.McpLog:Info (string,bool) (at ./Library/PackageCache/com.coplaydev.unity-mcp@c7c27ff5f24c/Editor/Helpers/McpLog.cs:40)
+MCPForUnity.Editor.Services.ServerManagementService:StopLocalHttpServerInternal (bool,System.Nullable`1<int>,bool) (at ./Library/PackageCache/com.coplaydev.unity-mcp@c7c27ff5f24c/Editor/Services/ServerManagementService.cs:650)
+MCPForUnity.Editor.Services.ServerManagementService:StopLocalHttpServer () (at ./Library/PackageCache/com.coplaydev.unity-mcp@c7c27ff5f24c/Editor/Services/ServerManagementService.cs:340)
+MCPForUnity.Editor.Services.McpEditorShutdownCleanup:OnEditorQuitting () (at ./Library/PackageCache/com.coplaydev.unity-mcp@c7c27ff5f24c/Editor/Services/McpEditorShutdownCleanup.cs:60)
+UnityEditor.EditorApplication:Internal_EditorApplicationQuit () (at /Users/bokken/build/output/unity/unity/Editor/Mono/EditorApplication.cs:128)
+
+(Filename: ./Library/PackageCache/com.coplaydev.unity-mcp@c7c27ff5f24c/Editor/Helpers/McpLog.cs Line: 40)
+
+Thread 0x3045bf000 may have been prematurely finalized
+Input System module state changed to: ShutdownInProgress.
+Input System polling thread exited.
+Input System module state changed to: Shutdown.
+[Physics::Module] Cleanup current backend.
+[Physics::Module] Id: 0xf2b8ea05
+[Licensing::IpcConnector] LicenseClient-zladwu-notifications channel disconnected successfully.
+[Licensing::IpcConnector] LicenseClient-zladwu channel disconnected successfully.
+Thread 0x17026b000 may have been prematurely finalized
+Thread 0x170153000 may have been prematurely finalized
+Thread 0x1701df000 may have been prematurely finalized
+Thread 0x1702f7000 may have been prematurely finalized
+Thread 0x170383000 may have been prematurely finalized
+Thread 0x17040f000 may have been prematurely finalized
+Thread 0x17049b000 may have been prematurely finalized
+Thread 0x170527000 may have been prematurely finalized
+Thread 0x1705b3000 may have been prematurely finalized
+AcceleratorClientConnectionCallback - disconnected - :0
+Cleanup mono
+[40m[32minfo[39m[22m[49m: Microsoft.Hosting.Lifetime[0]
+      Application is shutting down...
+[40m[32minfo[39m[22m[49m: Unity.ILPP.Runner.PostProcessingAssemblyLoadContext[0]
+      ALC ILPP context 1 is unloading
+debugger-agent: Unable to listen on 44
+Exiting batchmode successfully now!
+[Package Manager] Server process was shutdown

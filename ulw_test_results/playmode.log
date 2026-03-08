@@ -1,0 +1,416 @@
+Unity Editor version:    6000.3.6f1 (bbb010bdb8a3)
+Branch:                  6000.3/respin/6000.3.6f1-732c1ec89f18
+Build type:              Release
+Batch mode:              YES
+macOS version:           Version 26.2 (Build 25C56)
+Darwin version:          25.2.0
+Architecture:            arm64
+Running under Rosetta:   NO
+Available memory:        16384 MB
+Date:                    2026-03-07T06:21:34Z
+[Licensing::Module] Trying to connect to existing licensing client channel...
+[Licensing::IpcConnector] Successfully connected to: "LicenseClient-zladwu" at "2026-03-07T06:21:34.480864Z"
+Launching external process: /Applications/Unity/Hub/Editor/6000.3.6f1-arm64/Unity.app/Contents/Resources/PackageManager/Server/UnityPackageManager
+
+COMMAND LINE ARGUMENTS:
+/Applications/Unity/Hub/Editor/6000.3.6f1-arm64/Unity.app/Contents/MacOS/Unity
+-batchmode
+-nographics
+-runTests
+-quit
+-projectPath
+/Users/zladwu/Development/Projects/FAA
+-testPlatform
+PlayMode
+-testResults
+/Users/zladwu/Development/Projects/FAA/ulw_test_results/playmode-results.xml
+-logFile
+/Users/zladwu/Development/Projects/FAA/ulw_test_results/playmode.log
+Successfully changed project path to: /Users/zladwu/Development/Projects/FAA
+/Users/zladwu/Development/Projects/FAA
+[UnityMemory] Configuration Parameters - Can be set up in boot.config
+    "memorysetup-allocator-temp-initial-block-size-main=262144"
+    "memorysetup-allocator-temp-initial-block-size-worker=262144"
+    "memorysetup-temp-allocator-size-background-worker=32768"
+    "memorysetup-temp-allocator-size-job-worker=262144"
+    "memorysetup-temp-allocator-size-preload-manager=33554432"
+    "memorysetup-temp-allocator-size-nav-mesh-worker=65536"
+    "memorysetup-temp-allocator-size-audio-worker=65536"
+    "memorysetup-temp-allocator-size-cloud-worker=32768"
+    "memorysetup-bucket-allocator-granularity=16"
+    "memorysetup-bucket-allocator-bucket-count=8"
+    "memorysetup-bucket-allocator-block-size=33554432"
+    "memorysetup-bucket-allocator-block-count=8"
+    "memorysetup-main-allocator-block-size=16777216"
+    "memorysetup-thread-allocator-block-size=16777216"
+    "memorysetup-gfx-main-allocator-block-size=16777216"
+    "memorysetup-gfx-thread-allocator-block-size=16777216"
+    "memorysetup-cache-allocator-block-size=4194304"
+    "memorysetup-typetree-allocator-block-size=2097152"
+    "memorysetup-profiler-bucket-allocator-granularity=16"
+    "memorysetup-profiler-bucket-allocator-bucket-count=8"
+    "memorysetup-profiler-bucket-allocator-block-size=33554432"
+    "memorysetup-profiler-bucket-allocator-block-count=8"
+    "memorysetup-profiler-allocator-block-size=16777216"
+    "memorysetup-profiler-editor-allocator-block-size=1048576"
+    "memorysetup-temp-allocator-size-main=16777216"
+    "memorysetup-job-temp-allocator-block-size=2097152"
+    "memorysetup-job-temp-allocator-block-size-background=1048576"
+    "memorysetup-job-temp-allocator-reduction-small-platforms=262144"
+    "memorysetup-temp-allocator-size-gi-baking-worker=262144"
+    "memorysetup-temp-allocator-size-gi-baking-worker=262144"
+    "memorysetup-temp-allocator-size-gi-baking-worker=262144"
+    "memorysetup-temp-allocator-size-gi-baking-worker=262144"
+    "memorysetup-temp-allocator-size-gi-baking-worker=262144"
+    "memorysetup-temp-allocator-size-gfx=262144"
+Player connection [8799005760]  Target information:
+
+Player connection [8799005760]  * "[IP] 192.168.1.186 [Port] 55504 [Flags] 2 [Guid] 3620924373 [EditorId] 3620924373 [Version] 1048832 [Id] OSXEditor(0,Zlads-Mac-mini.local) [Debug] 1 [PackageName] OSXEditor [ProjectName] Editor" 
+
+Player connection [8799005760] Host joined multi-casting on [225.0.0.222:54997]...
+Player connection [8799005760] Host joined alternative multi-casting on [225.0.0.222:34997]...
+Input System module state changed to: Initialized.
+[Physics::Module] Initialized fallback backend.
+[Physics::Module] Id: 0xdecafbad
+[Licensing::Client] Handshaking with LicensingClient:
+  Version:                 1.17.4+4293ba1
+  Session Id:              8504b5d69ee74e9ca50cb006571b6060
+  Correlation Id:          26f8f06f50329e549a0359967e74991a
+  External correlation Id: 1838553354008908187
+  Machine Id:              kwQoJEPuOXcuHDYbJkV/s7dSuTA=
+[Licensing::Module] Successfully connected to LicensingClient on channel: "LicenseClient-zladwu" (connect: 0.00s, validation: 0.00s, handshake: 0.29s)
+[Licensing::IpcConnector] Successfully connected to: "LicenseClient-zladwu-notifications" at "2026-03-07T06:21:34.773147Z"
+[Licensing::Module] Error: Access token is unavailable; failed to update
+[Licensing::Client] Successfully resolved entitlement details
+[Licensing::Module] License group:
+  Id: 2475584806702-UnityPersXXXX
+  Product: Unity Personal
+  Type: Assigned
+  Expiration: Unlimited
+[Licensing::Client] Successfully updated license, isAsync: True, time: 0.00
+[Licensing::Module] Licensing Background thread has ended after 0.30s
+[Package Manager] Connected to IPC stream "Upm-61497" after 0.3 seconds.
+[Licensing::Client] Successfully resolved entitlement details
+Library Redirect Path: Library/
+[Physics::Module] Selected backend.
+[Physics::Module] Name: PhysX
+[Physics::Module] Id: 0xf2b8ea05
+[Physics::Module] SDK Version: 4.1.2
+[Physics::Module] Integration Version: 1.0.0
+[Physics::Module] Threading Mode: Multi-Threaded
+Refreshing native plugins compatible for Editor in 5.07 ms, found 0 plugins.
+Preloading 0 native plugins for Editor in 0.00 ms.
+Initialize engine version: 6000.3.6f1 (bbb010bdb8a3)
+[Subsystems] Discovering subsystems at path /Applications/Unity/Hub/Editor/6000.3.6f1-arm64/Unity.app/Contents/Resources/UnitySubsystems
+[Subsystems] Discovering subsystems at path /Users/zladwu/Development/Projects/FAA/Assets
+Forcing GfxDevice: Null
+GfxDevice: creating device client; kGfxThreadingModeNonThreaded
+NullGfxDevice:
+    Version:  NULL 1.0 [1.0]
+    Renderer: Null Device
+    Vendor:   Unity Technologies
+Initialize mono
+Mono path[0] = '/Applications/Unity/Hub/Editor/6000.3.6f1-arm64/Unity.app/Contents/Resources/Scripting/Managed'
+Mono path[1] = '/Applications/Unity/Hub/Editor/6000.3.6f1-arm64/Unity.app/Contents/Resources/Scripting/MonoBleedingEdge/lib/mono/unityjit-macos'
+Mono config path = '/Applications/Unity/Hub/Editor/6000.3.6f1-arm64/Unity.app/Contents/Resources/Scripting/MonoBleedingEdge/etc'
+Using monoOptions --debugger-agent=transport=dt_socket,embedding=1,server=y,suspend=n,address=127.0.0.1:56497
+Using cacheserver namespaces - metadata:defaultmetadata, artifacts:defaultartifacts
+Using cacheserver namespaces - metadata:defaultmetadata, artifacts:defaultartifacts
+ImportWorker Server TCP listen port: 0
+AcceleratorClientConnectionCallback - disconnected - :0
+Begin MonoManager ReloadAssembly
+Registering precompiled unity dll's ...
+Register platform support module: /Applications/Unity/Hub/Editor/6000.3.6f1-arm64/Unity.app/Contents/PlaybackEngines/MacStandaloneSupport/UnityEditor.OSXStandalone.Extensions.dll
+Registered in 0.001428 seconds.
+- Loaded All Assemblies, in  0.347 seconds
+Native extension for OSXStandalone target not found
+ScheduleIndexationOnStartup MainProcess:False IndexOnStartup:True
+Mono: successfully reloaded assembly
+- Finished resetting the current domain, in  0.377 seconds
+Domain Reload Profiling: 725ms
+	BeginReloadAssembly (138ms)
+		ExecutionOrderSort (0ms)
+		DisableScriptedObjects (0ms)
+		BackupInstance (0ms)
+		ReleaseScriptingObjects (0ms)
+		CreateAndSetChildDomain (12ms)
+	RebuildCommonClasses (37ms)
+	RebuildNativeTypeToScriptingClass (11ms)
+	initialDomainReloadingComplete (34ms)
+	LoadAllAssembliesAndSetupDomain (128ms)
+		LoadAssemblies (126ms)
+		RebuildTransferFunctionScriptingTraits (0ms)
+		AnalyzeDomain (124ms)
+			TypeCache.Refresh (122ms)
+				TypeCache.ScanAssembly (110ms)
+			BuildScriptInfoCaches (0ms)
+			ResolveRequiredComponents (0ms)
+	FinalizeReload (377ms)
+		ReleaseScriptCaches (0ms)
+		RebuildScriptCaches (0ms)
+		SetupLoadedEditorAssemblies (343ms)
+			LogAssemblyErrors (0ms)
+			InitializePlatformSupportModulesInManaged (32ms)
+			SetLoadedEditorAssemblies (4ms)
+			BeforeProcessingInitializeOnLoad (144ms)
+			ProcessInitializeOnLoadAttributes (94ms)
+			ProcessInitializeOnLoadMethodAttributes (69ms)
+			AfterProcessingInitializeOnLoad (0ms)
+			EditorAssembliesLoaded (0ms)
+		ExecutionOrderSort2 (0ms)
+		AwakeInstancesAfterBackupRestoration (0ms)
+[Licensing::Client] Successfully resolved entitlement details
+Application.AssetDatabase Initial Refresh Start
+Package Manager log level set to [2]
+[Package Manager] Restoring resolved packages state from cache
+[Licensing::Client] Successfully resolved entitlement details
+[Package Manager] Registered 71 packages:
+  Packages from [https://packages.unity.com]:
+    com.unity.ads@4.16.4 (location: /Users/zladwu/Development/Projects/FAA/Library/PackageCache/com.unity.ads@e89225828059)
+    com.unity.ai.navigation@2.0.9 (location: /Users/zladwu/Development/Projects/FAA/Library/PackageCache/com.unity.ai.navigation@5218e4bf7edc)
+    com.unity.analytics@3.8.2 (location: /Users/zladwu/Development/Projects/FAA/Library/PackageCache/com.unity.analytics@c9d14a6bdec6)
+    com.unity.collab-proxy@2.11.2 (location: /Users/zladwu/Development/Projects/FAA/Library/PackageCache/com.unity.collab-proxy@1ec4e416a4af)
+    com.unity.ide.visualstudio@2.0.26 (location: /Users/zladwu/Development/Projects/FAA/Library/PackageCache/com.unity.ide.visualstudio@a99d56dec63f)
+    com.unity.nuget.newtonsoft-json@3.2.2 (location: /Users/zladwu/Development/Projects/FAA/Library/PackageCache/com.unity.nuget.newtonsoft-json@4dfd81071c64)
+    com.unity.purchasing@4.14.2 (location: /Users/zladwu/Development/Projects/FAA/Library/PackageCache/com.unity.purchasing@039fd41c6e81)
+    com.unity.timeline@1.8.10 (location: /Users/zladwu/Development/Projects/FAA/Library/PackageCache/com.unity.timeline@7f8b2fb101b6)
+    com.unity.visualscripting@1.9.9 (location: /Users/zladwu/Development/Projects/FAA/Library/PackageCache/com.unity.visualscripting@191c0d7e3b69)
+    com.unity.xr.legacyinputhelpers@2.1.13 (location: /Users/zladwu/Development/Projects/FAA/Library/PackageCache/com.unity.xr.legacyinputhelpers@9535ff2c27ac)
+    com.unity.services.core@1.16.0 (location: /Users/zladwu/Development/Projects/FAA/Library/PackageCache/com.unity.services.core@8ba50f624741)
+    com.unity.ide.rider@3.0.39 (location: /Users/zladwu/Development/Projects/FAA/Library/PackageCache/com.unity.ide.rider@4504839d03f7)
+    com.unity.editorcoroutines@1.0.1 (location: /Users/zladwu/Development/Projects/FAA/Library/PackageCache/com.unity.editorcoroutines@54394ed3283c)
+    com.unity.performance.profile-analyzer@1.3.1 (location: /Users/zladwu/Development/Projects/FAA/Library/PackageCache/com.unity.performance.profile-analyzer@311968ce4be7)
+    com.unity.testtools.codecoverage@1.2.7 (location: /Users/zladwu/Development/Projects/FAA/Library/PackageCache/com.unity.testtools.codecoverage@e4e5058206c0)
+    com.unity.services.analytics@6.2.0 (location: /Users/zladwu/Development/Projects/FAA/Library/PackageCache/com.unity.services.analytics@b6335889ba61)
+    com.unity.mathematics@1.3.3 (location: /Users/zladwu/Development/Projects/FAA/Library/PackageCache/com.unity.mathematics@19a9377c4ffa)
+    com.unity.inputsystem@1.18.0 (location: /Users/zladwu/Development/Projects/FAA/Library/PackageCache/com.unity.inputsystem@57d0e36f6123)
+    com.unity.settings-manager@2.1.1 (location: /Users/zladwu/Development/Projects/FAA/Library/PackageCache/com.unity.settings-manager@0b8638c5ce86)
+    com.unity.searcher@4.9.4 (location: /Users/zladwu/Development/Projects/FAA/Library/PackageCache/com.unity.searcher@d45a78918735)
+    com.unity.burst@1.8.27 (location: /Users/zladwu/Development/Projects/FAA/Library/PackageCache/com.unity.burst@973857688024)
+    com.unity.collections@2.6.2 (location: /Users/zladwu/Development/Projects/FAA/Library/PackageCache/com.unity.collections@aea9d3bd5e19)
+    com.unity.nuget.mono-cecil@1.11.6 (location: /Users/zladwu/Development/Projects/FAA/Library/PackageCache/com.unity.nuget.mono-cecil@ecb9724e46ff)
+    com.unity.test-framework.performance@3.2.0 (location: /Users/zladwu/Development/Projects/FAA/Library/PackageCache/com.unity.test-framework.performance@0840f58e4562)
+  Packages from [https://unity.pkg.cesium.com]:
+    com.cesium.unity@1.20.0 (location: /Users/zladwu/Development/Projects/FAA/Library/PackageCache/com.cesium.unity@57778A6EB39E)
+  Built-in packages:
+    com.unity.2d.sprite@1.0.0 (location: /Users/zladwu/Development/Projects/FAA/Library/PackageCache/com.unity.2d.sprite@82f01c8c75ca)
+    com.unity.2d.tilemap@1.0.0 (location: /Users/zladwu/Development/Projects/FAA/Library/PackageCache/com.unity.2d.tilemap@2428aeee2f73)
+    com.unity.feature.development@1.0.2 (location: /Users/zladwu/Development/Projects/FAA/Library/PackageCache/com.unity.feature.development@767aadbc6eb7)
+    com.unity.multiplayer.center@1.0.1 (location: /Users/zladwu/Development/Projects/FAA/Library/PackageCache/com.unity.multiplayer.center@f01f4ba8d00a)
+    com.unity.test-framework@1.6.0 (location: /Users/zladwu/Development/Projects/FAA/Library/PackageCache/com.unity.test-framework@0b7a23ab2e1d)
+    com.unity.ugui@2.0.0 (location: /Users/zladwu/Development/Projects/FAA/Library/PackageCache/com.unity.ugui@b9d1dd437cb9)
+    com.unity.modules.accessibility@1.0.0 (location: /Users/zladwu/Development/Projects/FAA/Library/PackageCache/com.unity.modules.accessibility)
+    com.unity.modules.adaptiveperformance@1.0.0 (location: /Users/zladwu/Development/Projects/FAA/Library/PackageCache/com.unity.modules.adaptiveperformance)
+    com.unity.modules.ai@1.0.0 (location: /Users/zladwu/Development/Projects/FAA/Library/PackageCache/com.unity.modules.ai)
+    com.unity.modules.androidjni@1.0.0 (location: /Users/zladwu/Development/Projects/FAA/Library/PackageCache/com.unity.modules.androidjni)
+    com.unity.modules.animation@1.0.0 (location: /Users/zladwu/Development/Projects/FAA/Library/PackageCache/com.unity.modules.animation)
+    com.unity.modules.assetbundle@1.0.0 (location: /Users/zladwu/Development/Projects/FAA/Library/PackageCache/com.unity.modules.assetbundle)
+    com.unity.modules.audio@1.0.0 (location: /Users/zladwu/Development/Projects/FAA/Library/PackageCache/com.unity.modules.audio)
+    com.unity.modules.cloth@1.0.0 (location: /Users/zladwu/Development/Projects/FAA/Library/PackageCache/com.unity.modules.cloth)
+    com.unity.modules.director@1.0.0 (location: /Users/zladwu/Development/Projects/FAA/Library/PackageCache/com.unity.modules.director)
+    com.unity.modules.imageconversion@1.0.0 (location: /Users/zladwu/Development/Projects/FAA/Library/PackageCache/com.unity.modules.imageconversion)
+    com.unity.modules.imgui@1.0.0 (location: /Users/zladwu/Development/Projects/FAA/Library/PackageCache/com.unity.modules.imgui)
+    com.unity.modules.jsonserialize@1.0.0 (location: /Users/zladwu/Development/Projects/FAA/Library/PackageCache/com.unity.modules.jsonserialize)
+    com.unity.modules.particlesystem@1.0.0 (location: /Users/zladwu/Development/Projects/FAA/Library/PackageCache/com.unity.modules.particlesystem)
+    com.unity.modules.physics@1.0.0 (location: /Users/zladwu/Development/Projects/FAA/Library/PackageCache/com.unity.modules.physics)
+    com.unity.modules.physics2d@1.0.0 (location: /Users/zladwu/Development/Projects/FAA/Library/PackageCache/com.unity.modules.physics2d)
+    com.unity.modules.screencapture@1.0.0 (location: /Users/zladwu/Development/Projects/FAA/Library/PackageCache/com.unity.modules.screencapture)
+    com.unity.modules.terrain@1.0.0 (location: /Users/zladwu/Development/Projects/FAA/Library/PackageCache/com.unity.modules.terrain)
+    com.unity.modules.terrainphysics@1.0.0 (location: /Users/zladwu/Development/Projects/FAA/Library/PackageCache/com.unity.modules.terrainphysics)
+    com.unity.modules.tilemap@1.0.0 (location: /Users/zladwu/Development/Projects/FAA/Library/PackageCache/com.unity.modules.tilemap)
+    com.unity.modules.ui@1.0.0 (location: /Users/zladwu/Development/Projects/FAA/Library/PackageCache/com.unity.modules.ui)
+    com.unity.modules.uielements@1.0.0 (location: /Users/zladwu/Development/Projects/FAA/Library/PackageCache/com.unity.modules.uielements)
+    com.unity.modules.umbra@1.0.0 (location: /Users/zladwu/Development/Projects/FAA/Library/PackageCache/com.unity.modules.umbra)
+    com.unity.modules.unityanalytics@1.0.0 (location: /Users/zladwu/Development/Projects/FAA/Library/PackageCache/com.unity.modules.unityanalytics)
+    com.unity.modules.unitywebrequest@1.0.0 (location: /Users/zladwu/Development/Projects/FAA/Library/PackageCache/com.unity.modules.unitywebrequest)
+    com.unity.modules.unitywebrequestassetbundle@1.0.0 (location: /Users/zladwu/Development/Projects/FAA/Library/PackageCache/com.unity.modules.unitywebrequestassetbundle)
+    com.unity.modules.unitywebrequestaudio@1.0.0 (location: /Users/zladwu/Development/Projects/FAA/Library/PackageCache/com.unity.modules.unitywebrequestaudio)
+    com.unity.modules.unitywebrequesttexture@1.0.0 (location: /Users/zladwu/Development/Projects/FAA/Library/PackageCache/com.unity.modules.unitywebrequesttexture)
+    com.unity.modules.unitywebrequestwww@1.0.0 (location: /Users/zladwu/Development/Projects/FAA/Library/PackageCache/com.unity.modules.unitywebrequestwww)
+    com.unity.modules.vectorgraphics@1.0.0 (location: /Users/zladwu/Development/Projects/FAA/Library/PackageCache/com.unity.modules.vectorgraphics)
+    com.unity.modules.vehicles@1.0.0 (location: /Users/zladwu/Development/Projects/FAA/Library/PackageCache/com.unity.modules.vehicles)
+    com.unity.modules.video@1.0.0 (location: /Users/zladwu/Development/Projects/FAA/Library/PackageCache/com.unity.modules.video)
+    com.unity.modules.vr@1.0.0 (location: /Users/zladwu/Development/Projects/FAA/Library/PackageCache/com.unity.modules.vr)
+    com.unity.modules.wind@1.0.0 (location: /Users/zladwu/Development/Projects/FAA/Library/PackageCache/com.unity.modules.wind)
+    com.unity.modules.xr@1.0.0 (location: /Users/zladwu/Development/Projects/FAA/Library/PackageCache/com.unity.modules.xr)
+    com.unity.modules.subsystems@1.0.0 (location: /Users/zladwu/Development/Projects/FAA/Library/PackageCache/com.unity.modules.subsystems)
+    com.unity.modules.hierarchycore@1.0.0 (location: /Users/zladwu/Development/Projects/FAA/Library/PackageCache/com.unity.modules.hierarchycore)
+    com.unity.ext.nunit@2.0.5 (location: /Users/zladwu/Development/Projects/FAA/Library/PackageCache/com.unity.ext.nunit@d8c07649098d)
+    com.unity.shadergraph@17.3.0 (location: /Users/zladwu/Development/Projects/FAA/Library/PackageCache/com.unity.shadergraph@3e48e962d639)
+    com.unity.render-pipelines.core@17.3.0 (location: /Users/zladwu/Development/Projects/FAA/Library/PackageCache/com.unity.render-pipelines.core@9a9c0155552c)
+  Git packages:
+    com.coplaydev.unity-mcp@https://github.com/CoplayDev/unity-mcp.git?path=/MCPForUnity#beta (location: /Users/zladwu/Development/Projects/FAA/Library/PackageCache/com.coplaydev.unity-mcp@c7c27ff5f24c)
+[Subsystems] No new subsystems found in resolved package list.
+[Package Manager] Done registering packages in 0.01 seconds
+Detected Library folder embedded in an asset folder. Did you copy a project into this project? Use "Export Package" to move assets between projects. You need to remove the following Library folder from your project: Assets/Library. Until then it will be ignored but have a negative performance impact.
+[40m[32minfo[39m[22m[49m: Microsoft.Hosting.Lifetime[14]
+      Now listening on: http://unix:/tmp/ilpp.sock-3e789b18783505894a25d41e91e2980d
+[40m[32minfo[39m[22m[49m: Microsoft.Hosting.Lifetime[0]
+      Application started. Press Ctrl+C to shut down.
+[40m[32minfo[39m[22m[49m: Microsoft.Hosting.Lifetime[0]
+      Hosting environment: Production
+[40m[32minfo[39m[22m[49m: Microsoft.Hosting.Lifetime[0]
+      Content root path: /Users/zladwu/Development/Projects/FAA/
+[40m[32minfo[39m[22m[49m: Microsoft.AspNetCore.Hosting.Diagnostics[1]
+      Request starting HTTP/2 POST http://ilpp/UnityILPP.PostProcessing/Ping application/grpc -
+[40m[32minfo[39m[22m[49m: Microsoft.AspNetCore.Routing.EndpointMiddleware[0]
+      Executing endpoint 'gRPC - /UnityILPP.PostProcessing/Ping'
+[40m[32minfo[39m[22m[49m: Microsoft.AspNetCore.Routing.EndpointMiddleware[1]
+      Executed endpoint 'gRPC - /UnityILPP.PostProcessing/Ping'
+[40m[32minfo[39m[22m[49m: Microsoft.AspNetCore.Hosting.Diagnostics[2]
+      Request finished HTTP/2 POST http://ilpp/UnityILPP.PostProcessing/Ping application/grpc - - 200 - application/grpc 41.8135ms
+Starting: /Applications/Unity/Hub/Editor/6000.3.6f1-arm64/Unity.app/Contents/Resources/BuildPipeline/bee_backend --ipc --defer-dag-verification --dagfile="Library/Bee/200b0aE.dag" --continue-on-failure --profile="Library/Bee/backend1.traceevents" ScriptAssemblies
+WorkingDir: /Users/zladwu/Development/Projects/FAA
+DisplayProgressbar: Compiling Scripts
+[40m[32minfo[39m[22m[49m: Microsoft.AspNetCore.Hosting.Diagnostics[1]
+      Request starting HTTP/2 POST http://ilpp/UnityILPP.PostProcessing/ConfigurePostProcessors application/grpc -
+[40m[32minfo[39m[22m[49m: Microsoft.AspNetCore.Routing.EndpointMiddleware[0]
+      Executing endpoint 'gRPC - /UnityILPP.PostProcessing/ConfigurePostProcessors'
+[40m[1m[33mwarn[39m[22m[49m: Unity.ILPP.Runner.PostProcessingAssemblyLoadContext[0]
+      Assembly system.runtime.interopservices.windowsruntime has duplicate hint path. Ignoring "/Applications/Unity/Hub/Editor/6000.3.6f1-arm64/Unity.app/Contents/Resources/Scripting/UnityReferenceAssemblies/unity-4.8-api/Facades/System.Runtime.InteropServices.WindowsRuntime.dll" in favor of "/Applications/Unity/Hub/Editor/6000.3.6f1-arm64/Unity.app/Contents/Resources/Scripting/NetStandard/Extensions/2.0.0/System.Runtime.InteropServices.WindowsRuntime.dll"
+[40m[1m[33mwarn[39m[22m[49m: Unity.ILPP.Runner.PostProcessingAssemblyLoadContext[0]
+      Assembly system.componentmodel.composition has duplicate hint path. Ignoring "/Applications/Unity/Hub/Editor/6000.3.6f1-arm64/Unity.app/Contents/Resources/Scripting/UnityReferenceAssemblies/unity-4.8-api/System.ComponentModel.Composition.dll" in favor of "/Applications/Unity/Hub/Editor/6000.3.6f1-arm64/Unity.app/Contents/Resources/Scripting/NetStandard/compat/2.1.0/shims/netfx/System.ComponentModel.Composition.dll"
+[40m[32minfo[39m[22m[49m: Unity.ILPP.Runner.PostProcessingAssemblyLoadContext[0]
+      Resolved Unity.Burst.Cecil, Version=0.11.4.0, Culture=neutral, PublicKeyToken=50cebf1cceb9d05e with Library/PackageCache/com.unity.burst@973857688024/Unity.Burst.CodeGen/Unity.Burst.Cecil.dll
+[40m[32minfo[39m[22m[49m: Unity.ILPP.Runner.PostProcessingAssemblyLoadContext[0]
+      Resolved Mono.Cecil, Version=0.11.5.0, Culture=neutral, PublicKeyToken=50cebf1cceb9d05e with Library/PackageCache/com.unity.nuget.mono-cecil@ecb9724e46ff/Mono.Cecil.dll
+[40m[32minfo[39m[22m[49m: Microsoft.AspNetCore.Routing.EndpointMiddleware[1]
+      Executed endpoint 'gRPC - /UnityILPP.PostProcessing/ConfigurePostProcessors'
+[40m[32minfo[39m[22m[49m: Microsoft.AspNetCore.Hosting.Diagnostics[2]
+      Request finished HTTP/2 POST http://ilpp/UnityILPP.PostProcessing/ConfigurePostProcessors application/grpc - - 200 - application/grpc 22.2725ms
+ExitCode: 0 Duration: 0s412ms
+[1017/1378  0s] ILPP-Configuration Library/ilpp-configuration.nevergeneratedoutput
+*** Tundra build success (0.39 seconds), 1 items updated, 1378 evaluated
+AssetDatabase: script compilation time: 1.011991s
+Detected Library folder embedded in an asset folder. Did you copy a project into this project? Use "Export Package" to move assets between projects. You need to remove the following Library folder from your project: Assets/Library. Until then it will be ignored but have a negative performance impact.
+Begin MonoManager ReloadAssembly
+Total cache size 110270876
+Symbol file LoadedFromMemory is not a mono symbol file
+- Loaded All Assemblies, in  0.689 seconds
+'Packages/com.cesium.unity/Runtime/generated/Reinterop.RoslynSourceGenerator/CesiumGoogleMapTilesRasterOverlay-generated.cs' contains partial class of Unity.Object, exactly 1 of the partial classes needs to be in a file with the same filename. This is to know the one that can be referenced from ie. GameObjects
+'Packages/com.cesium.unity/Runtime/CesiumGoogleMapsTilesRasterOverlay.cs' contains partial class of Unity.Object, exactly 1 of the partial classes needs to be in a file with the same filename. This is to know the one that can be referenced from ie. GameObjects
+Detected Library folder embedded in an asset folder. Did you copy a project into this project? Use "Export Package" to move assets between projects. You need to remove the following Library folder from your project: Assets/Library. Until then it will be ignored but have a negative performance impact.
+Refreshing native plugins compatible for Editor in 46.75 ms, found 3 plugins.
+Native extension for OSXStandalone target not found
+Refreshing native plugins compatible for Editor in 7.83 ms, found 3 plugins.
+ScheduleIndexationOnStartup MainProcess:True IndexOnStartup:True
+Mono: successfully reloaded assembly
+- Finished resetting the current domain, in  1.328 seconds
+Domain Reload Profiling: 2017ms
+	BeginReloadAssembly (196ms)
+		ExecutionOrderSort (0ms)
+		DisableScriptedObjects (6ms)
+		BackupInstance (0ms)
+		ReleaseScriptingObjects (0ms)
+		CreateAndSetChildDomain (140ms)
+	RebuildCommonClasses (18ms)
+	RebuildNativeTypeToScriptingClass (7ms)
+	initialDomainReloadingComplete (13ms)
+	LoadAllAssembliesAndSetupDomain (455ms)
+		LoadAssemblies (305ms)
+		RebuildTransferFunctionScriptingTraits (0ms)
+		AnalyzeDomain (181ms)
+			TypeCache.Refresh (139ms)
+				TypeCache.ScanAssembly (124ms)
+			BuildScriptInfoCaches (34ms)
+			ResolveRequiredComponents (6ms)
+	FinalizeReload (1328ms)
+		ReleaseScriptCaches (0ms)
+		RebuildScriptCaches (0ms)
+		SetupLoadedEditorAssemblies (1245ms)
+			LogAssemblyErrors (0ms)
+			InitializePlatformSupportModulesInManaged (9ms)
+			SetLoadedEditorAssemblies (3ms)
+			BeforeProcessingInitializeOnLoad (101ms)
+			ProcessInitializeOnLoadAttributes (1035ms)
+			ProcessInitializeOnLoadMethodAttributes (96ms)
+			AfterProcessingInitializeOnLoad (1ms)
+			EditorAssembliesLoaded (0ms)
+		ExecutionOrderSort2 (0ms)
+		AwakeInstancesAfterBackupRestoration (2ms)
+Detected Library folder embedded in an asset folder. Did you copy a project into this project? Use "Export Package" to move assets between projects. You need to remove the following Library folder from your project: Assets/Library. Until then it will be ignored but have a negative performance impact.
+Asset Pipeline Refresh (id=11b8dfabf17a74f42b2158187bdc1804): Total: 4.185 seconds - Initiated by InitialRefreshV2(ForceSynchronousImport)
+	Summary:
+		Imports: total=0 (actual=0, local cache=0, cache server=0)
+		Asset DB Process Time: managed=0 ms, native=2254 ms
+		Asset DB Callback time: managed=171 ms, native=11 ms
+		Scripting: domain reloads=1, domain reload time=689 ms, compile time=1013 ms, other=45 ms
+		Project Asset Count: scripts=2107, non-scripts=4439
+		Asset File Changes: new=0, changed=0, moved=0, deleted=0
+		Scan Filter Count: 1
+	InvokeCustomDependenciesCallbacks: 0.000ms
+	InvokePackagesCallback: 11.386ms
+	ApplyChangesToAssetFolders: 0.221ms
+	Scan: 517.203ms
+	OnSourceAssetsModified: 0.001ms
+	CategorizeAssetsWithTransientArtifact: 123.715ms
+	ProcessAssetsWithTransientArtifactChanges: 50.361ms
+	CategorizeAssets: 52.550ms
+	ImportOutOfDateAssets: 1392.009ms (377.359ms without children)
+		CompileScripts: 1013.017ms
+		ReloadNativeAssets: 0.000ms
+		UnloadImportedAssets: 0.209ms
+		EnsureUptoDateAssetsAreRegisteredWithGuidPM: 0.778ms
+		InitializingProgressBar: 0.000ms
+		PostProcessAllAssetNotificationsAddChangedAssets: 0.000ms
+		OnDemandSchedulerStart: 0.645ms
+	PostProcessAllAssets: 171.816ms
+	UnloadStreamsBegin: 1.200ms
+	PersistCurrentRevisions: 0.127ms
+	UnloadStreamsEnd: 0.001ms
+	GenerateScriptTypeHashes: 2.678ms
+	Untracked: 1864.385ms
+
+Application.AssetDatabase Initial Refresh End
+Scanning for USB devices : 0.672ms
+Initializing Unity extensions:
+[MODES] ModeService[none].Initialize
+[MODES] ModeService[none].LoadModes
+[MODES] Loading mode Default (0) for mode-current-id-FAA_symbology_unity_project
+Unloading 43 Unused Serialized files (Serialized files now loaded: 0)
+Unloading 8615 unused Assets / (2.2 MB). Loaded Objects now: 8975.
+Memory consumption went from 277.2 MB to 275.0 MB.
+Total: 13.507500 ms (FindLiveObjects: 0.338750 ms CreateObjectMapping: 0.175458 ms MarkObjects: 11.354709 ms  DeleteObjects: 1.637958 ms)
+
+Batchmode quit successfully invoked - shutting down!
+<b><color=#2EA3FF>MCP-FOR-UNITY</color></b>: No process found listening on port 8080
+UnityEngine.Debug:ExtractStackTraceNoAlloc (byte*,int,string)
+UnityEngine.StackTraceUtility:ExtractStackTrace () (at /Users/bokken/build/output/unity/unity/Runtime/Export/Scripting/StackTrace.cs:35)
+UnityEngine.DebugLogHandler:Internal_Log (UnityEngine.LogType,UnityEngine.LogOption,string,UnityEngine.Object)
+UnityEngine.DebugLogHandler:LogFormat (UnityEngine.LogType,UnityEngine.Object,string,object[])
+UnityEngine.Logger:Log (UnityEngine.LogType,object)
+UnityEngine.Debug:Log (object)
+MCPForUnity.Editor.Helpers.McpLog:Info (string,bool) (at ./Library/PackageCache/com.coplaydev.unity-mcp@c7c27ff5f24c/Editor/Helpers/McpLog.cs:40)
+MCPForUnity.Editor.Services.ServerManagementService:StopLocalHttpServerInternal (bool,System.Nullable`1<int>,bool) (at ./Library/PackageCache/com.coplaydev.unity-mcp@c7c27ff5f24c/Editor/Services/ServerManagementService.cs:650)
+MCPForUnity.Editor.Services.ServerManagementService:StopLocalHttpServer () (at ./Library/PackageCache/com.coplaydev.unity-mcp@c7c27ff5f24c/Editor/Services/ServerManagementService.cs:340)
+MCPForUnity.Editor.Services.McpEditorShutdownCleanup:OnEditorQuitting () (at ./Library/PackageCache/com.coplaydev.unity-mcp@c7c27ff5f24c/Editor/Services/McpEditorShutdownCleanup.cs:60)
+UnityEditor.EditorApplication:Internal_EditorApplicationQuit () (at /Users/bokken/build/output/unity/unity/Editor/Mono/EditorApplication.cs:128)
+
+(Filename: ./Library/PackageCache/com.coplaydev.unity-mcp@c7c27ff5f24c/Editor/Helpers/McpLog.cs Line: 40)
+
+Thread 0x16da5b000 may have been prematurely finalized
+Input System module state changed to: ShutdownInProgress.
+Input System polling thread exited.
+Input System module state changed to: Shutdown.
+[Physics::Module] Cleanup current backend.
+[Physics::Module] Id: 0xf2b8ea05
+[Licensing::IpcConnector] LicenseClient-zladwu-notifications channel disconnected successfully.
+[Licensing::IpcConnector] LicenseClient-zladwu channel disconnected successfully.
+Thread 0x16e807000 may have been prematurely finalized
+Thread 0x16e893000 may have been prematurely finalized
+Thread 0x16e91f000 may have been prematurely finalized
+Thread 0x16e9ab000 may have been prematurely finalized
+Thread 0x16ea37000 may have been prematurely finalized
+Thread 0x16eac3000 may have been prematurely finalized
+Thread 0x16eb4f000 may have been prematurely finalized
+Thread 0x16ebdb000 may have been prematurely finalized
+Thread 0x16ec67000 may have been prematurely finalized
+AcceleratorClientConnectionCallback - disconnected - :0
+[40m[32minfo[39m[22m[49m: Microsoft.Hosting.Lifetime[0]
+      Application is shutting down...
+Cleanup mono
+[40m[32minfo[39m[22m[49m: Unity.ILPP.Runner.PostProcessingAssemblyLoadContext[0]
+      ALC ILPP context 1 is unloading
+debugger-agent: Unable to listen on 44
+Exiting batchmode successfully now!
+[Package Manager] Server process was shutdown

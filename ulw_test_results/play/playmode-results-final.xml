@@ -1,0 +1,136 @@
+<?xml version="1.0" encoding="utf-8"?>
+<test-run id="2" testcasecount="15" result="Passed" total="15" passed="15" failed="0" inconclusive="0" skipped="0" asserts="0" engine-version="3.5.0.0" clr-version="4.0.30319.42000" start-time="2026-03-07 06:37:16Z" end-time="2026-03-07 06:37:37Z" duration="21.536141">
+  <test-suite type="TestSuite" id="1024" name="FAA_symbology_unity_project" fullname="FAA_symbology_unity_project" runstate="Runnable" testcasecount="15" result="Passed" start-time="2026-03-07 06:37:16Z" end-time="2026-03-07 06:37:37Z" duration="21.536141" total="15" passed="15" failed="0" inconclusive="0" skipped="0" asserts="0">
+    <properties>
+      <property name="platform" value="PlayMode" />
+    </properties>
+    <test-suite type="Assembly" id="1017" name="AircraftControl.RuntimeTests.dll" fullname="/Users/zladwu/Development/Projects/FAA/Library/ScriptAssemblies/AircraftControl.RuntimeTests.dll" runstate="Runnable" testcasecount="15" result="Passed" start-time="2026-03-07 06:37:16Z" end-time="2026-03-07 06:37:37Z" duration="21.532691" total="15" passed="15" failed="0" inconclusive="0" skipped="0" asserts="0">
+      <properties>
+        <property name="_PID" value="15778" />
+        <property name="_APPDOMAIN" value="Unity Child Domain" />
+        <property name="platform" value="PlayMode" />
+        <property name="EditorOnly" value="False" />
+      </properties>
+      <test-suite type="TestSuite" id="1018" name="AircraftControl" fullname="AircraftControl" runstate="Runnable" testcasecount="15" result="Passed" start-time="2026-03-07 06:37:16Z" end-time="2026-03-07 06:37:37Z" duration="21.532416" total="15" passed="15" failed="0" inconclusive="0" skipped="0" asserts="0">
+        <properties />
+        <test-suite type="TestSuite" id="1019" name="Tests" fullname="AircraftControl.Tests" runstate="Runnable" testcasecount="15" result="Passed" start-time="2026-03-07 06:37:16Z" end-time="2026-03-07 06:37:37Z" duration="21.532229" total="15" passed="15" failed="0" inconclusive="0" skipped="0" asserts="0">
+          <properties />
+          <test-suite type="TestSuite" id="1020" name="Runtime" fullname="AircraftControl.Tests.Runtime" runstate="Runnable" testcasecount="15" result="Passed" start-time="2026-03-07 06:37:16Z" end-time="2026-03-07 06:37:37Z" duration="21.532026" total="15" passed="15" failed="0" inconclusive="0" skipped="0" asserts="0">
+            <properties />
+            <test-suite type="TestFixture" id="1001" name="AircraftControllerIntegrationTests" fullname="AircraftControl.Tests.Runtime.AircraftControllerIntegrationTests" classname="AircraftControl.Tests.Runtime.AircraftControllerIntegrationTests" runstate="Runnable" testcasecount="15" result="Passed" start-time="2026-03-07 06:37:16Z" end-time="2026-03-07 06:37:37Z" duration="21.529681" total="15" passed="15" failed="0" inconclusive="0" skipped="0" asserts="0">
+              <properties />
+              <test-case id="1002" name="FixedWing_DefaultState_HasValidAirspeed" fullname="AircraftControl.Tests.Runtime.AircraftControllerIntegrationTests.FixedWing_DefaultState_HasValidAirspeed" methodname="FixedWing_DefaultState_HasValidAirspeed" classname="AircraftControl.Tests.Runtime.AircraftControllerIntegrationTests" runstate="Runnable" seed="1628643043" result="Passed" start-time="2026-03-07 06:37:16Z" end-time="2026-03-07 06:37:16Z" duration="0.008289" asserts="0">
+                <properties>
+                  <property name="_JOINTYPE" value="UnityCombinatorial" />
+                  <property name="retryIteration" value="0" />
+                  <property name="repeatIteration" value="0" />
+                </properties>
+              </test-case>
+              <test-case id="1012" name="FixedWing_PitchUp_IncreasesPitch" fullname="AircraftControl.Tests.Runtime.AircraftControllerIntegrationTests.FixedWing_PitchUp_IncreasesPitch" methodname="FixedWing_PitchUp_IncreasesPitch" classname="AircraftControl.Tests.Runtime.AircraftControllerIntegrationTests" runstate="Runnable" seed="1143861973" result="Passed" start-time="2026-03-07 06:37:16Z" end-time="2026-03-07 06:37:16Z" duration="0.501459" asserts="0">
+                <properties>
+                  <property name="_JOINTYPE" value="UnityCombinatorial" />
+                  <property name="retryIteration" value="0" />
+                  <property name="repeatIteration" value="0" />
+                </properties>
+              </test-case>
+              <test-case id="1013" name="FixedWing_RollRight_IncreasesRoll" fullname="AircraftControl.Tests.Runtime.AircraftControllerIntegrationTests.FixedWing_RollRight_IncreasesRoll" methodname="FixedWing_RollRight_IncreasesRoll" classname="AircraftControl.Tests.Runtime.AircraftControllerIntegrationTests" runstate="Runnable" seed="422856006" result="Passed" start-time="2026-03-07 06:37:16Z" end-time="2026-03-07 06:37:17Z" duration="0.500890" asserts="0">
+                <properties>
+                  <property name="_JOINTYPE" value="UnityCombinatorial" />
+                  <property name="retryIteration" value="0" />
+                  <property name="repeatIteration" value="0" />
+                </properties>
+              </test-case>
+              <test-case id="1016" name="GetFlightDynamics_ReturnsCorrectType" fullname="AircraftControl.Tests.Runtime.AircraftControllerIntegrationTests.GetFlightDynamics_ReturnsCorrectType" methodname="GetFlightDynamics_ReturnsCorrectType" classname="AircraftControl.Tests.Runtime.AircraftControllerIntegrationTests" runstate="Runnable" seed="2107059501" result="Passed" start-time="2026-03-07 06:37:17Z" end-time="2026-03-07 06:37:17Z" duration="0.002124" asserts="0">
+                <properties>
+                  <property name="_JOINTYPE" value="UnityCombinatorial" />
+                  <property name="retryIteration" value="0" />
+                  <property name="repeatIteration" value="0" />
+                </properties>
+              </test-case>
+              <test-case id="1003" name="Helicopter_DefaultState_HasZeroRotorRpm" fullname="AircraftControl.Tests.Runtime.AircraftControllerIntegrationTests.Helicopter_DefaultState_HasZeroRotorRpm" methodname="Helicopter_DefaultState_HasZeroRotorRpm" classname="AircraftControl.Tests.Runtime.AircraftControllerIntegrationTests" runstate="Runnable" seed="1643431555" result="Passed" start-time="2026-03-07 06:37:17Z" end-time="2026-03-07 06:37:17Z" duration="0.001075" asserts="0">
+                <properties>
+                  <property name="_JOINTYPE" value="UnityCombinatorial" />
+                  <property name="retryIteration" value="0" />
+                  <property name="repeatIteration" value="0" />
+                </properties>
+              </test-case>
+              <test-case id="1009" name="Helicopter_RotorSpoolUp_IncreasesRpm" fullname="AircraftControl.Tests.Runtime.AircraftControllerIntegrationTests.Helicopter_RotorSpoolUp_IncreasesRpm" methodname="Helicopter_RotorSpoolUp_IncreasesRpm" classname="AircraftControl.Tests.Runtime.AircraftControllerIntegrationTests" runstate="Runnable" seed="227031084" result="Passed" start-time="2026-03-07 06:37:17Z" end-time="2026-03-07 06:37:22Z" duration="5.000722" asserts="0">
+                <properties>
+                  <property name="_JOINTYPE" value="UnityCombinatorial" />
+                  <property name="retryIteration" value="0" />
+                  <property name="repeatIteration" value="0" />
+                </properties>
+              </test-case>
+              <test-case id="1007" name="Helicopter_SetCollective_UpdatesCollectiveInput" fullname="AircraftControl.Tests.Runtime.AircraftControllerIntegrationTests.Helicopter_SetCollective_UpdatesCollectiveInput" methodname="Helicopter_SetCollective_UpdatesCollectiveInput" classname="AircraftControl.Tests.Runtime.AircraftControllerIntegrationTests" runstate="Runnable" seed="1761292269" result="Passed" start-time="2026-03-07 06:37:22Z" end-time="2026-03-07 06:37:22Z" duration="0.001179" asserts="0">
+                <properties>
+                  <property name="_JOINTYPE" value="UnityCombinatorial" />
+                  <property name="retryIteration" value="0" />
+                  <property name="repeatIteration" value="0" />
+                </properties>
+              </test-case>
+              <test-case id="1008" name="Helicopter_SetCyclic_UpdatesCyclicInputs" fullname="AircraftControl.Tests.Runtime.AircraftControllerIntegrationTests.Helicopter_SetCyclic_UpdatesCyclicInputs" methodname="Helicopter_SetCyclic_UpdatesCyclicInputs" classname="AircraftControl.Tests.Runtime.AircraftControllerIntegrationTests" runstate="Runnable" seed="1400907071" result="Passed" start-time="2026-03-07 06:37:22Z" end-time="2026-03-07 06:37:22Z" duration="0.000564" asserts="0">
+                <properties>
+                  <property name="_JOINTYPE" value="UnityCombinatorial" />
+                  <property name="retryIteration" value="0" />
+                  <property name="repeatIteration" value="0" />
+                </properties>
+              </test-case>
+              <test-case id="1014" name="Helicopter_ThrottleZero_RotorStops" fullname="AircraftControl.Tests.Runtime.AircraftControllerIntegrationTests.Helicopter_ThrottleZero_RotorStops" methodname="Helicopter_ThrottleZero_RotorStops" classname="AircraftControl.Tests.Runtime.AircraftControllerIntegrationTests" runstate="Runnable" seed="676598288" result="Passed" start-time="2026-03-07 06:37:22Z" end-time="2026-03-07 06:37:37Z" duration="15.001116" asserts="0">
+                <properties>
+                  <property name="_JOINTYPE" value="UnityCombinatorial" />
+                  <property name="retryIteration" value="0" />
+                  <property name="repeatIteration" value="0" />
+                </properties>
+              </test-case>
+              <test-case id="1011" name="ResetToDefault_ResetsState" fullname="AircraftControl.Tests.Runtime.AircraftControllerIntegrationTests.ResetToDefault_ResetsState" methodname="ResetToDefault_ResetsState" classname="AircraftControl.Tests.Runtime.AircraftControllerIntegrationTests" runstate="Runnable" seed="1225677197" result="Passed" start-time="2026-03-07 06:37:37Z" end-time="2026-03-07 06:37:37Z" duration="0.501142" asserts="0">
+                <properties>
+                  <property name="_JOINTYPE" value="UnityCombinatorial" />
+                  <property name="retryIteration" value="0" />
+                  <property name="repeatIteration" value="0" />
+                </properties>
+              </test-case>
+              <test-case id="1004" name="SetAircraftType_ChangesType" fullname="AircraftControl.Tests.Runtime.AircraftControllerIntegrationTests.SetAircraftType_ChangesType" methodname="SetAircraftType_ChangesType" classname="AircraftControl.Tests.Runtime.AircraftControllerIntegrationTests" runstate="Runnable" seed="1305566686" result="Passed" start-time="2026-03-07 06:37:37Z" end-time="2026-03-07 06:37:37Z" duration="0.000596" asserts="0">
+                <properties>
+                  <property name="_JOINTYPE" value="UnityCombinatorial" />
+                  <property name="retryIteration" value="0" />
+                  <property name="repeatIteration" value="0" />
+                </properties>
+              </test-case>
+              <test-case id="1010" name="SetControlEnabled_DisablesControl" fullname="AircraftControl.Tests.Runtime.AircraftControllerIntegrationTests.SetControlEnabled_DisablesControl" methodname="SetControlEnabled_DisablesControl" classname="AircraftControl.Tests.Runtime.AircraftControllerIntegrationTests" runstate="Runnable" seed="891851100" result="Passed" start-time="2026-03-07 06:37:37Z" end-time="2026-03-07 06:37:37Z" duration="0.000548" asserts="0">
+                <properties>
+                  <property name="_JOINTYPE" value="UnityCombinatorial" />
+                  <property name="retryIteration" value="0" />
+                  <property name="repeatIteration" value="0" />
+                </properties>
+              </test-case>
+              <test-case id="1006" name="SetPitch_UpdatesElevatorInput" fullname="AircraftControl.Tests.Runtime.AircraftControllerIntegrationTests.SetPitch_UpdatesElevatorInput" methodname="SetPitch_UpdatesElevatorInput" classname="AircraftControl.Tests.Runtime.AircraftControllerIntegrationTests" runstate="Runnable" seed="1048679708" result="Passed" start-time="2026-03-07 06:37:37Z" end-time="2026-03-07 06:37:37Z" duration="0.000499" asserts="0">
+                <properties>
+                  <property name="_JOINTYPE" value="UnityCombinatorial" />
+                  <property name="retryIteration" value="0" />
+                  <property name="repeatIteration" value="0" />
+                </properties>
+              </test-case>
+              <test-case id="1005" name="SetThrottle_UpdatesThrottlePercent" fullname="AircraftControl.Tests.Runtime.AircraftControllerIntegrationTests.SetThrottle_UpdatesThrottlePercent" methodname="SetThrottle_UpdatesThrottlePercent" classname="AircraftControl.Tests.Runtime.AircraftControllerIntegrationTests" runstate="Runnable" seed="1237843829" result="Passed" start-time="2026-03-07 06:37:37Z" end-time="2026-03-07 06:37:37Z" duration="0.000402" asserts="0">
+                <properties>
+                  <property name="_JOINTYPE" value="UnityCombinatorial" />
+                  <property name="retryIteration" value="0" />
+                  <property name="repeatIteration" value="0" />
+                </properties>
+              </test-case>
+              <test-case id="1015" name="StateChangedEvent_Fires" fullname="AircraftControl.Tests.Runtime.AircraftControllerIntegrationTests.StateChangedEvent_Fires" methodname="StateChangedEvent_Fires" classname="AircraftControl.Tests.Runtime.AircraftControllerIntegrationTests" runstate="Runnable" seed="1556505795" result="Passed" start-time="2026-03-07 06:37:37Z" end-time="2026-03-07 06:37:37Z" duration="0.000931" asserts="0">
+                <properties>
+                  <property name="_JOINTYPE" value="UnityCombinatorial" />
+                  <property name="retryIteration" value="0" />
+                  <property name="repeatIteration" value="0" />
+                </properties>
+                <output><![CDATA[<b><color=#2EA3FF>MCP-FOR-UNITY</color></b>: [TestRunnerNoThrottle] Restored Interaction Mode after test run.
+Saving results to: /Users/zladwu/Library/Application Support/DefaultCompany/FAA_symbology_unity_project/TestResults.xml
+]]></output>
+              </test-case>
+            </test-suite>
+          </test-suite>
+        </test-suite>
+      </test-suite>
+    </test-suite>
+  </test-suite>
+</test-run>

@@ -1,0 +1,8 @@
+X-Plane Radar Evidence Report
+Timestamp: 2026-03-07T10:43:34.7454490Z
+Mode: Unity batch evidence generation
+WeatherSource: X-Plane aircraft-local weather DataRefs (integration path validated in provider layer)
+TrafficSource: X-Plane multiplayer DataRefs (integration path validated in provider layer)
+WeatherScreenshot: /Users/zladwu/Development/Projects/FAA/Assets/ulw_test_results/radar_evidence/weather-radar.png
+TrafficScreenshot: /Users/zladwu/Development/Projects/FAA/Assets/ulw_test_results/radar_evidence/traffic-radar.png
+TrafficCount: 4

@@ -1,0 +1,355 @@
+<?xml version="1.0" encoding="utf-8"?>
+<test-run id="2" testcasecount="53" result="Passed" total="53" passed="53" failed="0" inconclusive="0" skipped="0" asserts="0" engine-version="3.5.0.0" clr-version="4.0.30319.42000" start-time="2026-03-07 06:35:14Z" end-time="2026-03-07 06:35:14Z" duration="0.0586175">
+  <test-suite type="TestSuite" id="1000" name="FAA_symbology_unity_project" fullname="FAA_symbology_unity_project" runstate="Runnable" testcasecount="53" result="Passed" start-time="2026-03-07 06:35:14Z" end-time="2026-03-07 06:35:14Z" duration="0.058618" total="53" passed="53" failed="0" inconclusive="0" skipped="0" asserts="0">
+    <properties>
+      <property name="platform" value="EditMode" />
+    </properties>
+    <test-suite type="Assembly" id="1057" name="AircraftControl.EditorTests.dll" fullname="/Users/zladwu/Development/Projects/FAA/Library/ScriptAssemblies/AircraftControl.EditorTests.dll" runstate="Runnable" testcasecount="53" result="Passed" start-time="2026-03-07 06:35:14Z" end-time="2026-03-07 06:35:14Z" duration="0.051273" total="53" passed="53" failed="0" inconclusive="0" skipped="0" asserts="0">
+      <properties>
+        <property name="_PID" value="4920" />
+        <property name="_APPDOMAIN" value="Unity Child Domain" />
+        <property name="platform" value="EditMode" />
+        <property name="EditorOnly" value="True" />
+      </properties>
+      <test-suite type="TestSuite" id="1058" name="AircraftControl" fullname="AircraftControl" runstate="Runnable" testcasecount="53" result="Passed" start-time="2026-03-07 06:35:14Z" end-time="2026-03-07 06:35:14Z" duration="0.050087" total="53" passed="53" failed="0" inconclusive="0" skipped="0" asserts="0">
+        <properties />
+        <test-suite type="TestSuite" id="1059" name="Tests" fullname="AircraftControl.Tests" runstate="Runnable" testcasecount="53" result="Passed" start-time="2026-03-07 06:35:14Z" end-time="2026-03-07 06:35:14Z" duration="0.048986" total="53" passed="53" failed="0" inconclusive="0" skipped="0" asserts="0">
+          <properties />
+          <test-suite type="TestSuite" id="1060" name="Editor" fullname="AircraftControl.Tests.Editor" runstate="Runnable" testcasecount="53" result="Passed" start-time="2026-03-07 06:35:14Z" end-time="2026-03-07 06:35:14Z" duration="0.047563" total="53" passed="53" failed="0" inconclusive="0" skipped="0" asserts="0">
+            <properties />
+            <test-suite type="TestFixture" id="1001" name="AircraftStateTests" fullname="AircraftControl.Tests.Editor.AircraftStateTests" classname="AircraftControl.Tests.Editor.AircraftStateTests" runstate="Runnable" testcasecount="12" result="Passed" start-time="2026-03-07 06:35:14Z" end-time="2026-03-07 06:35:14Z" duration="0.016446" total="12" passed="12" failed="0" inconclusive="0" skipped="0" asserts="0">
+              <properties />
+              <test-case id="1008" name="AltitudeFeet_CalculatesCorrectly" fullname="AircraftControl.Tests.Editor.AircraftStateTests.AltitudeFeet_CalculatesCorrectly" methodname="AltitudeFeet_CalculatesCorrectly" classname="AircraftControl.Tests.Editor.AircraftStateTests" runstate="Runnable" seed="371048504" result="Passed" start-time="2026-03-07 06:35:14Z" end-time="2026-03-07 06:35:14Z" duration="0.005031" asserts="0">
+                <properties>
+                  <property name="retryIteration" value="0" />
+                  <property name="repeatIteration" value="0" />
+                </properties>
+              </test-case>
+              <test-case id="1004" name="Clone_CreatesIndependentCopy" fullname="AircraftControl.Tests.Editor.AircraftStateTests.Clone_CreatesIndependentCopy" methodname="Clone_CreatesIndependentCopy" classname="AircraftControl.Tests.Editor.AircraftStateTests" runstate="Runnable" seed="1955287032" result="Passed" start-time="2026-03-07 06:35:14Z" end-time="2026-03-07 06:35:14Z" duration="0.001021" asserts="0">
+                <properties>
+                  <property name="retryIteration" value="0" />
+                  <property name="repeatIteration" value="0" />
+                </properties>
+              </test-case>
+              <test-case id="1005" name="Clone_WithTypeOverride_ChangesAircraftType" fullname="AircraftControl.Tests.Editor.AircraftStateTests.Clone_WithTypeOverride_ChangesAircraftType" methodname="Clone_WithTypeOverride_ChangesAircraftType" classname="AircraftControl.Tests.Editor.AircraftStateTests" runstate="Runnable" seed="1527479603" result="Passed" start-time="2026-03-07 06:35:14Z" end-time="2026-03-07 06:35:14Z" duration="0.000411" asserts="0">
+                <properties>
+                  <property name="retryIteration" value="0" />
+                  <property name="repeatIteration" value="0" />
+                </properties>
+              </test-case>
+              <test-case id="1002" name="CreateDefault_FixedWing_ReturnsValidState" fullname="AircraftControl.Tests.Editor.AircraftStateTests.CreateDefault_FixedWing_ReturnsValidState" methodname="CreateDefault_FixedWing_ReturnsValidState" classname="AircraftControl.Tests.Editor.AircraftStateTests" runstate="Runnable" seed="196915041" result="Passed" start-time="2026-03-07 06:35:14Z" end-time="2026-03-07 06:35:14Z" duration="0.000193" asserts="0">
+                <properties>
+                  <property name="retryIteration" value="0" />
+                  <property name="repeatIteration" value="0" />
+                </properties>
+              </test-case>
+              <test-case id="1003" name="CreateDefault_Helicopter_ReturnsValidState" fullname="AircraftControl.Tests.Editor.AircraftStateTests.CreateDefault_Helicopter_ReturnsValidState" methodname="CreateDefault_Helicopter_ReturnsValidState" classname="AircraftControl.Tests.Editor.AircraftStateTests" runstate="Runnable" seed="256956144" result="Passed" start-time="2026-03-07 06:35:14Z" end-time="2026-03-07 06:35:14Z" duration="0.000140" asserts="0">
+                <properties>
+                  <property name="retryIteration" value="0" />
+                  <property name="repeatIteration" value="0" />
+                </properties>
+              </test-case>
+              <test-case id="1009" name="GroundSpeedMps_ConvertsCorrectly" fullname="AircraftControl.Tests.Editor.AircraftStateTests.GroundSpeedMps_ConvertsCorrectly" methodname="GroundSpeedMps_ConvertsCorrectly" classname="AircraftControl.Tests.Editor.AircraftStateTests" runstate="Runnable" seed="919982887" result="Passed" start-time="2026-03-07 06:35:14Z" end-time="2026-03-07 06:35:14Z" duration="0.000054" asserts="0">
+                <properties>
+                  <property name="retryIteration" value="0" />
+                  <property name="repeatIteration" value="0" />
+                </properties>
+              </test-case>
+              <test-case id="1013" name="InitialState_Helicopter_HasZeroCollective" fullname="AircraftControl.Tests.Editor.AircraftStateTests.InitialState_Helicopter_HasZeroCollective" methodname="InitialState_Helicopter_HasZeroCollective" classname="AircraftControl.Tests.Editor.AircraftStateTests" runstate="Runnable" seed="1185267231" result="Passed" start-time="2026-03-07 06:35:14Z" end-time="2026-03-07 06:35:14Z" duration="0.000306" asserts="0">
+                <properties>
+                  <property name="retryIteration" value="0" />
+                  <property name="repeatIteration" value="0" />
+                </properties>
+              </test-case>
+              <test-case id="1012" name="InitialState_Helicopter_HasZeroRotorRpm" fullname="AircraftControl.Tests.Editor.AircraftStateTests.InitialState_Helicopter_HasZeroRotorRpm" methodname="InitialState_Helicopter_HasZeroRotorRpm" classname="AircraftControl.Tests.Editor.AircraftStateTests" runstate="Runnable" seed="823152502" result="Passed" start-time="2026-03-07 06:35:14Z" end-time="2026-03-07 06:35:14Z" duration="0.000103" asserts="0">
+                <properties>
+                  <property name="retryIteration" value="0" />
+                  <property name="repeatIteration" value="0" />
+                </properties>
+              </test-case>
+              <test-case id="1011" name="Lerp_HeadingHandlesWraparound" fullname="AircraftControl.Tests.Editor.AircraftStateTests.Lerp_HeadingHandlesWraparound" methodname="Lerp_HeadingHandlesWraparound" classname="AircraftControl.Tests.Editor.AircraftStateTests" runstate="Runnable" seed="1279832638" result="Passed" start-time="2026-03-07 06:35:14Z" end-time="2026-03-07 06:35:14Z" duration="0.000290" asserts="0">
+                <properties>
+                  <property name="retryIteration" value="0" />
+                  <property name="repeatIteration" value="0" />
+                </properties>
+              </test-case>
+              <test-case id="1007" name="Lerp_HelicopterFields_InterpolatesCorrectly" fullname="AircraftControl.Tests.Editor.AircraftStateTests.Lerp_HelicopterFields_InterpolatesCorrectly" methodname="Lerp_HelicopterFields_InterpolatesCorrectly" classname="AircraftControl.Tests.Editor.AircraftStateTests" runstate="Runnable" seed="950258005" result="Passed" start-time="2026-03-07 06:35:14Z" end-time="2026-03-07 06:35:14Z" duration="0.000063" asserts="0">
+                <properties>
+                  <property name="retryIteration" value="0" />
+                  <property name="repeatIteration" value="0" />
+                </properties>
+              </test-case>
+              <test-case id="1006" name="Lerp_InterpolatesValuesCorrectly" fullname="AircraftControl.Tests.Editor.AircraftStateTests.Lerp_InterpolatesValuesCorrectly" methodname="Lerp_InterpolatesValuesCorrectly" classname="AircraftControl.Tests.Editor.AircraftStateTests" runstate="Runnable" seed="982253574" result="Passed" start-time="2026-03-07 06:35:14Z" end-time="2026-03-07 06:35:14Z" duration="0.000099" asserts="0">
+                <properties>
+                  <property name="retryIteration" value="0" />
+                  <property name="repeatIteration" value="0" />
+                </properties>
+              </test-case>
+              <test-case id="1010" name="VerticalSpeedMps_ConvertsCorrectly" fullname="AircraftControl.Tests.Editor.AircraftStateTests.VerticalSpeedMps_ConvertsCorrectly" methodname="VerticalSpeedMps_ConvertsCorrectly" classname="AircraftControl.Tests.Editor.AircraftStateTests" runstate="Runnable" seed="767038725" result="Passed" start-time="2026-03-07 06:35:14Z" end-time="2026-03-07 06:35:14Z" duration="0.000082" asserts="0">
+                <properties>
+                  <property name="retryIteration" value="0" />
+                  <property name="repeatIteration" value="0" />
+                </properties>
+              </test-case>
+            </test-suite>
+            <test-suite type="TestFixture" id="1014" name="FixedWingDynamicsTests" fullname="AircraftControl.Tests.Editor.FixedWingDynamicsTests" classname="AircraftControl.Tests.Editor.FixedWingDynamicsTests" runstate="Runnable" testcasecount="19" result="Passed" start-time="2026-03-07 06:35:14Z" end-time="2026-03-07 06:35:14Z" duration="0.018472" total="19" passed="19" failed="0" inconclusive="0" skipped="0" asserts="0">
+              <properties />
+              <test-case id="1016" name="AircraftType_ReturnsFixedWing" fullname="AircraftControl.Tests.Editor.FixedWingDynamicsTests.AircraftType_ReturnsFixedWing" methodname="AircraftType_ReturnsFixedWing" classname="AircraftControl.Tests.Editor.FixedWingDynamicsTests" runstate="Runnable" seed="840414154" result="Passed" start-time="2026-03-07 06:35:14Z" end-time="2026-03-07 06:35:14Z" duration="0.000929" asserts="0">
+                <properties>
+                  <property name="retryIteration" value="0" />
+                  <property name="repeatIteration" value="0" />
+                </properties>
+              </test-case>
+              <test-case id="1028" name="GetRequiredInputNames_ReturnsFixedWingInputs" fullname="AircraftControl.Tests.Editor.FixedWingDynamicsTests.GetRequiredInputNames_ReturnsFixedWingInputs" methodname="GetRequiredInputNames_ReturnsFixedWingInputs" classname="AircraftControl.Tests.Editor.FixedWingDynamicsTests" runstate="Runnable" seed="2033721545" result="Passed" start-time="2026-03-07 06:35:14Z" end-time="2026-03-07 06:35:14Z" duration="0.000616" asserts="0">
+                <properties>
+                  <property name="retryIteration" value="0" />
+                  <property name="repeatIteration" value="0" />
+                </properties>
+              </test-case>
+              <test-case id="1015" name="Initialize_SetsAircraftTypeToFixedWing" fullname="AircraftControl.Tests.Editor.FixedWingDynamicsTests.Initialize_SetsAircraftTypeToFixedWing" methodname="Initialize_SetsAircraftTypeToFixedWing" classname="AircraftControl.Tests.Editor.FixedWingDynamicsTests" runstate="Runnable" seed="1657558505" result="Passed" start-time="2026-03-07 06:35:14Z" end-time="2026-03-07 06:35:14Z" duration="0.000119" asserts="0">
+                <properties>
+                  <property name="retryIteration" value="0" />
+                  <property name="repeatIteration" value="0" />
+                </properties>
+              </test-case>
+              <test-case id="1027" name="Reset_ClearsAttitude" fullname="AircraftControl.Tests.Editor.FixedWingDynamicsTests.Reset_ClearsAttitude" methodname="Reset_ClearsAttitude" classname="AircraftControl.Tests.Editor.FixedWingDynamicsTests" runstate="Runnable" seed="1025809737" result="Passed" start-time="2026-03-07 06:35:14Z" end-time="2026-03-07 06:35:14Z" duration="0.000128" asserts="0">
+                <properties>
+                  <property name="retryIteration" value="0" />
+                  <property name="repeatIteration" value="0" />
+                </properties>
+              </test-case>
+              <test-case id="1023" name="UpdatePhysics_AutoLevel_ReturnsToLevel" fullname="AircraftControl.Tests.Editor.FixedWingDynamicsTests.UpdatePhysics_AutoLevel_ReturnsToLevel" methodname="UpdatePhysics_AutoLevel_ReturnsToLevel" classname="AircraftControl.Tests.Editor.FixedWingDynamicsTests" runstate="Runnable" seed="13644062" result="Passed" start-time="2026-03-07 06:35:14Z" end-time="2026-03-07 06:35:14Z" duration="0.007190" asserts="0">
+                <properties>
+                  <property name="retryIteration" value="0" />
+                  <property name="repeatIteration" value="0" />
+                </properties>
+              </test-case>
+              <test-case id="1022" name="UpdatePhysics_CoordinatedTurn_ChangesHeading" fullname="AircraftControl.Tests.Editor.FixedWingDynamicsTests.UpdatePhysics_CoordinatedTurn_ChangesHeading" methodname="UpdatePhysics_CoordinatedTurn_ChangesHeading" classname="AircraftControl.Tests.Editor.FixedWingDynamicsTests" runstate="Runnable" seed="984722878" result="Passed" start-time="2026-03-07 06:35:14Z" end-time="2026-03-07 06:35:14Z" duration="0.000135" asserts="0">
+                <properties>
+                  <property name="retryIteration" value="0" />
+                  <property name="repeatIteration" value="0" />
+                </properties>
+              </test-case>
+              <test-case id="1033" name="UpdatePhysics_HeadingWraparound" fullname="AircraftControl.Tests.Editor.FixedWingDynamicsTests.UpdatePhysics_HeadingWraparound" methodname="UpdatePhysics_HeadingWraparound" classname="AircraftControl.Tests.Editor.FixedWingDynamicsTests" runstate="Runnable" seed="184221622" result="Passed" start-time="2026-03-07 06:35:14Z" end-time="2026-03-07 06:35:14Z" duration="0.000278" asserts="0">
+                <properties>
+                  <property name="retryIteration" value="0" />
+                  <property name="repeatIteration" value="0" />
+                </properties>
+              </test-case>
+              <test-case id="1024" name="UpdatePhysics_MaximumPitch_DoesNotExceedLimit" fullname="AircraftControl.Tests.Editor.FixedWingDynamicsTests.UpdatePhysics_MaximumPitch_DoesNotExceedLimit" methodname="UpdatePhysics_MaximumPitch_DoesNotExceedLimit" classname="AircraftControl.Tests.Editor.FixedWingDynamicsTests" runstate="Runnable" seed="987281541" result="Passed" start-time="2026-03-07 06:35:14Z" end-time="2026-03-07 06:35:14Z" duration="0.000198" asserts="0">
+                <properties>
+                  <property name="retryIteration" value="0" />
+                  <property name="repeatIteration" value="0" />
+                </properties>
+              </test-case>
+              <test-case id="1025" name="UpdatePhysics_MaximumRoll_DoesNotExceedLimit" fullname="AircraftControl.Tests.Editor.FixedWingDynamicsTests.UpdatePhysics_MaximumRoll_DoesNotExceedLimit" methodname="UpdatePhysics_MaximumRoll_DoesNotExceedLimit" classname="AircraftControl.Tests.Editor.FixedWingDynamicsTests" runstate="Runnable" seed="903943459" result="Passed" start-time="2026-03-07 06:35:14Z" end-time="2026-03-07 06:35:14Z" duration="0.000138" asserts="0">
+                <properties>
+                  <property name="retryIteration" value="0" />
+                  <property name="repeatIteration" value="0" />
+                </properties>
+              </test-case>
+              <test-case id="1020" name="UpdatePhysics_PitchDown_Descends" fullname="AircraftControl.Tests.Editor.FixedWingDynamicsTests.UpdatePhysics_PitchDown_Descends" methodname="UpdatePhysics_PitchDown_Descends" classname="AircraftControl.Tests.Editor.FixedWingDynamicsTests" runstate="Runnable" seed="1523087598" result="Passed" start-time="2026-03-07 06:35:14Z" end-time="2026-03-07 06:35:14Z" duration="0.000072" asserts="0">
+                <properties>
+                  <property name="retryIteration" value="0" />
+                  <property name="repeatIteration" value="0" />
+                </properties>
+              </test-case>
+              <test-case id="1019" name="UpdatePhysics_PitchUp_Climbs" fullname="AircraftControl.Tests.Editor.FixedWingDynamicsTests.UpdatePhysics_PitchUp_Climbs" methodname="UpdatePhysics_PitchUp_Climbs" classname="AircraftControl.Tests.Editor.FixedWingDynamicsTests" runstate="Runnable" seed="700116053" result="Passed" start-time="2026-03-07 06:35:14Z" end-time="2026-03-07 06:35:14Z" duration="0.000132" asserts="0">
+                <properties>
+                  <property name="retryIteration" value="0" />
+                  <property name="repeatIteration" value="0" />
+                </properties>
+              </test-case>
+              <test-case id="1031" name="UpdatePhysics_PositionUpdatesCorrectly" fullname="AircraftControl.Tests.Editor.FixedWingDynamicsTests.UpdatePhysics_PositionUpdatesCorrectly" methodname="UpdatePhysics_PositionUpdatesCorrectly" classname="AircraftControl.Tests.Editor.FixedWingDynamicsTests" runstate="Runnable" seed="418806937" result="Passed" start-time="2026-03-07 06:35:14Z" end-time="2026-03-07 06:35:14Z" duration="0.000113" asserts="0">
+                <properties>
+                  <property name="retryIteration" value="0" />
+                  <property name="repeatIteration" value="0" />
+                </properties>
+              </test-case>
+              <test-case id="1021" name="UpdatePhysics_RollRight_PositiveRoll" fullname="AircraftControl.Tests.Editor.FixedWingDynamicsTests.UpdatePhysics_RollRight_PositiveRoll" methodname="UpdatePhysics_RollRight_PositiveRoll" classname="AircraftControl.Tests.Editor.FixedWingDynamicsTests" runstate="Runnable" seed="532895978" result="Passed" start-time="2026-03-07 06:35:14Z" end-time="2026-03-07 06:35:14Z" duration="0.000061" asserts="0">
+                <properties>
+                  <property name="retryIteration" value="0" />
+                  <property name="repeatIteration" value="0" />
+                </properties>
+              </test-case>
+              <test-case id="1026" name="UpdatePhysics_StallSpeed_DoesNotGoBelow" fullname="AircraftControl.Tests.Editor.FixedWingDynamicsTests.UpdatePhysics_StallSpeed_DoesNotGoBelow" methodname="UpdatePhysics_StallSpeed_DoesNotGoBelow" classname="AircraftControl.Tests.Editor.FixedWingDynamicsTests" runstate="Runnable" seed="1676133817" result="Passed" start-time="2026-03-07 06:35:14Z" end-time="2026-03-07 06:35:14Z" duration="0.000080" asserts="0">
+                <properties>
+                  <property name="retryIteration" value="0" />
+                  <property name="repeatIteration" value="0" />
+                </properties>
+              </test-case>
+              <test-case id="1032" name="UpdatePhysics_VerticalSpeedFromPitch" fullname="AircraftControl.Tests.Editor.FixedWingDynamicsTests.UpdatePhysics_VerticalSpeedFromPitch" methodname="UpdatePhysics_VerticalSpeedFromPitch" classname="AircraftControl.Tests.Editor.FixedWingDynamicsTests" runstate="Runnable" seed="1823441172" result="Passed" start-time="2026-03-07 06:35:14Z" end-time="2026-03-07 06:35:14Z" duration="0.000112" asserts="0">
+                <properties>
+                  <property name="retryIteration" value="0" />
+                  <property name="repeatIteration" value="0" />
+                </properties>
+              </test-case>
+              <test-case id="1018" name="UpdatePhysics_WithFullThrottle_SpeedsUp" fullname="AircraftControl.Tests.Editor.FixedWingDynamicsTests.UpdatePhysics_WithFullThrottle_SpeedsUp" methodname="UpdatePhysics_WithFullThrottle_SpeedsUp" classname="AircraftControl.Tests.Editor.FixedWingDynamicsTests" runstate="Runnable" seed="1057546168" result="Passed" start-time="2026-03-07 06:35:14Z" end-time="2026-03-07 06:35:14Z" duration="0.000092" asserts="0">
+                <properties>
+                  <property name="retryIteration" value="0" />
+                  <property name="repeatIteration" value="0" />
+                </properties>
+              </test-case>
+              <test-case id="1017" name="UpdatePhysics_WithZeroThrottle_SlowsDown" fullname="AircraftControl.Tests.Editor.FixedWingDynamicsTests.UpdatePhysics_WithZeroThrottle_SlowsDown" methodname="UpdatePhysics_WithZeroThrottle_SlowsDown" classname="AircraftControl.Tests.Editor.FixedWingDynamicsTests" runstate="Runnable" seed="160488952" result="Passed" start-time="2026-03-07 06:35:14Z" end-time="2026-03-07 06:35:14Z" duration="0.000069" asserts="0">
+                <properties>
+                  <property name="retryIteration" value="0" />
+                  <property name="repeatIteration" value="0" />
+                </properties>
+              </test-case>
+              <test-case id="1030" name="ValidateState_NegativeAirspeed_ReturnsFalse" fullname="AircraftControl.Tests.Editor.FixedWingDynamicsTests.ValidateState_NegativeAirspeed_ReturnsFalse" methodname="ValidateState_NegativeAirspeed_ReturnsFalse" classname="AircraftControl.Tests.Editor.FixedWingDynamicsTests" runstate="Runnable" seed="1193896413" result="Passed" start-time="2026-03-07 06:35:14Z" end-time="2026-03-07 06:35:14Z" duration="0.000071" asserts="0">
+                <properties>
+                  <property name="retryIteration" value="0" />
+                  <property name="repeatIteration" value="0" />
+                </properties>
+              </test-case>
+              <test-case id="1029" name="ValidateState_ValidState_ReturnsTrue" fullname="AircraftControl.Tests.Editor.FixedWingDynamicsTests.ValidateState_ValidState_ReturnsTrue" methodname="ValidateState_ValidState_ReturnsTrue" classname="AircraftControl.Tests.Editor.FixedWingDynamicsTests" runstate="Runnable" seed="1944727879" result="Passed" start-time="2026-03-07 06:35:14Z" end-time="2026-03-07 06:35:14Z" duration="0.000037" asserts="0">
+                <properties>
+                  <property name="retryIteration" value="0" />
+                  <property name="repeatIteration" value="0" />
+                </properties>
+              </test-case>
+            </test-suite>
+            <test-suite type="TestFixture" id="1034" name="HelicopterDynamicsTests" fullname="AircraftControl.Tests.Editor.HelicopterDynamicsTests" classname="AircraftControl.Tests.Editor.HelicopterDynamicsTests" runstate="Runnable" testcasecount="22" result="Passed" start-time="2026-03-07 06:35:14Z" end-time="2026-03-07 06:35:14Z" duration="0.010344" total="22" passed="22" failed="0" inconclusive="0" skipped="0" asserts="0">
+              <properties />
+              <test-case id="1036" name="AircraftType_ReturnsHelicopter" fullname="AircraftControl.Tests.Editor.HelicopterDynamicsTests.AircraftType_ReturnsHelicopter" methodname="AircraftType_ReturnsHelicopter" classname="AircraftControl.Tests.Editor.HelicopterDynamicsTests" runstate="Runnable" seed="1014566185" result="Passed" start-time="2026-03-07 06:35:14Z" end-time="2026-03-07 06:35:14Z" duration="0.000467" asserts="0">
+                <properties>
+                  <property name="retryIteration" value="0" />
+                  <property name="repeatIteration" value="0" />
+                </properties>
+              </test-case>
+              <test-case id="1049" name="GetRequiredInputNames_ReturnsHelicopterInputs" fullname="AircraftControl.Tests.Editor.HelicopterDynamicsTests.GetRequiredInputNames_ReturnsHelicopterInputs" methodname="GetRequiredInputNames_ReturnsHelicopterInputs" classname="AircraftControl.Tests.Editor.HelicopterDynamicsTests" runstate="Runnable" seed="1456100847" result="Passed" start-time="2026-03-07 06:35:14Z" end-time="2026-03-07 06:35:14Z" duration="0.000327" asserts="0">
+                <properties>
+                  <property name="retryIteration" value="0" />
+                  <property name="repeatIteration" value="0" />
+                </properties>
+              </test-case>
+              <test-case id="1045" name="GroundEffect_HighAltitude_NoEffect" fullname="AircraftControl.Tests.Editor.HelicopterDynamicsTests.GroundEffect_HighAltitude_NoEffect" methodname="GroundEffect_HighAltitude_NoEffect" classname="AircraftControl.Tests.Editor.HelicopterDynamicsTests" runstate="Runnable" seed="2053274774" result="Passed" start-time="2026-03-07 06:35:14Z" end-time="2026-03-07 06:35:14Z" duration="0.000301" asserts="0">
+                <properties>
+                  <property name="retryIteration" value="0" />
+                  <property name="repeatIteration" value="0" />
+                </properties>
+              </test-case>
+              <test-case id="1044" name="GroundEffect_NearGround_HasEffect" fullname="AircraftControl.Tests.Editor.HelicopterDynamicsTests.GroundEffect_NearGround_HasEffect" methodname="GroundEffect_NearGround_HasEffect" classname="AircraftControl.Tests.Editor.HelicopterDynamicsTests" runstate="Runnable" seed="522639392" result="Passed" start-time="2026-03-07 06:35:14Z" end-time="2026-03-07 06:35:14Z" duration="0.000090" asserts="0">
+                <properties>
+                  <property name="retryIteration" value="0" />
+                  <property name="repeatIteration" value="0" />
+                </properties>
+              </test-case>
+              <test-case id="1035" name="Initialize_SetsAircraftTypeToHelicopter" fullname="AircraftControl.Tests.Editor.HelicopterDynamicsTests.Initialize_SetsAircraftTypeToHelicopter" methodname="Initialize_SetsAircraftTypeToHelicopter" classname="AircraftControl.Tests.Editor.HelicopterDynamicsTests" runstate="Runnable" seed="475037659" result="Passed" start-time="2026-03-07 06:35:14Z" end-time="2026-03-07 06:35:14Z" duration="0.000071" asserts="0">
+                <properties>
+                  <property name="retryIteration" value="0" />
+                  <property name="repeatIteration" value="0" />
+                </properties>
+              </test-case>
+              <test-case id="1047" name="IsRotorSpooledUp_AboveThreshold_ReturnsTrue" fullname="AircraftControl.Tests.Editor.HelicopterDynamicsTests.IsRotorSpooledUp_AboveThreshold_ReturnsTrue" methodname="IsRotorSpooledUp_AboveThreshold_ReturnsTrue" classname="AircraftControl.Tests.Editor.HelicopterDynamicsTests" runstate="Runnable" seed="1911533519" result="Passed" start-time="2026-03-07 06:35:14Z" end-time="2026-03-07 06:35:14Z" duration="0.000088" asserts="0">
+                <properties>
+                  <property name="retryIteration" value="0" />
+                  <property name="repeatIteration" value="0" />
+                </properties>
+              </test-case>
+              <test-case id="1046" name="IsRotorSpooledUp_BelowThreshold_ReturnsFalse" fullname="AircraftControl.Tests.Editor.HelicopterDynamicsTests.IsRotorSpooledUp_BelowThreshold_ReturnsFalse" methodname="IsRotorSpooledUp_BelowThreshold_ReturnsFalse" classname="AircraftControl.Tests.Editor.HelicopterDynamicsTests" runstate="Runnable" seed="1640153812" result="Passed" start-time="2026-03-07 06:35:14Z" end-time="2026-03-07 06:35:14Z" duration="0.000109" asserts="0">
+                <properties>
+                  <property name="retryIteration" value="0" />
+                  <property name="repeatIteration" value="0" />
+                </properties>
+              </test-case>
+              <test-case id="1048" name="Reset_ClearsStateToDefaults" fullname="AircraftControl.Tests.Editor.HelicopterDynamicsTests.Reset_ClearsStateToDefaults" methodname="Reset_ClearsStateToDefaults" classname="AircraftControl.Tests.Editor.HelicopterDynamicsTests" runstate="Runnable" seed="1226529876" result="Passed" start-time="2026-03-07 06:35:14Z" end-time="2026-03-07 06:35:14Z" duration="0.000217" asserts="0">
+                <properties>
+                  <property name="retryIteration" value="0" />
+                  <property name="repeatIteration" value="0" />
+                </properties>
+              </test-case>
+              <test-case id="1041" name="UpdatePhysics_ForwardCyclic_MovesForward" fullname="AircraftControl.Tests.Editor.HelicopterDynamicsTests.UpdatePhysics_ForwardCyclic_MovesForward" methodname="UpdatePhysics_ForwardCyclic_MovesForward" classname="AircraftControl.Tests.Editor.HelicopterDynamicsTests" runstate="Runnable" seed="289147981" result="Passed" start-time="2026-03-07 06:35:14Z" end-time="2026-03-07 06:35:14Z" duration="0.000624" asserts="0">
+                <properties>
+                  <property name="retryIteration" value="0" />
+                  <property name="repeatIteration" value="0" />
+                </properties>
+              </test-case>
+              <test-case id="1042" name="UpdatePhysics_LateralCyclic_Rolls" fullname="AircraftControl.Tests.Editor.HelicopterDynamicsTests.UpdatePhysics_LateralCyclic_Rolls" methodname="UpdatePhysics_LateralCyclic_Rolls" classname="AircraftControl.Tests.Editor.HelicopterDynamicsTests" runstate="Runnable" seed="1968540723" result="Passed" start-time="2026-03-07 06:35:14Z" end-time="2026-03-07 06:35:14Z" duration="0.000189" asserts="0">
+                <properties>
+                  <property name="retryIteration" value="0" />
+                  <property name="repeatIteration" value="0" />
+                </properties>
+              </test-case>
+              <test-case id="1054" name="UpdatePhysics_MaximumCollective_DoesNotExceedLimit" fullname="AircraftControl.Tests.Editor.HelicopterDynamicsTests.UpdatePhysics_MaximumCollective_DoesNotExceedLimit" methodname="UpdatePhysics_MaximumCollective_DoesNotExceedLimit" classname="AircraftControl.Tests.Editor.HelicopterDynamicsTests" runstate="Runnable" seed="421729148" result="Passed" start-time="2026-03-07 06:35:14Z" end-time="2026-03-07 06:35:14Z" duration="0.000452" asserts="0">
+                <properties>
+                  <property name="retryIteration" value="0" />
+                  <property name="repeatIteration" value="0" />
+                </properties>
+              </test-case>
+              <test-case id="1053" name="UpdatePhysics_NoRotorSpeed_NoLift" fullname="AircraftControl.Tests.Editor.HelicopterDynamicsTests.UpdatePhysics_NoRotorSpeed_NoLift" methodname="UpdatePhysics_NoRotorSpeed_NoLift" classname="AircraftControl.Tests.Editor.HelicopterDynamicsTests" runstate="Runnable" seed="2032240542" result="Passed" start-time="2026-03-07 06:35:14Z" end-time="2026-03-07 06:35:14Z" duration="0.000098" asserts="0">
+                <properties>
+                  <property name="retryIteration" value="0" />
+                  <property name="repeatIteration" value="0" />
+                </properties>
+              </test-case>
+              <test-case id="1056" name="UpdatePhysics_PositionUpdatesCorrectly" fullname="AircraftControl.Tests.Editor.HelicopterDynamicsTests.UpdatePhysics_PositionUpdatesCorrectly" methodname="UpdatePhysics_PositionUpdatesCorrectly" classname="AircraftControl.Tests.Editor.HelicopterDynamicsTests" runstate="Runnable" seed="1406882526" result="Passed" start-time="2026-03-07 06:35:14Z" end-time="2026-03-07 06:35:14Z" duration="0.000267" asserts="0">
+                <properties>
+                  <property name="retryIteration" value="0" />
+                  <property name="repeatIteration" value="0" />
+                </properties>
+              </test-case>
+              <test-case id="1055" name="UpdatePhysics_RapidYaw_HandlesGracefully" fullname="AircraftControl.Tests.Editor.HelicopterDynamicsTests.UpdatePhysics_RapidYaw_HandlesGracefully" methodname="UpdatePhysics_RapidYaw_HandlesGracefully" classname="AircraftControl.Tests.Editor.HelicopterDynamicsTests" runstate="Runnable" seed="1392764107" result="Passed" start-time="2026-03-07 06:35:14Z" end-time="2026-03-07 06:35:14Z" duration="0.000296" asserts="0">
+                <properties>
+                  <property name="retryIteration" value="0" />
+                  <property name="repeatIteration" value="0" />
+                </properties>
+              </test-case>
+              <test-case id="1043" name="UpdatePhysics_TailRotor_Yaws" fullname="AircraftControl.Tests.Editor.HelicopterDynamicsTests.UpdatePhysics_TailRotor_Yaws" methodname="UpdatePhysics_TailRotor_Yaws" classname="AircraftControl.Tests.Editor.HelicopterDynamicsTests" runstate="Runnable" seed="412187136" result="Passed" start-time="2026-03-07 06:35:14Z" end-time="2026-03-07 06:35:14Z" duration="0.000124" asserts="0">
+                <properties>
+                  <property name="retryIteration" value="0" />
+                  <property name="repeatIteration" value="0" />
+                </properties>
+              </test-case>
+              <test-case id="1038" name="UpdatePhysics_WithFullThrottle_RotorSpoolsUp" fullname="AircraftControl.Tests.Editor.HelicopterDynamicsTests.UpdatePhysics_WithFullThrottle_RotorSpoolsUp" methodname="UpdatePhysics_WithFullThrottle_RotorSpoolsUp" classname="AircraftControl.Tests.Editor.HelicopterDynamicsTests" runstate="Runnable" seed="1576470609" result="Passed" start-time="2026-03-07 06:35:14Z" end-time="2026-03-07 06:35:14Z" duration="0.000091" asserts="0">
+                <properties>
+                  <property name="retryIteration" value="0" />
+                  <property name="repeatIteration" value="0" />
+                </properties>
+              </test-case>
+              <test-case id="1039" name="UpdatePhysics_WithMaxCollective_Climbs" fullname="AircraftControl.Tests.Editor.HelicopterDynamicsTests.UpdatePhysics_WithMaxCollective_Climbs" methodname="UpdatePhysics_WithMaxCollective_Climbs" classname="AircraftControl.Tests.Editor.HelicopterDynamicsTests" runstate="Runnable" seed="1405002789" result="Passed" start-time="2026-03-07 06:35:14Z" end-time="2026-03-07 06:35:14Z" duration="0.000120" asserts="0">
+                <properties>
+                  <property name="retryIteration" value="0" />
+                  <property name="repeatIteration" value="0" />
+                </properties>
+              </test-case>
+              <test-case id="1040" name="UpdatePhysics_WithMinCollective_Descends" fullname="AircraftControl.Tests.Editor.HelicopterDynamicsTests.UpdatePhysics_WithMinCollective_Descends" methodname="UpdatePhysics_WithMinCollective_Descends" classname="AircraftControl.Tests.Editor.HelicopterDynamicsTests" runstate="Runnable" seed="1160600109" result="Passed" start-time="2026-03-07 06:35:14Z" end-time="2026-03-07 06:35:14Z" duration="0.000193" asserts="0">
+                <properties>
+                  <property name="retryIteration" value="0" />
+                  <property name="repeatIteration" value="0" />
+                </properties>
+              </test-case>
+              <test-case id="1037" name="UpdatePhysics_WithZeroThrottle_RotorSpoolsDown" fullname="AircraftControl.Tests.Editor.HelicopterDynamicsTests.UpdatePhysics_WithZeroThrottle_RotorSpoolsDown" methodname="UpdatePhysics_WithZeroThrottle_RotorSpoolsDown" classname="AircraftControl.Tests.Editor.HelicopterDynamicsTests" runstate="Runnable" seed="898772742" result="Passed" start-time="2026-03-07 06:35:14Z" end-time="2026-03-07 06:35:14Z" duration="0.000053" asserts="0">
+                <properties>
+                  <property name="retryIteration" value="0" />
+                  <property name="repeatIteration" value="0" />
+                </properties>
+              </test-case>
+              <test-case id="1052" name="ValidateState_ExcessiveCollective_ReturnsFalse" fullname="AircraftControl.Tests.Editor.HelicopterDynamicsTests.ValidateState_ExcessiveCollective_ReturnsFalse" methodname="ValidateState_ExcessiveCollective_ReturnsFalse" classname="AircraftControl.Tests.Editor.HelicopterDynamicsTests" runstate="Runnable" seed="1355273985" result="Passed" start-time="2026-03-07 06:35:14Z" end-time="2026-03-07 06:35:14Z" duration="0.000095" asserts="0">
+                <properties>
+                  <property name="retryIteration" value="0" />
+                  <property name="repeatIteration" value="0" />
+                </properties>
+              </test-case>
+              <test-case id="1051" name="ValidateState_NegativeRotorRpm_ReturnsFalse" fullname="AircraftControl.Tests.Editor.HelicopterDynamicsTests.ValidateState_NegativeRotorRpm_ReturnsFalse" methodname="ValidateState_NegativeRotorRpm_ReturnsFalse" classname="AircraftControl.Tests.Editor.HelicopterDynamicsTests" runstate="Runnable" seed="706913430" result="Passed" start-time="2026-03-07 06:35:14Z" end-time="2026-03-07 06:35:14Z" duration="0.000054" asserts="0">
+                <properties>
+                  <property name="retryIteration" value="0" />
+                  <property name="repeatIteration" value="0" />
+                </properties>
+              </test-case>
+              <test-case id="1050" name="ValidateState_ValidState_ReturnsTrue" fullname="AircraftControl.Tests.Editor.HelicopterDynamicsTests.ValidateState_ValidState_ReturnsTrue" methodname="ValidateState_ValidState_ReturnsTrue" classname="AircraftControl.Tests.Editor.HelicopterDynamicsTests" runstate="Runnable" seed="474534492" result="Passed" start-time="2026-03-07 06:35:14Z" end-time="2026-03-07 06:35:14Z" duration="0.000033" asserts="0">
+                <properties>
+                  <property name="retryIteration" value="0" />
+                  <property name="repeatIteration" value="0" />
+                </properties>
+                <output><![CDATA[<b><color=#2EA3FF>MCP-FOR-UNITY</color></b>: [TestRunnerNoThrottle] Restored Interaction Mode after test run.
+Saving results to: /Users/zladwu/Library/Application Support/DefaultCompany/FAA_symbology_unity_project/TestResults.xml
+]]></output>
+              </test-case>
+            </test-suite>
+          </test-suite>
+        </test-suite>
+      </test-suite>
+    </test-suite>
+  </test-suite>
+</test-run>

@@ -1,0 +1,33 @@
+.ulw-test-results is not a valid directory name. Please make sure there are no unallowed characters in the name.
+.ulw-test-results is not a valid directory name. Please make sure there are no unallowed characters in the name.
+Unity Editor version:    6000.3.6f1 (bbb010bdb8a3)
+Branch:                  6000.3/respin/6000.3.6f1-732c1ec89f18
+Build type:              Release
+Batch mode:              YES
+macOS version:           Version 26.2 (Build 25C56)
+Darwin version:          25.2.0
+Architecture:            arm64
+Running under Rosetta:   NO
+Available memory:        16384 MB
+Date:                    2026-03-07T06:08:57Z
+[Licensing::Module] Trying to connect to existing licensing client channel...
+[Licensing::IpcConnector] Successfully connected to: "LicenseClient-zladwu" at "2026-03-07T06:08:57.240392Z"
+Launching external process: /Applications/Unity/Hub/Editor/6000.3.6f1-arm64/Unity.app/Contents/Resources/PackageManager/Server/UnityPackageManager
+
+COMMAND LINE ARGUMENTS:
+/Applications/Unity/Hub/Editor/6000.3.6f1-arm64/Unity.app/Contents/MacOS/Unity
+-batchmode
+-nographics
+-runTests
+-quit
+-projectPath
+/Users/zladwu/Development/Projects/FAA/Assets
+-testPlatform
+EditMode
+-testResults
+/Users/zladwu/Development/Projects/FAA/Assets/.ulw-test-results/editmode-results.xml
+-logFile
+/Users/zladwu/Development/Projects/FAA/Assets/.ulw-test-results/editmode.log
+Successfully changed project path to: /Users/zladwu/Development/Projects/FAA/Assets
+/Users/zladwu/Development/Projects/FAA/Assets
+[Package Manager] Server process was shutdown
