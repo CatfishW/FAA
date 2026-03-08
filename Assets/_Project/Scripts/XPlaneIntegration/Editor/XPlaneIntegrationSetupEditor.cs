@@ -5,7 +5,7 @@ using System.Net;
 using System.Threading.Tasks;
 using FAA.XPlaneIntegration;
 using FAA.XPlaneIntegration.Providers;
-using XPlaneIntegration.Providers;
+using AviationUI;
 using WeatherRadar;
 using TrafficRadar;
 using TrafficRadar.Core;
@@ -396,7 +396,8 @@ namespace FAA.XPlaneIntegration.Editor
 
         private void ScanScene()
         {
-            _udpListener = FindObjectOfType<XPlaneUdpListener>();
+            var udpWrapper = FindObjectOfType<XPlaneUdpListenerWrapper>();
+            _udpListener = udpWrapper != null ? udpWrapper.GetListener() : null;
             _aircraftProvider = FindObjectOfType<XPlaneAircraftProvider>();
             _weatherProvider = FindObjectOfType<XPlaneWeatherProvider>();
             _trafficProvider = FindObjectOfType<XPlaneTrafficProvider>();
@@ -413,7 +414,8 @@ namespace FAA.XPlaneIntegration.Editor
         {
             if (_udpListener == null)
             {
-                _udpListener = FindObjectOfType<XPlaneUdpListener>();
+                var udpWrapper = FindObjectOfType<XPlaneUdpListenerWrapper>();
+                _udpListener = udpWrapper != null ? udpWrapper.GetListener() : null;
                 if (_udpListener == null)
                 {
                     var go = new GameObject("XPlaneUdpListener");
@@ -479,7 +481,7 @@ namespace FAA.XPlaneIntegration.Editor
                         stopwatch.Stop();
                         _lastLatency = stopwatch.ElapsedMilliseconds;
 
-                        if (receivedBytes != null && receivedBytes.Length > 0)
+                        if (receivedBytes.Buffer != null && receivedBytes.Buffer.Length > 0)
                         {
                             _connectionState = ConnectionState.Connected;
                             _connectionStatusMessage = "Connected";
@@ -594,37 +596,12 @@ namespace FAA.XPlaneIntegration.Editor
 
         private void WireUpReferences()
         {
-            if (_aircraftProvider != null)
-            {
-                var so = new SerializedObject(_aircraftProvider);
-                if (_udpListener != null)
-                {
-                    var udpField = so.FindProperty("udpListener");
-                    if (udpField != null) udpField.objectReferenceValue = _udpListener;
-                }
-                so.ApplyModifiedProperties();
-            }
-
             if (_weatherProvider != null)
             {
-                var so = new SerializedObject(_weatherProvider);
                 if (_udpListener != null)
                 {
-                    var udpField = so.FindProperty("udpListener");
-                    if (udpField != null) udpField.objectReferenceValue = _udpListener;
+                    _weatherProvider.SetUdpListener(_udpListener);
                 }
-                so.ApplyModifiedProperties();
-            }
-
-            if (_trafficProvider != null)
-            {
-                var so = new SerializedObject(_trafficProvider);
-                if (_udpListener != null)
-                {
-                    var udpField = so.FindProperty("udpListener");
-                    if (udpField != null) udpField.objectReferenceValue = _udpListener;
-                }
-                so.ApplyModifiedProperties();
             }
         }
 

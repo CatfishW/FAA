@@ -181,10 +181,7 @@ namespace FAA.XPlaneIntegration.Editor
             EditorGUILayout.LabelField("UDP Connection Settings:", EditorStyles.boldLabel);
             EditorGUILayout.Space(5);
 
-            var monoStyle = new GUIStyle(EditorStyles.label)
-            {
-                font = Font.CreateFontFromPath(EditorGUIUtility.systemFontPath)
-            };
+            var monoStyle = new GUIStyle(EditorStyles.label);
 
             EditorGUILayout.BeginHorizontal();
             EditorGUILayout.LabelField("IP Address:", GUILayout.Width(80));
@@ -457,7 +454,7 @@ namespace FAA.XPlaneIntegration.Editor
                     stopwatch.Stop();
                     _lastLatency = stopwatch.ElapsedMilliseconds;
 
-                    if (receivedBytes != null && receivedBytes.Length > 0)
+                    if (receivedBytes.Buffer != null && receivedBytes.Buffer.Length > 0)
                     {
                         _connectionTestPassed = true;
                         _connectionTestResult = "Successfully received data from X-Plane";
@@ -498,9 +495,9 @@ namespace FAA.XPlaneIntegration.Editor
             var parent = new GameObject("X-Plane Integration");
             Undo.RegisterCreatedObjectUndo(parent, "Add X-Plane Integration");
 
-            CreateProviderGameObject(parent, "Aircraft Provider", "AircraftDataReceiver");
-            CreateProviderGameObject(parent, "Weather Provider", "WeatherDataReceiver");
-            CreateProviderGameObject(parent, "Traffic Provider", "TrafficDataReceiver");
+            CreateProviderGameObject(parent, "Aircraft Provider", "XPlaneAircraftProvider");
+            CreateProviderGameObject(parent, "Weather Provider", "XPlaneWeatherProvider");
+            CreateProviderGameObject(parent, "Traffic Provider", "XPlaneTrafficProvider");
 
             Selection.activeGameObject = parent;
 
