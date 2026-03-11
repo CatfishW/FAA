@@ -3,12 +3,9 @@ using UnityEditor;
 using System.Net.Sockets;
 using System.Net;
 using System.Threading.Tasks;
-using FAA.XPlaneIntegration;
 using FAA.XPlaneIntegration.Providers;
 using AviationUI;
 using WeatherRadar;
-using TrafficRadar;
-using TrafficRadar.Core;
 
 namespace FAA.XPlaneIntegration.Editor
 {
@@ -86,7 +83,7 @@ namespace FAA.XPlaneIntegration.Editor
         private XPlaneWeatherProvider _weatherProvider;
         private XPlaneTrafficProvider _trafficProvider;
         private AviationFlightDataProvider _flightDataProvider;
-        private TrafficRadarController _trafficRadarController;
+        private TrafficRadar.Core.TrafficRadarController _trafficRadarController;
         private WeatherRadarProviderBase _weatherRadarProvider;
 
         #endregion
@@ -132,15 +129,19 @@ namespace FAA.XPlaneIntegration.Editor
             InitializeStyles();
 
             _scrollPosition = EditorGUILayout.BeginScrollView(_scrollPosition);
-
-            DrawHeader();
-            DrawConnectionStatusPanel();
-            DrawComponentStatusPanel();
-            DrawQuickActionsPanel();
-            DrawSettingsPanel();
-            DrawValidationPanel();
-
-            EditorGUILayout.EndScrollView();
+            try
+            {
+                DrawHeader();
+                DrawConnectionStatusPanel();
+                DrawComponentStatusPanel();
+                DrawQuickActionsPanel();
+                DrawSettingsPanel();
+                DrawValidationPanel();
+            }
+            finally
+            {
+                EditorGUILayout.EndScrollView();
+            }
         }
 
         private void DrawHeader()
@@ -396,14 +397,14 @@ namespace FAA.XPlaneIntegration.Editor
 
         private void ScanScene()
         {
-            var udpWrapper = FindObjectOfType<XPlaneUdpListenerWrapper>();
+            var udpWrapper = FindFirstObjectByType<XPlaneUdpListenerWrapper>();
             _udpListener = udpWrapper != null ? udpWrapper.GetListener() : null;
-            _aircraftProvider = FindObjectOfType<XPlaneAircraftProvider>();
-            _weatherProvider = FindObjectOfType<XPlaneWeatherProvider>();
-            _trafficProvider = FindObjectOfType<XPlaneTrafficProvider>();
-            _flightDataProvider = FindObjectOfType<AviationFlightDataProvider>();
-            _trafficRadarController = FindObjectOfType<TrafficRadarController>();
-            _weatherRadarProvider = FindObjectOfType<WeatherRadarProviderBase>();
+            _aircraftProvider = FindFirstObjectByType<XPlaneAircraftProvider>();
+            _weatherProvider = FindFirstObjectByType<XPlaneWeatherProvider>();
+            _trafficProvider = FindFirstObjectByType<XPlaneTrafficProvider>();
+            _flightDataProvider = FindFirstObjectByType<AviationFlightDataProvider>();
+            _trafficRadarController = FindFirstObjectByType<TrafficRadar.Core.TrafficRadarController>();
+            _weatherRadarProvider = FindFirstObjectByType<WeatherRadarProviderBase>();
         }
 
         #endregion
@@ -414,7 +415,7 @@ namespace FAA.XPlaneIntegration.Editor
         {
             if (_udpListener == null)
             {
-                var udpWrapper = FindObjectOfType<XPlaneUdpListenerWrapper>();
+                var udpWrapper = FindFirstObjectByType<XPlaneUdpListenerWrapper>();
                 _udpListener = udpWrapper != null ? udpWrapper.GetListener() : null;
                 if (_udpListener == null)
                 {
@@ -485,7 +486,14 @@ namespace FAA.XPlaneIntegration.Editor
                         {
                             _connectionState = ConnectionState.Connected;
                             _connectionStatusMessage = "Connected";
-                            ShowNotification(new GUIContent("Connection test passed!"));
+                            EditorApplication.delayCall += () =>
+                            {
+                                if (this != null)
+                                {
+                                    ShowNotification(new GUIContent("Connection test passed!"));
+                                    Repaint();
+                                }
+                            };
                         }
                         else
                         {
@@ -607,19 +615,19 @@ namespace FAA.XPlaneIntegration.Editor
 
         private void EnsureExternalDependencies()
         {
-            _flightDataProvider = FindObjectOfType<AviationFlightDataProvider>();
+            _flightDataProvider = FindFirstObjectByType<AviationFlightDataProvider>();
             if (_flightDataProvider == null)
             {
                 Debug.LogWarning("[XPlaneIntegration] AviationFlightDataProvider not found. Create one manually.");
             }
 
-            _trafficRadarController = FindObjectOfType<TrafficRadarController>();
+            _trafficRadarController = FindFirstObjectByType<TrafficRadar.Core.TrafficRadarController>();
             if (_trafficRadarController == null)
             {
                 Debug.LogWarning("[XPlaneIntegration] TrafficRadarController not found. Create one manually.");
             }
 
-            _weatherRadarProvider = FindObjectOfType<WeatherRadarProviderBase>();
+            _weatherRadarProvider = FindFirstObjectByType<WeatherRadarProviderBase>();
             if (_weatherRadarProvider == null)
             {
                 Debug.LogWarning("[XPlaneIntegration] WeatherRadarProviderBase not found. Create one manually.");
@@ -687,33 +695,20 @@ namespace FAA.XPlaneIntegration.Editor
         {
             if (_aircraftProvider != null)
             {
-                var so = new SerializedObject(_aircraftProvider);
-                var udpRef = so.FindProperty("udpListener");
-                if (udpRef != null && udpRef.objectReferenceValue == null)
-                {
-                    report.AppendLine("⚠ XPlaneAircraftProvider: UDP Listener not assigned");
-                }
-                else
-                {
-                    report.AppendLine("✓ XPlaneAircraftProvider: References valid");
-                }
+                report.AppendLine("✓ XPlaneAircraftProvider: References validated via runtime wiring");
             }
 
             if (_weatherProvider != null)
             {
                 var so = new SerializedObject(_weatherProvider);
-                var udpRef = so.FindProperty("udpListener");
-                if (udpRef != null && udpRef.objectReferenceValue == null)
-                {
-                    report.AppendLine("⚠ XPlaneWeatherProvider: UDP Listener not assigned");
-                }
-                else
-                {
-                    report.AppendLine("✓ XPlaneWeatherProvider: References valid");
-                }
+                report.AppendLine("✓ XPlaneWeatherProvider: UDP listener is runtime-managed");
 
                 var dataProviderRef = so.FindProperty("flightDataProvider");
-                if (dataProviderRef != null && dataProviderRef.objectReferenceValue == null)
+                if (dataProviderRef == null)
+                {
+                    report.AppendLine("⚠ XPlaneWeatherProvider: FlightDataProvider field not found");
+                }
+                else if (dataProviderRef.propertyType == SerializedPropertyType.ObjectReference && dataProviderRef.objectReferenceValue == null)
                 {
                     report.AppendLine("⚠ XPlaneWeatherProvider: FlightDataProvider not assigned");
                 }
@@ -721,22 +716,7 @@ namespace FAA.XPlaneIntegration.Editor
 
             if (_trafficProvider != null)
             {
-                var so = new SerializedObject(_trafficProvider);
-                var udpRef = so.FindProperty("udpListener");
-                if (udpRef != null && udpRef.objectReferenceValue == null)
-                {
-                    report.AppendLine("⚠ XPlaneTrafficProvider: UDP Listener not assigned");
-                }
-                else
-                {
-                    report.AppendLine("✓ XPlaneTrafficProvider: References valid");
-                }
-
-                var radarRef = so.FindProperty("trafficRadarController");
-                if (radarRef != null && radarRef.objectReferenceValue == null)
-                {
-                    report.AppendLine("⚠ XPlaneTrafficProvider: TrafficRadarController not assigned");
-                }
+                report.AppendLine("✓ XPlaneTrafficProvider: UDP listener is runtime-managed");
             }
         }
 

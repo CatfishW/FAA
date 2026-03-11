@@ -1,9 +1,7 @@
 using System;
 using System.Collections.Generic;
 using UnityEngine;
-using TrafficRadar;
 using TrafficRadar.Core;
-using FAA.XPlaneIntegration;
 
 namespace FAA.XPlaneIntegration.Providers
 {
@@ -44,9 +42,6 @@ namespace FAA.XPlaneIntegration.Providers
         [Header("References")]
         [Tooltip("XPlaneUdpListener instance for UDP communication")]
         [SerializeField] private XPlaneUdpListener udpListener;
-
-        [Tooltip("TrafficRadarController to inject traffic data into")]
-        [SerializeField] private TrafficRadarController trafficRadarController;
 
         #endregion
 
@@ -322,7 +317,6 @@ namespace FAA.XPlaneIntegration.Providers
 
             ParseTrafficSlotData(data);
             MapToAircraftStates();
-            InjectTrafficData();
 
             if (_cachedAircraftStates.Count > 0)
             {
@@ -464,69 +458,6 @@ namespace FAA.XPlaneIntegration.Providers
             }
         }
 
-        /// <summary>
-        /// Injects traffic data into TrafficRadarController
-        /// </summary>
-        private void InjectTrafficData()
-        {
-            if (trafficRadarController == null)
-            {
-                trafficRadarController = FindObjectOfType<TrafficRadarController>();
-                if (trafficRadarController == null)
-                {
-                    Debug.LogWarning("[XPlaneTrafficProvider] TrafficRadarController not found");
-                    return;
-                }
-            }
-
-            if (_cachedAircraftStates.Count == 0)
-                return;
-
-            var dataManager = trafficRadarController.GetComponentInChildren<TrafficRadarDataManager>();
-            if (dataManager == null)
-            {
-                Debug.LogWarning("[XPlaneTrafficProvider] TrafficRadarDataManager not found");
-                return;
-            }
-
-            dataManager.aircraftMap.Clear();
-            dataManager.aircraftList.Clear();
-
-            foreach (var state in _cachedAircraftStates)
-            {
-                float distanceKm = CalculateDistanceKm(
-                    dataManager.referenceLatitude,
-                    dataManager.referenceLongitude,
-                    (float)state.Latitude,
-                    (float)state.Longitude);
-
-                if (distanceKm > dataManager.radiusFilterKm)
-                {
-                    continue;
-                }
-
-                var aircraftData = new TrafficRadarDataManager.AircraftData
-                {
-                    icao24 = state.Icao24,
-                    callsign = state.Callsign,
-                    latitude = (float)state.Latitude,
-                    longitude = (float)state.Longitude,
-                    altitude = state.AltitudeMeters,
-                    velocity = state.VelocityMps,
-                    heading = state.Heading,
-                    verticalRate = state.VerticalRateMps,
-                    onGround = state.OnGround,
-                    lastUpdateTime = state.LastUpdate
-                };
-
-                dataManager.aircraftMap[state.Icao24.ToLower()] = aircraftData;
-                dataManager.aircraftList.Add(aircraftData);
-            }
-
-            dataManager.onDataUpdated?.Invoke(dataManager.aircraftList);
-            Log($"Injected {_cachedAircraftStates.Count} X-Plane traffic targets into TrafficRadarDataManager");
-        }
-
         #endregion
 
         #region Cleanup
@@ -557,21 +488,6 @@ namespace FAA.XPlaneIntegration.Providers
         /// Fired when new traffic data is received and mapped
         /// </summary>
         public event Action<AircraftState[]> OnTrafficDataReceived;
-
-        private static float CalculateDistanceKm(float lat1, float lon1, float lat2, float lon2)
-        {
-            const float earthRadiusKm = 6371f;
-
-            float dLat = (lat2 - lat1) * Mathf.Deg2Rad;
-            float dLon = (lon2 - lon1) * Mathf.Deg2Rad;
-
-            float a = Mathf.Sin(dLat / 2f) * Mathf.Sin(dLat / 2f) +
-                      Mathf.Cos(lat1 * Mathf.Deg2Rad) * Mathf.Cos(lat2 * Mathf.Deg2Rad) *
-                      Mathf.Sin(dLon / 2f) * Mathf.Sin(dLon / 2f);
-
-            float c = 2f * Mathf.Atan2(Mathf.Sqrt(a), Mathf.Sqrt(1f - a));
-            return earthRadiusKm * c;
-        }
 
         public void SetUdpListener(XPlaneUdpListener listener)
         {

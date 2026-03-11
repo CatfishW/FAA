@@ -45,6 +45,9 @@ namespace FAA.XPlaneIntegration.Providers
         [Tooltip("AircraftController to update. If null, will try to find one.")]
         [SerializeField] private AircraftController aircraftController;
 
+        [Tooltip("AviationFlightDataProvider to keep the Aviation UI in sync with X-Plane ownship data.")]
+        [SerializeField] private AviationFlightDataProvider flightDataProvider;
+
         [Header("DataRef Configuration")]
         [Tooltip("Request pitch data from X-Plane")]
         [SerializeField] private bool requestPitch = true;
@@ -137,6 +140,7 @@ namespace FAA.XPlaneIntegration.Providers
         #region Private Fields
 
         private XPlaneUdpListener _udpListener;
+        private bool _ownsUdpListener;
         private AviationFlightData _lastFlightData;
         private AviationFlightData _smoothedFlightData;
         private float _lastUpdateTime;
@@ -165,6 +169,7 @@ namespace FAA.XPlaneIntegration.Providers
         {
             InitializeUdpListener();
             FindAircraftController();
+            FindFlightDataProvider();
             _isInitialized = true;
         }
 
@@ -226,7 +231,13 @@ namespace FAA.XPlaneIntegration.Providers
 
         private void InitializeUdpListener()
         {
+            if (_udpListener != null)
+            {
+                return;
+            }
+
             _udpListener = new XPlaneUdpListener(xPlaneIpAddress, udpPort);
+            _ownsUdpListener = true;
         }
 
         private void FindAircraftController()
@@ -243,6 +254,19 @@ namespace FAA.XPlaneIntegration.Providers
             else
             {
                 LogDebug($"Found AircraftController: {aircraftController.name}");
+            }
+        }
+
+        private void FindFlightDataProvider()
+        {
+            if (flightDataProvider == null)
+            {
+                flightDataProvider = FindFirstObjectByType<AviationFlightDataProvider>();
+            }
+
+            if (flightDataProvider == null)
+            {
+                Debug.LogWarning("[XPlaneAircraftProvider] No AviationFlightDataProvider found. Aviation UI will not receive ownship updates from X-Plane.");
             }
         }
 
@@ -281,9 +305,12 @@ namespace FAA.XPlaneIntegration.Providers
             }
 
             _errorState = string.Empty;
-            _udpListener.Connect(xPlaneIpAddress);
 
-            // Request DataRefs after connection
+            if (_ownsUdpListener)
+            {
+                _udpListener.Connect(xPlaneIpAddress);
+            }
+
             if (IsConnected)
             {
                 RequestDataRefs();
@@ -295,7 +322,7 @@ namespace FAA.XPlaneIntegration.Providers
         /// </summary>
         public void DisconnectFromXPlane()
         {
-            if (_udpListener != null)
+            if (_udpListener != null && _ownsUdpListener)
             {
                 _udpListener.Disconnect();
                 LogDebug("Disconnected from X-Plane");
@@ -577,6 +604,8 @@ namespace FAA.XPlaneIntegration.Providers
                     aircraftController.SetUserControlled(false);
                 }
             }
+
+            PublishFlightDataToHud();
         }
 
         private bool ShouldUpdatePosition()
@@ -601,17 +630,44 @@ namespace FAA.XPlaneIntegration.Providers
             }
 
             var state = aircraftController.State;
+            double latitude = XPlaneDataRefMapper.GetDataRef(_lastRawDataRefs, XPlaneDataRefMapper.DataRef_Latitude, (float)state.Latitude);
+            double longitude = XPlaneDataRefMapper.GetDataRef(_lastRawDataRefs, XPlaneDataRefMapper.DataRef_Longitude, (float)state.Longitude);
             float altitudeMeters = _smoothedFlightData.altitudeMSL / 3.28084f;
             float heading = _smoothedFlightData.heading;
 
-            aircraftController.SetPosition(state.Latitude, state.Longitude, altitudeMeters, heading);
+            aircraftController.SetPosition(latitude, longitude, altitudeMeters, heading);
 
-            _lastLatitude = state.Latitude;
-            _lastLongitude = state.Longitude;
+            _lastLatitude = latitude;
+            _lastLongitude = longitude;
             _lastAltitude = _smoothedFlightData.altitudeMSL;
             _lastPositionUpdateTime = Time.time;
 
-            LogDebug($"Position updated: Alt={_smoothedFlightData.altitudeMSL:F0}ft, Hdg={heading:F0}°");
+            LogDebug($"Position updated: Lat={latitude:F6}, Lon={longitude:F6}, Alt={_smoothedFlightData.altitudeMSL:F0}ft, Hdg={heading:F0}°");
+        }
+
+        private void PublishFlightDataToHud()
+        {
+            if (flightDataProvider == null || aircraftController == null)
+            {
+                return;
+            }
+
+            var state = aircraftController.State;
+            var existingData = flightDataProvider.FlightData;
+            var hudFlightData = existingData != null ? existingData.Clone() : new AviationFlightData();
+
+            hudFlightData.pitch = state.Pitch;
+            hudFlightData.roll = state.Roll;
+            hudFlightData.heading = state.Heading;
+            hudFlightData.indicatedAirspeed = state.IndicatedAirspeedKnots;
+            hudFlightData.trueAirspeed = state.TrueAirspeedKnots;
+            hudFlightData.groundSpeed = state.GroundSpeedKnots;
+            hudFlightData.altitudeMSL = state.AltitudeFeet;
+            hudFlightData.altitudeAGL = _smoothedFlightData != null ? _smoothedFlightData.altitudeAGL : hudFlightData.altitudeAGL;
+            hudFlightData.verticalSpeed = state.VerticalSpeedFpm;
+            hudFlightData.autopilotEngaged = state.AutopilotEngaged;
+
+            flightDataProvider.UpdateFlightData(hudFlightData);
         }
 
         #endregion
@@ -627,6 +683,36 @@ namespace FAA.XPlaneIntegration.Providers
             if (controller != null)
             {
                 LogDebug($"AircraftController set: {controller.name}");
+            }
+        }
+
+        public void SetFlightDataProvider(AviationFlightDataProvider provider)
+        {
+            flightDataProvider = provider;
+        }
+
+        public void SetUdpListener(XPlaneUdpListener listener)
+        {
+            if (ReferenceEquals(_udpListener, listener))
+            {
+                return;
+            }
+
+            UnsubscribeFromEvents();
+
+            if (_udpListener != null && _ownsUdpListener)
+            {
+                _udpListener.Dispose();
+            }
+
+            _udpListener = listener;
+            _ownsUdpListener = false;
+
+            SubscribeToEvents();
+
+            if (_udpListener != null && _udpListener.IsConnected && enableXPlaneInput)
+            {
+                RequestDataRefs();
             }
         }
 
@@ -675,11 +761,12 @@ namespace FAA.XPlaneIntegration.Providers
         {
             UnsubscribeFromEvents();
 
-            if (_udpListener != null)
+            if (_udpListener != null && _ownsUdpListener)
             {
                 _udpListener.Dispose();
-                _udpListener = null;
             }
+
+            _udpListener = null;
 
             LogDebug("XPlaneAircraftProvider cleaned up");
         }

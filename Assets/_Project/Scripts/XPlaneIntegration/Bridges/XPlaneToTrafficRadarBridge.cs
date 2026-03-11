@@ -181,7 +181,7 @@ namespace FAA.XPlaneIntegration.Bridges
         {
             if (trafficProvider == null)
             {
-                trafficProvider = FindObjectOfType<XPlaneTrafficProvider>();
+                trafficProvider = FindFirstObjectByType<XPlaneTrafficProvider>();
                 if (trafficProvider != null)
                 {
                     Log("Auto-found XPlaneTrafficProvider");
@@ -190,7 +190,7 @@ namespace FAA.XPlaneIntegration.Bridges
 
             if (dataManager == null)
             {
-                dataManager = FindObjectOfType<TrafficRadarDataManager>();
+                dataManager = FindFirstObjectByType<TrafficRadarDataManager>();
                 if (dataManager != null)
                 {
                     Log("Auto-found TrafficRadarDataManager");
@@ -199,7 +199,7 @@ namespace FAA.XPlaneIntegration.Bridges
 
             if (aircraftController == null)
             {
-                aircraftController = FindObjectOfType<AircraftController>();
+                aircraftController = FindFirstObjectByType<AircraftController>();
                 if (aircraftController != null)
                 {
                     Log("Auto-found AircraftController");
@@ -208,7 +208,7 @@ namespace FAA.XPlaneIntegration.Bridges
 
             if (radarController == null)
             {
-                radarController = FindObjectOfType<TrafficRadarController>();
+                radarController = FindFirstObjectByType<TrafficRadarController>();
                 if (radarController != null)
                 {
                     Log("Auto-found TrafficRadarController");
@@ -447,9 +447,22 @@ namespace FAA.XPlaneIntegration.Bridges
             }
 
             var aircraftDataList = new System.Collections.Generic.List<TrafficRadarDataManager.AircraftData>();
+            dataManager.aircraftMap.Clear();
+            dataManager.aircraftList.Clear();
 
             foreach (var state in trafficData)
             {
+                float distanceKm = CalculateDistanceKm(
+                    dataManager.referenceLatitude,
+                    dataManager.referenceLongitude,
+                    (float)state.Latitude,
+                    (float)state.Longitude);
+
+                if (distanceKm > dataManager.radiusFilterKm)
+                {
+                    continue;
+                }
+
                 var aircraftData = new TrafficRadarDataManager.AircraftData
                 {
                     icao24 = state.Icao24?.ToLower() ?? "",
@@ -466,6 +479,8 @@ namespace FAA.XPlaneIntegration.Bridges
                     type = TrafficRadarDataManager.AircraftType.Unknown
                 };
 
+                dataManager.aircraftMap[aircraftData.icao24] = aircraftData;
+                dataManager.aircraftList.Add(aircraftData);
                 aircraftDataList.Add(aircraftData);
             }
 
@@ -498,6 +513,21 @@ namespace FAA.XPlaneIntegration.Bridges
             float c = 2 * Mathf.Atan2(Mathf.Sqrt(a), Mathf.Sqrt(1 - a));
 
             return EarthRadiusKm * c * 1000f;
+        }
+
+        private static float CalculateDistanceKm(float lat1, float lon1, float lat2, float lon2)
+        {
+            const float earthRadiusKm = 6371f;
+
+            float dLat = (lat2 - lat1) * Mathf.Deg2Rad;
+            float dLon = (lon2 - lon1) * Mathf.Deg2Rad;
+
+            float a = Mathf.Sin(dLat / 2f) * Mathf.Sin(dLat / 2f) +
+                      Mathf.Cos(lat1 * Mathf.Deg2Rad) * Mathf.Cos(lat2 * Mathf.Deg2Rad) *
+                      Mathf.Sin(dLon / 2f) * Mathf.Sin(dLon / 2f);
+
+            float c = 2f * Mathf.Atan2(Mathf.Sqrt(a), Mathf.Sqrt(1f - a));
+            return earthRadiusKm * c;
         }
 
         /// <summary>

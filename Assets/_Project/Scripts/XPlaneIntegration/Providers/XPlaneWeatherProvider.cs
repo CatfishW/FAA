@@ -1,7 +1,6 @@
 using System;
 using System.Collections.Generic;
 using UnityEngine;
-using FAA.XPlaneIntegration;
 using FAA.XPlaneIntegration.Core;
 using AviationUI;
 
@@ -144,7 +143,7 @@ namespace FAA.XPlaneIntegration.Providers
 
             if (flightDataProvider == null)
             {
-                flightDataProvider = FindObjectOfType<AviationFlightDataProvider>();
+                flightDataProvider = FindFirstObjectByType<AviationFlightDataProvider>();
                 if (flightDataProvider == null)
                 {
                     Debug.LogWarning("[XPlaneWeatherProvider] AviationFlightDataProvider not found in scene. Create one or assign manually.");
@@ -325,14 +324,13 @@ namespace FAA.XPlaneIntegration.Providers
             }
 
             var flightData = flightDataProvider.FlightData;
-            if (flightData == null)
-            {
-                return;
-            }
+            var updatedFlightData = flightData != null ? flightData.Clone() : new AviationFlightData();
 
-            flightData.windSpeed = smoothedWeather.WindSpeed;
-            flightData.windDirection = smoothedWeather.WindDirection;
-            flightData.barometricSetting = smoothedWeather.BarometricPressure;
+            updatedFlightData.windSpeed = smoothedWeather.WindSpeed;
+            updatedFlightData.windDirection = smoothedWeather.WindDirection;
+            updatedFlightData.barometricSetting = smoothedWeather.BarometricPressure;
+
+            flightDataProvider.UpdateFlightData(updatedFlightData);
 
             if (verboseLogging)
             {

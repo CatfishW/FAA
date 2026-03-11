@@ -6,7 +6,6 @@ namespace FAA.XPlaneIntegration.Core
 {
     /// <summary>
     /// Data normalization layer that maps X-Plane DataRef names to AviationFlightData fields.
-    /// Handles unit conversions (radians→degrees, m/s→knots, meters→feet) and coordinate system differences.
     /// </summary>
     public static class XPlaneDataRefMapper
     {
@@ -52,30 +51,11 @@ namespace FAA.XPlaneIntegration.Core
 
         #region Conversion Constants
 
-        private const float RadToDegFactor = 57.29578f;
-        private const float MpsToKnotsFactor = 1.94384f;
         private const float MetersToFeetFactor = 3.28084f;
-        private const float HpaToInHgFactor = 0.02953f;
 
         #endregion
 
         #region Conversion Utilities
-
-        /// <summary>
-        /// Convert radians to degrees
-        /// </summary>
-        public static float RadToDeg(float radians)
-        {
-            return radians * RadToDegFactor;
-        }
-
-        /// <summary>
-        /// Convert meters per second to knots
-        /// </summary>
-        public static float MpsToKnots(float mps)
-        {
-            return mps * MpsToKnotsFactor;
-        }
 
         /// <summary>
         /// Convert meters to feet
@@ -83,14 +63,6 @@ namespace FAA.XPlaneIntegration.Core
         public static float MetersToFeet(float meters)
         {
             return meters * MetersToFeetFactor;
-        }
-
-        /// <summary>
-        /// Convert hectopascals to inches of mercury
-        /// </summary>
-        public static float HpaToInHg(float hpa)
-        {
-            return hpa * HpaToInHgFactor;
         }
 
         /// <summary>
@@ -183,13 +155,13 @@ namespace FAA.XPlaneIntegration.Core
         {
             var flightData = new AviationFlightData();
 
-            flightData.pitch = Mathf.Clamp(RadToDeg(SafeGet(dataRefs, DataRef_Pitch)), -90f, 90f);
-            flightData.roll = NormalizeAngle(RadToDeg(SafeGet(dataRefs, DataRef_Roll)));
-            flightData.heading = NormalizeHeading(RadToDeg(SafeGet(dataRefs, DataRef_Heading)));
+            flightData.pitch = Mathf.Clamp(SafeGet(dataRefs, DataRef_Pitch), -90f, 90f);
+            flightData.roll = NormalizeAngle(SafeGet(dataRefs, DataRef_Roll));
+            flightData.heading = NormalizeHeading(SafeGet(dataRefs, DataRef_Heading));
 
-            flightData.indicatedAirspeed = MpsToKnots(SafeGet(dataRefs, DataRef_IAS));
-            flightData.trueAirspeed = MpsToKnots(SafeGet(dataRefs, DataRef_TAS));
-            flightData.groundSpeed = MpsToKnots(SafeGet(dataRefs, DataRef_GS));
+            flightData.indicatedAirspeed = SafeGet(dataRefs, DataRef_IAS);
+            flightData.trueAirspeed = SafeGet(dataRefs, DataRef_TAS);
+            flightData.groundSpeed = SafeGet(dataRefs, DataRef_GS);
 
             flightData.altitudeMSL = MetersToFeet(SafeGet(dataRefs, DataRef_Elevation));
             flightData.altitudeAGL = MetersToFeet(SafeGet(dataRefs, DataRef_AGL));
@@ -199,8 +171,7 @@ namespace FAA.XPlaneIntegration.Core
             flightData.windSpeed = SafeGet(dataRefs, DataRef_WindSpeed);
             flightData.windDirection = NormalizeHeading(SafeGet(dataRefs, DataRef_WindDirection));
             
-            float pressureHpa = SafeGet(dataRefs, DataRef_Pressure, 1013.25f);
-            flightData.barometricSetting = HpaToInHg(pressureHpa);
+            flightData.barometricSetting = SafeGet(dataRefs, DataRef_Pressure, 29.92f);
             
             flightData.gpsValid = SafeGet(dataRefs, DataRef_GpsValid, 1f) > 0.5f;
             flightData.ilsValid = SafeGet(dataRefs, DataRef_IlsValid, 0f) > 0.5f;
@@ -226,18 +197,18 @@ namespace FAA.XPlaneIntegration.Core
             int idx = 0;
 
             if (idx < dataRefValues.Length)
-                flightData.pitch = Mathf.Clamp(RadToDeg(dataRefValues[idx++]), -90f, 90f);
+                flightData.pitch = Mathf.Clamp(dataRefValues[idx++], -90f, 90f);
             if (idx < dataRefValues.Length)
-                flightData.roll = NormalizeAngle(RadToDeg(dataRefValues[idx++]));
+                flightData.roll = NormalizeAngle(dataRefValues[idx++]);
             if (idx < dataRefValues.Length)
-                flightData.heading = NormalizeHeading(RadToDeg(dataRefValues[idx++]));
+                flightData.heading = NormalizeHeading(dataRefValues[idx++]);
 
             if (idx < dataRefValues.Length)
-                flightData.indicatedAirspeed = MpsToKnots(dataRefValues[idx++]);
+                flightData.indicatedAirspeed = dataRefValues[idx++];
             if (idx < dataRefValues.Length)
-                flightData.trueAirspeed = MpsToKnots(dataRefValues[idx++]);
+                flightData.trueAirspeed = dataRefValues[idx++];
             if (idx < dataRefValues.Length)
-                flightData.groundSpeed = MpsToKnots(dataRefValues[idx++]);
+                flightData.groundSpeed = dataRefValues[idx++];
 
             if (idx < dataRefValues.Length)
                 idx++;
@@ -247,11 +218,11 @@ namespace FAA.XPlaneIntegration.Core
                 flightData.altitudeMSL = MetersToFeet(dataRefValues[idx++]);
 
             if (idx < dataRefValues.Length)
-                flightData.windSpeed = MpsToKnots(dataRefValues[idx++]);
+                flightData.windSpeed = dataRefValues[idx++];
             if (idx < dataRefValues.Length)
                 flightData.windDirection = NormalizeHeading(dataRefValues[idx++]);
             if (idx < dataRefValues.Length)
-                flightData.barometricSetting = HpaToInHg(dataRefValues[idx++]);
+                flightData.barometricSetting = dataRefValues[idx++];
             if (idx < dataRefValues.Length)
                 idx++;
 
@@ -274,49 +245,49 @@ namespace FAA.XPlaneIntegration.Core
         /// <summary>
         /// Map pitch from X-Plane DataRef value
         /// </summary>
-        public static float MapPitch(float thetaRadians)
+        public static float MapPitch(float thetaDegrees)
         {
-            return Mathf.Clamp(RadToDeg(thetaRadians), -90f, 90f);
+            return Mathf.Clamp(thetaDegrees, -90f, 90f);
         }
 
         /// <summary>
         /// Map roll from X-Plane DataRef value
         /// </summary>
-        public static float MapRoll(float phiRadians)
+        public static float MapRoll(float phiDegrees)
         {
-            return NormalizeAngle(RadToDeg(phiRadians));
+            return NormalizeAngle(phiDegrees);
         }
 
         /// <summary>
         /// Map heading from X-Plane DataRef value
         /// </summary>
-        public static float MapHeading(float psiRadians)
+        public static float MapHeading(float psiDegrees)
         {
-            return NormalizeHeading(RadToDeg(psiRadians));
+            return NormalizeHeading(psiDegrees);
         }
 
         /// <summary>
         /// Map indicated airspeed from X-Plane DataRef value
         /// </summary>
-        public static float MapIndicatedAirspeed(float iasMps)
+        public static float MapIndicatedAirspeed(float iasKnots)
         {
-            return MpsToKnots(iasMps);
+            return iasKnots;
         }
 
         /// <summary>
         /// Map true airspeed from X-Plane DataRef value
         /// </summary>
-        public static float MapTrueAirspeed(float tasMps)
+        public static float MapTrueAirspeed(float tasKnots)
         {
-            return MpsToKnots(tasMps);
+            return tasKnots;
         }
 
         /// <summary>
         /// Map ground speed from X-Plane DataRef value
         /// </summary>
-        public static float MapGroundSpeed(float gsMps)
+        public static float MapGroundSpeed(float gsKnots)
         {
-            return MpsToKnots(gsMps);
+            return gsKnots;
         }
 
         /// <summary>
@@ -330,9 +301,9 @@ namespace FAA.XPlaneIntegration.Core
         /// <summary>
         /// Map wind speed from X-Plane DataRef value
         /// </summary>
-        public static float MapWindSpeed(float windSpeedMps)
+        public static float MapWindSpeed(float windSpeedKnots)
         {
-            return MpsToKnots(windSpeedMps);
+            return windSpeedKnots;
         }
 
         /// <summary>
@@ -346,9 +317,9 @@ namespace FAA.XPlaneIntegration.Core
         /// <summary>
         /// Map barometric pressure from X-Plane DataRef value
         /// </summary>
-        public static float MapBarometricPressure(float pressureHpa)
+        public static float MapBarometricPressure(float pressureInHg)
         {
-            return HpaToInHg(pressureHpa);
+            return pressureInHg;
         }
 
         /// <summary>

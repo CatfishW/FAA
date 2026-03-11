@@ -3,7 +3,6 @@ using System.Collections.Generic;
 using System.Threading;
 using UnityEngine;
 using UnityEngine.Events;
-using FAA.XPlaneIntegration;
 using FAA.XPlaneIntegration.Providers;
 
 namespace FAA.XPlaneIntegration.Core
@@ -43,7 +42,7 @@ namespace FAA.XPlaneIntegration.Core
             {
                 if (_instance == null)
                 {
-                    _instance = FindObjectOfType<XPlaneIntegrationManager>();
+                    _instance = FindFirstObjectByType<XPlaneIntegrationManager>();
                     if (_instance == null)
                     {
                         var go = new GameObject("XPlaneIntegrationManager");
@@ -307,13 +306,13 @@ namespace FAA.XPlaneIntegration.Core
             _weatherProviders.Clear();
             _trafficProviders.Clear();
 
-            var aircraftProviders = FindObjectsOfType<XPlaneAircraftProvider>();
+            var aircraftProviders = FindObjectsByType<XPlaneAircraftProvider>(FindObjectsSortMode.None);
             _aircraftProviders.AddRange(aircraftProviders);
 
-            var weatherProviders = FindObjectsOfType<XPlaneWeatherProvider>();
+            var weatherProviders = FindObjectsByType<XPlaneWeatherProvider>(FindObjectsSortMode.None);
             _weatherProviders.AddRange(weatherProviders);
 
-            var trafficProviders = FindObjectsOfType<XPlaneTrafficProvider>();
+            var trafficProviders = FindObjectsByType<XPlaneTrafficProvider>(FindObjectsSortMode.None);
             _trafficProviders.AddRange(trafficProviders);
 
             LogDebug($"Discovered providers: {_aircraftProviders.Count} aircraft, {_weatherProviders.Count} weather, {_trafficProviders.Count} traffic");
@@ -447,8 +446,9 @@ namespace FAA.XPlaneIntegration.Core
         {
             foreach (var provider in _aircraftProviders)
             {
-                if (provider != null && !provider.IsEnabled)
+                if (provider != null)
                 {
+                    provider.SetUdpListener(_udpListener);
                     provider.SetEnabled(true);
                 }
             }

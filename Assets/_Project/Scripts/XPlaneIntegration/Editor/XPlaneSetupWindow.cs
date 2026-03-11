@@ -458,7 +458,14 @@ namespace FAA.XPlaneIntegration.Editor
                     {
                         _connectionTestPassed = true;
                         _connectionTestResult = "Successfully received data from X-Plane";
-                        ShowNotification(new GUIContent("Connection test passed!"));
+                        EditorApplication.delayCall += () =>
+                        {
+                            if (this != null)
+                            {
+                                ShowNotification(new GUIContent("Connection test passed!"));
+                                Repaint();
+                            }
+                        };
                     }
                     else
                     {
@@ -480,6 +487,13 @@ namespace FAA.XPlaneIntegration.Editor
             finally
             {
                 _isTesting = false;
+                EditorApplication.delayCall += () =>
+                {
+                    if (this != null)
+                    {
+                        Repaint();
+                    }
+                };
             }
         }
 
@@ -512,9 +526,7 @@ namespace FAA.XPlaneIntegration.Editor
             Undo.RegisterCreatedObjectUndo(child, "Add Provider");
             child.transform.SetParent(parent.transform);
 
-            EditorGUILayout.HelpBox(
-                $"Add '{componentType}' component to {name} manually, or use the runtime scripts.",
-                MessageType.Info);
+            Debug.Log($"[XPlaneSetupWindow] Created '{name}'. Add '{componentType}' manually if needed.");
         }
     }
 }
