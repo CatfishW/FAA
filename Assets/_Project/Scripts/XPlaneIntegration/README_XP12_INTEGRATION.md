@@ -274,7 +274,7 @@ This integration is verified against:
    - [TCAS Override](https://developer.x-plane.com/article/overriding-tcas-and-providing-traffic-information/)
 
 2. **Reference Implementations**
-   - [NASA XPlaneConnect](https://github.com/nasa/XPlaneConnect)
+   - [NASA XPlaneConnect](https://github.com/nasa/XPlaneConnect) — reference only; current XP12 host production runtime is pinned to direct RREF/Web API paths.
    - [XPMP2 Multiplayer Library](https://github.com/TwinFan/XPMP2)
    - [XPlaneConnector (.NET)](https://github.com/MaxFerretti/XPlaneConnector)
 
