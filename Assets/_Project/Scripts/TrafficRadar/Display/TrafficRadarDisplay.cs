@@ -101,6 +101,9 @@ namespace TrafficRadar
         [Header("Events")]
         [Tooltip("Fired when zoom/range changes")]
         public UnityEngine.Events.UnityEvent<float> OnZoomChanged;
+
+        [Header("Debug")]
+        [SerializeField] private bool verboseLogging = false;
         
         // Runtime-created material for radar overlay (full opacity)
         private Material radarOverlayMaterial;
@@ -879,7 +882,10 @@ namespace TrafficRadar
                 });
             }
             
-            Debug.Log($"[TrafficRadarDisplay] Received {currentTargets.Count} targets from controller");
+            if (verboseLogging)
+            {
+                Debug.Log($"[TrafficRadarDisplay] Received {currentTargets.Count} targets from controller");
+            }
         }
 
         private void OnChartLoaded(Texture2D chartTexture)

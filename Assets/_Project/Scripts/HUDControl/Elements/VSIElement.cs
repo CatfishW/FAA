@@ -392,11 +392,9 @@ namespace HUDControl.Elements
             minimumDigits = Mathf.Clamp(minimumDigits, 0, 6);
             visibleWindowHeight = Mathf.Max(10f, visibleWindowHeight);
             
-            // Recalibrate in editor if playing
-            if (Application.isPlaying && autoCalibrateTape)
-            {
-                Recalibrate();
-            }
+            // Runtime initialization recalibrates in OnInitialize. Doing it from
+            // OnValidate during Play Mode can surface stale editor-only script
+            // reference warnings while the HUD is reloading.
         }
         
         [ContextMenu("Auto-Find VSI References")]

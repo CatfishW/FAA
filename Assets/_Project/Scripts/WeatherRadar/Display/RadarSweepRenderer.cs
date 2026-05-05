@@ -119,6 +119,7 @@ namespace WeatherRadar
             if (sweepImage != null)
             {
                 sweepImage.texture = sweepTexture;
+                sweepImage.color = Color.white;
             }
         }
 

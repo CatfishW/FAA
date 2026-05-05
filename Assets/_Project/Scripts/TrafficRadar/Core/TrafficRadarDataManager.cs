@@ -127,7 +127,7 @@ namespace TrafficRadar
         #region Unity Lifecycle Methods
         protected virtual void OnEnable()
         {
-            Debug.Log($"[TrafficRadarDataManager] OnEnable - AutoStart: {autoStartFetching}, Pos: ({referenceLatitude:F4}, {referenceLongitude:F4}), Radius: {radiusFilterKm}km");
+            Log($"OnEnable - AutoStart: {autoStartFetching}, Pos: ({referenceLatitude:F4}, {referenceLongitude:F4}), Radius: {radiusFilterKm}km");
             
             if (enableCaching && LoadCachedData())
             {
@@ -140,7 +140,7 @@ namespace TrafficRadar
             }
             else
             {
-                Debug.LogWarning("[TrafficRadarDataManager] Auto-start fetching is DISABLED. Enable it in Inspector or call StartFetching().");
+                Log("Auto-start fetching is disabled.");
             }
         }
 
@@ -158,7 +158,7 @@ namespace TrafficRadar
         [ContextMenu("Start Fetching")]
         public virtual void StartFetching()
         {
-            Debug.Log($"[TrafficRadarDataManager] StartFetching called");
+            Log("StartFetching called");
             if (fetchRoutine != null)
             {
                 StopCoroutine(fetchRoutine);
@@ -320,7 +320,7 @@ namespace TrafficRadar
             string url = BuildApiUrl();
             isFetching = true;
             onFetchStarted?.Invoke();
-            Debug.Log($"[TrafficRadarDataManager] Fetching from: {url}");
+            Log($"Fetching from: {url}");
 
             using (UnityWebRequest request = CreateApiRequest(url))
             {
@@ -343,7 +343,7 @@ namespace TrafficRadar
                             SaveCachedData();
                         }
                         
-                        Debug.Log($"[TrafficRadarDataManager] Fetched {aircraftList.Count} aircraft");
+                        Log($"Fetched {aircraftList.Count} aircraft");
                         onFetchCompleted?.Invoke();
                         onDataUpdated?.Invoke(aircraftList);
                     }

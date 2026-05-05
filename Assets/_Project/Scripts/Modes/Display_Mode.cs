@@ -1,4 +1,3 @@
-﻿using System.Collections;
 using System.Collections.Generic;
 using UnityEngine;
 using UnityEngine.UI;
@@ -9,15 +8,15 @@ public class Display_Mode : MonoBehaviour
     public int declutter_mode;
 
     [SerializeField]
-    List<GameObject> declutter0;
+    List<GameObject> declutter0 = new List<GameObject>();
     [SerializeField]
-    List<GameObject> declutter1;
+    List<GameObject> declutter1 = new List<GameObject>();
     [SerializeField]
-    List<GameObject> declutter2;
+    List<GameObject> declutter2 = new List<GameObject>();
     [SerializeField]
-    List<GameObject> declutter3;
+    List<GameObject> declutter3 = new List<GameObject>();
     [SerializeField]
-    List<GameObject> declutter4;
+    List<GameObject> declutter4 = new List<GameObject>();
 
     GameObject AP_Block;
     GameObject NAV_Block;
@@ -27,7 +26,7 @@ public class Display_Mode : MonoBehaviour
     GameObject Airspeed;
     GameObject Alt;
     GameObject VSpeedPanel;
-    GameObject WaypointInfo_Block; 
+    GameObject WaypointInfo_Block;
     GameObject RPMPanel;
     GameObject Glideslope;
     GameObject LocalizerLine;
@@ -39,155 +38,170 @@ public class Display_Mode : MonoBehaviour
     GameObject AltPanel;
     GameObject SkidSlipInd;
 
-    private Vector3 AP_Block_Scale_Default;
-    private Vector3 NAV_Block_Scale_Default;
-    private Vector3 Wind_Panel_Scale_Default;
-    private Vector3 Heading_Panel_Scale_Default;
+    private readonly Dictionary<GameObject, Vector3> defaultScales = new Dictionary<GameObject, Vector3>();
 
     private void OnEnable()
     {
     }
+
     private void OnDisable()
     {
     }
-    // Start is called before the first frame update
+
     void Start()
     {
         declutter_mode = 0;
-        AP_Block = GameObject.Find("AP_Block");
-        NAV_Block = GameObject.Find("NAV_Block");
-        WindPanel = GameObject.Find("WindPanel");
-        HeadingPanel = GameObject.Find("HeadingPanel");
-        TorquePanel = GameObject.Find("TorquePanel");
-        Airspeed = GameObject.Find("Airspeed");
-        Alt = GameObject.Find("Alt");
-        VSpeedPanel = GameObject.Find("VSpeedPanel");
-        WaypointInfo_Block = GameObject.Find("Waypoint Info_Block");  //ask ardit
-        RPMPanel = GameObject.Find("RPMPanel");
-        Glideslope = GameObject.Find("Glideslope");
-        LocalizerLine = GameObject.Find("LocalizerLine");
-        SimpleNumDisplays = GameObject.Find("SimpleNumDisplays");
-        AttitudeHUD = GameObject.Find("AttitudePanel");
-        AttitudeHUDNew = GameObject.Find("AttitudePanelNew");
-        MasterTick = GameObject.Find("MasterTick");
-        AirspeedPanel = GameObject.Find("AirspeedPanel");
-        AltPanel = GameObject.Find("AltPanel");
-        SkidSlipInd = GameObject.Find("SkidSlipInd");
+        EnsureDeclutterLists();
+        ClearDeclutterLists();
+        defaultScales.Clear();
 
-        AP_Block_Scale_Default = AP_Block.transform.localScale;
-        NAV_Block_Scale_Default = NAV_Block.transform.localScale;
-        Wind_Panel_Scale_Default = WindPanel.transform.localScale;
-        Heading_Panel_Scale_Default = HeadingPanel.transform.localScale;
+        AP_Block = FindHudObject("AP_Block");
+        NAV_Block = FindHudObject("NAV_Block");
+        WindPanel = FindHudObject("WindPanel");
+        HeadingPanel = FindHudObject("HeadingPanel");
+        TorquePanel = FindHudObject("TorquePanel");
+        Airspeed = FindHudObject("Airspeed");
+        Alt = FindHudObject("Alt");
+        VSpeedPanel = FindHudObject("VSpeedPanel");
+        WaypointInfo_Block = FindHudObject("Waypoint Info_Block");
+        RPMPanel = FindHudObject("RPMPanel");
+        Glideslope = FindHudObject("Glideslope");
+        LocalizerLine = FindHudObject("LocalizerLine");
+        SimpleNumDisplays = FindHudObject("SimpleNumDisplays");
+        AttitudeHUD = FindHudObject("AttitudePanel");
+        AttitudeHUDNew = FindHudObject("AttitudePanelNew");
+        MasterTick = FindHudObject("MasterTick");
+        AirspeedPanel = FindHudObject("AirspeedPanel");
+        AltPanel = FindHudObject("AltPanel");
+        SkidSlipInd = FindHudObject("SkidSlipInd");
 
-        declutter0.Add(AP_Block);
-        declutter0.Add(NAV_Block);
-        declutter0.Add(WindPanel);
-        declutter0.Add(HeadingPanel);
-        declutter0.Add(TorquePanel);
-        declutter0.Add(Airspeed);
-        declutter0.Add(Alt);
-        declutter0.Add(VSpeedPanel);
-        declutter0.Add(WaypointInfo_Block);
-        declutter0.Add(RPMPanel);
-        declutter0.Add(Glideslope);
-        declutter0.Add(SimpleNumDisplays);
-        declutter0.Add(AttitudeHUD);
-        declutter0.Add(AttitudeHUDNew);
-        declutter0.Add(MasterTick);
-        declutter0.Add(AirspeedPanel);
-        declutter0.Add(AltPanel);
-        declutter0.Add(SkidSlipInd);
+        AddIfPresent(declutter0, AP_Block, NAV_Block, WindPanel, HeadingPanel, TorquePanel, Airspeed, Alt, VSpeedPanel,
+            WaypointInfo_Block, RPMPanel, Glideslope, SimpleNumDisplays, AttitudeHUD, AttitudeHUDNew, MasterTick,
+            AirspeedPanel, AltPanel, SkidSlipInd);
 
-        declutter1.Add(NAV_Block);
-        declutter1.Add(WindPanel);
-        declutter1.Add(TorquePanel);
-        declutter1.Add(VSpeedPanel);
-        declutter1.Add(WaypointInfo_Block);
-        declutter1.Add(RPMPanel);
-        declutter1.Add(Glideslope);
-        declutter1.Add(LocalizerLine);
-        declutter1.Add(SimpleNumDisplays);
+        AddIfPresent(declutter1, NAV_Block, WindPanel, TorquePanel, VSpeedPanel, WaypointInfo_Block, RPMPanel,
+            Glideslope, LocalizerLine, SimpleNumDisplays);
 
-        declutter2.Add(AP_Block);
-        declutter2.Add(HeadingPanel);
-        declutter2.Add(Airspeed);
-        declutter2.Add(Alt);
-
-        declutter3.Add(VSpeedPanel);
-        declutter3.Add(AttitudeHUD);
-        declutter3.Add(AttitudeHUDNew);
-        declutter3.Add(SkidSlipInd);
-
-        declutter4.Add(MasterTick);
-        declutter4.Add(AirspeedPanel);
-        declutter4.Add(AltPanel);
-
+        AddIfPresent(declutter2, AP_Block, HeadingPanel, Airspeed, Alt);
+        AddIfPresent(declutter3, VSpeedPanel, AttitudeHUD, AttitudeHUDNew, SkidSlipInd);
+        AddIfPresent(declutter4, MasterTick, AirspeedPanel, AltPanel);
     }
 
     public void Cycle()
     {
+        EnsureDeclutterLists();
 
-            declutter_mode++;
+        declutter_mode++;
         if (declutter_mode > 4)
-        {                            //cycle on 1 numpad
+        {
             declutter_mode = 0;
         }
+
         if (declutter_mode == 0)
-
         {
-            foreach (GameObject obj in declutter0) //Declutter 0 is the default declutter mode so everything displays
-            {
-              obj.transform.localScale = new Vector3(1f, 1f, 1f);
-            }
+            ResetAllScales();
         }
-
-
-        if (declutter_mode == 1)
+        else if (declutter_mode == 1)
         {
-            foreach (GameObject obj in declutter1)
-            {
-                obj.transform.localScale = new Vector3(0f, 0f, 0f);
-            }
+            SetScale(declutter1, Vector3.zero);
         }
-
-        if (declutter_mode == 2)
+        else if (declutter_mode == 2)
         {
-            foreach (GameObject obj in declutter2)
-            {
-                obj.transform.localScale = new Vector3(0f, 0f, 0f);
-            }
+            SetScale(declutter2, Vector3.zero);
         }
-        if (declutter_mode == 3)
+        else if (declutter_mode == 3)
         {
-            foreach (GameObject obj in declutter3)
-            {
-
-                obj.transform.localScale = new Vector3(0f, 0f, 0f);
-            }
+            SetScale(declutter3, Vector3.zero);
         }
-
-        if (declutter_mode == 4)
+        else if (declutter_mode == 4)
         {
-            foreach (GameObject obj in declutter4)
-            {
-
-                obj.transform.localScale = new Vector3(0f, 0f, 0f);
-            }
+            SetScale(declutter4, Vector3.zero);
         }
-
     }
 
-
-    public void ResetHud()     
+    public void ResetHud()
     {
         declutter_mode = 0;
+        ResetAllScales();
     }
-    // Update is called once per frame
+
     void Update()
     {
-        if(Input.GetKeyDown(KeyCode.M))
+        if (Input.GetKeyDown(KeyCode.M))
         {
             Cycle();
+        }
+    }
+
+    private void EnsureDeclutterLists()
+    {
+        if (declutter0 == null) declutter0 = new List<GameObject>();
+        if (declutter1 == null) declutter1 = new List<GameObject>();
+        if (declutter2 == null) declutter2 = new List<GameObject>();
+        if (declutter3 == null) declutter3 = new List<GameObject>();
+        if (declutter4 == null) declutter4 = new List<GameObject>();
+    }
+
+    private void ClearDeclutterLists()
+    {
+        declutter0.Clear();
+        declutter1.Clear();
+        declutter2.Clear();
+        declutter3.Clear();
+        declutter4.Clear();
+    }
+
+    private GameObject FindHudObject(string objectName)
+    {
+        GameObject hudObject = GameObject.Find(objectName);
+        if (hudObject != null && !defaultScales.ContainsKey(hudObject))
+        {
+            defaultScales.Add(hudObject, hudObject.transform.localScale);
+        }
+
+        return hudObject;
+    }
+
+    private static void AddIfPresent(List<GameObject> targetList, params GameObject[] objects)
+    {
+        if (targetList == null || objects == null)
+        {
+            return;
+        }
+
+        foreach (GameObject obj in objects)
+        {
+            if (obj != null && !targetList.Contains(obj))
+            {
+                targetList.Add(obj);
+            }
+        }
+    }
+
+    private void ResetAllScales()
+    {
+        foreach (KeyValuePair<GameObject, Vector3> entry in defaultScales)
+        {
+            if (entry.Key != null)
+            {
+                entry.Key.transform.localScale = entry.Value;
+            }
+        }
+    }
+
+    private static void SetScale(List<GameObject> objects, Vector3 scale)
+    {
+        if (objects == null)
+        {
+            return;
+        }
+
+        foreach (GameObject obj in objects)
+        {
+            if (obj != null)
+            {
+                obj.transform.localScale = scale;
+            }
         }
     }
 }

@@ -9,6 +9,188 @@ using UnityEditor;
 
 namespace FAA.Customization
 {
+    public static class SymbologyTintUtility
+    {
+        private static readonly string[] UiChromeNameFragments =
+        {
+            "background",
+            "masker",
+            "controlpanel",
+            "radarpanel",
+            "visualunderstanding",
+            "button",
+            "toggle",
+            "slider",
+            "scroll",
+            "viewport",
+            "handle",
+            "border",
+            "window",
+            "container",
+            "placeholder",
+            "image",
+            "rawimage",
+            "radarreturns",
+            "rangerings",
+            "sweepline",
+            "readout",
+            "readoutimage"
+        };
+
+        private static readonly string[] SymbologyNameFragments =
+        {
+            "tick",
+            "minor",
+            "reticle",
+            "ladder",
+            "scale",
+            "pointer",
+            "needle",
+            "chevron",
+            "fpv",
+            "vsi",
+            "altitude",
+            "airspeed",
+            "heading",
+            "attitude",
+            "bank",
+            "slip",
+            "skid",
+            "wind",
+            "torque",
+            "cardinal"
+        };
+
+        public static bool ShouldTintImage(Image image, IList<string> excludedPathFragments = null)
+        {
+            if (image == null)
+            {
+                return false;
+            }
+
+            string path = GetHierarchyPath(image.transform);
+            if (HasExcludedPathFragment(path, excludedPathFragments))
+            {
+                return false;
+            }
+
+            if (image.GetComponent<Mask>() != null || image.GetComponent<RectMask2D>() != null)
+            {
+                return false;
+            }
+
+            string lowerName = image.name.ToLowerInvariant();
+            if (HasFragment(lowerName, UiChromeNameFragments))
+            {
+                return false;
+            }
+
+            Rect rect = image.rectTransform != null ? image.rectTransform.rect : Rect.zero;
+            float width = Mathf.Abs(rect.width);
+            float height = Mathf.Abs(rect.height);
+            float shortest = Mathf.Min(width, height);
+            float longest = Mathf.Max(width, height);
+            bool hasUsableRect = width > 0.01f && height > 0.01f;
+            bool isThinLine = hasUsableRect && (shortest <= 6f || (shortest <= 10f && longest / Mathf.Max(shortest, 0.01f) >= 8f));
+            float lossyScaleX = image.transform != null ? Mathf.Abs(image.transform.lossyScale.x) : 1f;
+            float lossyScaleY = image.transform != null ? Mathf.Abs(image.transform.lossyScale.y) : 1f;
+            float effectiveWidth = width * Mathf.Max(lossyScaleX, 0.0001f);
+            float effectiveHeight = height * Mathf.Max(lossyScaleY, 0.0001f);
+            bool isHugeInWorld = effectiveWidth >= 120f && effectiveHeight >= 120f;
+            bool isLargeSolidImage = hasUsableRect && width >= 16f && height >= 16f && image.sprite == null && !isThinLine;
+
+            if (isLargeSolidImage || isHugeInWorld)
+            {
+                return false;
+            }
+
+            return isThinLine || HasFragment(lowerName, SymbologyNameFragments);
+        }
+
+        public static bool ShouldTintText(Transform textTransform, IList<string> excludedPathFragments = null)
+        {
+            if (textTransform == null)
+            {
+                return false;
+            }
+
+            string path = GetHierarchyPath(textTransform);
+            if (path.Contains("/second interation gui/"))
+            {
+                return true;
+            }
+
+            if (HasExcludedPathFragment(path, excludedPathFragments))
+            {
+                return false;
+            }
+
+            return path.Contains("/maskcanvas/") ||
+                   path.Contains("hud") ||
+                   path.Contains("compass") ||
+                   path.Contains("altitude") ||
+                   path.Contains("airspeed") ||
+                   path.Contains("heading") ||
+                   path.Contains("vsi");
+        }
+
+        public static Color BuildTintColor(Color tint, Color baseColor, bool preserveElementAlpha, float opacityMultiplier = -1f)
+        {
+            float alpha = opacityMultiplier >= 0f ? opacityMultiplier : tint.a;
+            if (preserveElementAlpha)
+            {
+                alpha *= baseColor.a;
+            }
+
+            return new Color(tint.r, tint.g, tint.b, Mathf.Clamp01(alpha));
+        }
+
+        public static string GetHierarchyPath(Transform transform)
+        {
+            List<string> names = new List<string>();
+            Transform current = transform;
+            while (current != null)
+            {
+                names.Add(current.name.ToLowerInvariant());
+                current = current.parent;
+            }
+
+            names.Reverse();
+            return "/" + string.Join("/", names);
+        }
+
+        private static bool HasExcludedPathFragment(string path, IList<string> excludedPathFragments)
+        {
+            if (excludedPathFragments == null)
+            {
+                return false;
+            }
+
+            foreach (string fragment in excludedPathFragments)
+            {
+                if (!string.IsNullOrWhiteSpace(fragment) && path.Contains(fragment.ToLowerInvariant()))
+                {
+                    return true;
+                }
+            }
+
+            return false;
+        }
+
+        private static bool HasFragment(string value, string[] fragments)
+        {
+            foreach (string fragment in fragments)
+            {
+                if (value.Contains(fragment))
+                {
+                    return true;
+                }
+            }
+
+            return false;
+        }
+    }
+
     /// <summary>
     /// High-performance color manager for FAA symbology sprites.
     /// Provides smooth animated color transitions with one-button toggle.
@@ -56,6 +238,35 @@ namespace FAA.Customization
         [Header("Exceptions")]
         [Tooltip("Transforms whose children should be excluded from color changes")]
         [SerializeField] private List<Transform> exceptionParents = new List<Transform>();
+
+        [Tooltip("Keep each graphic's original alpha when applying a symbology color")]
+        [SerializeField] private bool preserveElementAlpha = true;
+
+        [Tooltip("Avoid tinting panels, buttons, radar controls, voice UI, and other UI chrome")]
+        [SerializeField] private bool tintOnlySymbologyElements = true;
+
+        [Tooltip("Hierarchy/name fragments excluded from symbology tinting")]
+        [SerializeField] private List<string> excludedPathFragments = new List<string>
+        {
+            "radarcanvas",
+            "weather radar system",
+            "visualunderstanding",
+            "analysis trigger buttons",
+            "voice",
+            "vc",
+            "minimap",
+            "compassnavigatorpro",
+            "panel",
+            "button",
+            "toggle",
+            "header",
+            "background",
+            "masker",
+            "radarreturns",
+            "rangerings",
+            "sweepline",
+            "readoutimage"
+        };
         
         [Header("Debug")]
         [SerializeField] private bool logColorChanges = false;
@@ -67,6 +278,9 @@ namespace FAA.Customization
         private List<Image> _cachedImages = new List<Image>();
         private List<TMP_Text> _cachedTexts = new List<TMP_Text>();
         private List<Text> _cachedStandardTexts = new List<Text>();
+        private readonly Dictionary<Image, Color> _imageBaseColors = new Dictionary<Image, Color>();
+        private readonly Dictionary<TMP_Text, Color> _tmpTextBaseColors = new Dictionary<TMP_Text, Color>();
+        private readonly Dictionary<Text, Color> _standardTextBaseColors = new Dictionary<Text, Color>();
         private Coroutine _animationCoroutine;
         private Color _currentColor;
         private bool _isInitialized = false;
@@ -216,7 +430,7 @@ namespace FAA.Customization
             {
                 if (img != null)
                 {
-                    img.color = color;
+                    img.color = BuildTintColor(color, GetBaseColor(img));
                 }
             }
             
@@ -224,7 +438,7 @@ namespace FAA.Customization
             {
                 if (txt != null)
                 {
-                    txt.color = color;
+                    txt.color = BuildTintColor(color, GetBaseColor(txt));
                 }
             }
             
@@ -232,7 +446,7 @@ namespace FAA.Customization
             {
                 if (txt != null)
                 {
-                    txt.color = color;
+                    txt.color = BuildTintColor(color, GetBaseColor(txt));
                 }
             }
             
@@ -267,9 +481,7 @@ namespace FAA.Customization
             {
                 if (img != null)
                 {
-                    var c = img.color;
-                    c.a = opacity;
-                    img.color = c;
+                    img.color = BuildTintColor(_currentColor, GetBaseColor(img), opacity);
                 }
             }
             
@@ -277,9 +489,7 @@ namespace FAA.Customization
             {
                 if (txt != null)
                 {
-                    var c = txt.color;
-                    c.a = opacity;
-                    txt.color = c;
+                    txt.color = BuildTintColor(_currentColor, GetBaseColor(txt), opacity);
                 }
             }
             
@@ -287,9 +497,7 @@ namespace FAA.Customization
             {
                 if (txt != null)
                 {
-                    var c = txt.color;
-                    c.a = opacity;
-                    txt.color = c;
+                    txt.color = BuildTintColor(_currentColor, GetBaseColor(txt), opacity);
                 }
             }
             
@@ -332,6 +540,7 @@ namespace FAA.Customization
             _cachedImages.Clear();
             _cachedTexts.Clear();
             _cachedStandardTexts.Clear();
+            PruneDestroyedBaseColors();
             
             // Get all roots to process (use self if no roots specified)
             List<Transform> rootsToProcess = new List<Transform>();
@@ -359,8 +568,12 @@ namespace FAA.Customization
                 {
                     if (img == buttonIcon) continue;
                     if (IsUnderExceptionParent(img.transform)) continue;
+                    if (tintOnlySymbologyElements && !SymbologyTintUtility.ShouldTintImage(img, excludedPathFragments)) continue;
                     if (!_cachedImages.Contains(img)) // Avoid duplicates
+                    {
                         _cachedImages.Add(img);
+                        RememberBaseColor(img);
+                    }
                 }
                 
                 // Cache all TMP_Text components
@@ -368,8 +581,12 @@ namespace FAA.Customization
                 foreach (var txt in texts)
                 {
                     if (IsUnderExceptionParent(txt.transform)) continue;
+                    if (tintOnlySymbologyElements && !SymbologyTintUtility.ShouldTintText(txt.transform, excludedPathFragments)) continue;
                     if (!_cachedTexts.Contains(txt)) // Avoid duplicates
+                    {
                         _cachedTexts.Add(txt);
+                        RememberBaseColor(txt);
+                    }
                 }
 
                 // Cache all legacy Text components
@@ -377,8 +594,12 @@ namespace FAA.Customization
                 foreach (var txt in standardTexts)
                 {
                     if (IsUnderExceptionParent(txt.transform)) continue;
+                    if (tintOnlySymbologyElements && !SymbologyTintUtility.ShouldTintText(txt.transform, excludedPathFragments)) continue;
                     if (!_cachedStandardTexts.Contains(txt)) // Avoid duplicates
+                    {
                         _cachedStandardTexts.Add(txt);
+                        RememberBaseColor(txt);
+                    }
                 }
             }
             
@@ -397,6 +618,84 @@ namespace FAA.Customization
                     return true;
             }
             return false;
+        }
+
+        private void RememberBaseColor(Image image)
+        {
+            if (!_imageBaseColors.ContainsKey(image))
+            {
+                _imageBaseColors[image] = image.color;
+            }
+        }
+
+        private void RememberBaseColor(TMP_Text text)
+        {
+            if (!_tmpTextBaseColors.ContainsKey(text))
+            {
+                _tmpTextBaseColors[text] = text.color;
+            }
+        }
+
+        private void RememberBaseColor(Text text)
+        {
+            if (!_standardTextBaseColors.ContainsKey(text))
+            {
+                _standardTextBaseColors[text] = text.color;
+            }
+        }
+
+        private Color GetBaseColor(Image image)
+        {
+            return _imageBaseColors.TryGetValue(image, out Color color) ? color : image.color;
+        }
+
+        private Color GetBaseColor(TMP_Text text)
+        {
+            return _tmpTextBaseColors.TryGetValue(text, out Color color) ? color : text.color;
+        }
+
+        private Color GetBaseColor(Text text)
+        {
+            return _standardTextBaseColors.TryGetValue(text, out Color color) ? color : text.color;
+        }
+
+        private Color BuildTintColor(Color tint, Color baseColor, float opacityMultiplier = -1f)
+        {
+            return SymbologyTintUtility.BuildTintColor(tint, baseColor, preserveElementAlpha, opacityMultiplier);
+        }
+
+        private void PruneDestroyedBaseColors()
+        {
+            RemoveDestroyedKeys(_imageBaseColors);
+            RemoveDestroyedKeys(_tmpTextBaseColors);
+            RemoveDestroyedKeys(_standardTextBaseColors);
+        }
+
+        private static void RemoveDestroyedKeys<T>(Dictionary<T, Color> colors) where T : Object
+        {
+            List<T> destroyedKeys = null;
+            foreach (T key in colors.Keys)
+            {
+                if (key == null)
+                {
+                    if (destroyedKeys == null)
+                    {
+                        destroyedKeys = new List<T>();
+                    }
+
+                    destroyedKeys.Add(key);
+                }
+            }
+
+            if (destroyedKeys == null)
+            {
+                return;
+            }
+
+            foreach (T key in destroyedKeys)
+            {
+                colors.Remove(key);
+            }
         }
         
         private Color GetPresetColor(ColorPreset preset)
@@ -441,7 +740,7 @@ namespace FAA.Customization
                 {
                     if (_cachedImages[i] != null)
                     {
-                        _cachedImages[i].color = currentLerpColor;
+                        _cachedImages[i].color = BuildTintColor(currentLerpColor, GetBaseColor(_cachedImages[i]));
                     }
                 }
                 
@@ -449,7 +748,7 @@ namespace FAA.Customization
                 {
                     if (_cachedTexts[i] != null)
                     {
-                        _cachedTexts[i].color = currentLerpColor;
+                        _cachedTexts[i].color = BuildTintColor(currentLerpColor, GetBaseColor(_cachedTexts[i]));
                     }
                 }
                 
@@ -457,7 +756,7 @@ namespace FAA.Customization
                 {
                     if (_cachedStandardTexts[i] != null)
                     {
-                        _cachedStandardTexts[i].color = currentLerpColor;
+                        _cachedStandardTexts[i].color = BuildTintColor(currentLerpColor, GetBaseColor(_cachedStandardTexts[i]));
                     }
                 }
                 

@@ -55,7 +55,7 @@ namespace TrafficRadar.Core
         [SerializeField] private bool syncFetchRadiusWithRange = false;
         
         [Header("Debug")]
-        [SerializeField] private bool verboseLogging = true;
+        [SerializeField] private bool verboseLogging = false;
         
         [Header("Events")]
         public UnityEvent<int> OnTargetCountChanged;

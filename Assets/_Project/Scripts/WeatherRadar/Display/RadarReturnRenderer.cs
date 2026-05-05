@@ -114,6 +114,7 @@ namespace WeatherRadar
             if (returnDisplay != null)
             {
                 returnDisplay.texture = displayTexture;
+                returnDisplay.color = Color.white;
             }
         }
 

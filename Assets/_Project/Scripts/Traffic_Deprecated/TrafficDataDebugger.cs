@@ -48,18 +48,22 @@ public class TrafficDataDebugger : MonoBehaviour
     private Rect windowRect;
     private bool initialized = false;
     
-    private void Awake()
+private void Awake()
     {
         m_trafficDataManager = FindObjectOfType<TrafficDataManager>();
         if (m_trafficDataManager == null)
         {
-            Debug.LogError("TrafficDataManager not found in the scene.");
+            Debug.LogWarning("[TrafficDataDebugger] TrafficDataManager not found in the scene. Debug UI will stay inactive until one exists.", this);
         }
-        InitializeStyles();
     }
     
-    private void OnEnable()
+private void OnEnable()
     {
+        if (m_trafficDataManager == null)
+        {
+            m_trafficDataManager = FindObjectOfType<TrafficDataManager>();
+        }
+
         if (m_trafficDataManager != null)
         {
             m_trafficDataManager.onDataUpdated.AddListener(OnTrafficDataUpdated);
@@ -129,8 +133,13 @@ public class TrafficDataDebugger : MonoBehaviour
         }
     }
     
-    private void OnTrafficDataUpdated(List<TrafficDataManager.AircraftData> aircraftList)
+private void OnTrafficDataUpdated(List<TrafficDataManager.AircraftData> aircraftList)
     {
+        if (aircraftList == null)
+        {
+            return;
+        }
+
         if (logUpdatesToConsole)
         {
             Debug.Log($"[TrafficDataDebugger] Received update with {aircraftList.Count} aircraft");
@@ -153,8 +162,7 @@ public class TrafficDataDebugger : MonoBehaviour
             previousPositions[aircraft.icao24] = currentPosition;
         }
 
-        // Update selected aircraft if we have one
-        if (!string.IsNullOrEmpty(selectedAircraftId))
+        if (!string.IsNullOrEmpty(selectedAircraftId) && m_trafficDataManager != null)
         {
             selectedAircraft = m_trafficDataManager.GetAircraftByIcao(selectedAircraftId);
         }

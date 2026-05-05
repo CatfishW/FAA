@@ -1,5 +1,6 @@
 using System.Collections;
 using System.Collections.Generic;
+using FAA.Customization;
 using UnityEngine;
 using UnityEngine.UI;
 using TMPro; // Add TMP namespace
@@ -25,10 +26,15 @@ public class HUDColorChanger : MonoBehaviour
     // Add exception parent list
     [Header("Exceptions")]
     [SerializeField] private List<Transform> exceptionParents = new List<Transform>();
+    [SerializeField] private bool tintOnlySymbologyElements = true;
+    [SerializeField] private bool preserveElementAlpha = true;
     
     private List<Image> imageComponents = new List<Image>();
     private List<Text> textComponents = new List<Text>();
     private List<TMP_Text> tmpTextComponents = new List<TMP_Text>(); // Add TMP_Text list
+    private readonly Dictionary<Image, Color> imageBaseColors = new Dictionary<Image, Color>();
+    private readonly Dictionary<Text, Color> textBaseColors = new Dictionary<Text, Color>();
+    private readonly Dictionary<TMP_Text, Color> tmpTextBaseColors = new Dictionary<TMP_Text, Color>();
     private bool isDarkTheme = false;
     private Color originalButtonColor;
 
@@ -78,7 +84,10 @@ public class HUDColorChanger : MonoBehaviour
                 continue;
             if (IsUnderExceptionParent(img.transform))
                 continue;
+            if (tintOnlySymbologyElements && !SymbologyTintUtility.ShouldTintImage(img))
+                continue;
             imageComponents.Add(img);
+            RememberBaseColor(img);
         }
 
         // Find all Text components (excluding exceptions)
@@ -87,7 +96,10 @@ public class HUDColorChanger : MonoBehaviour
         {
             if (IsUnderExceptionParent(txt.transform))
                 continue;
+            if (tintOnlySymbologyElements && !SymbologyTintUtility.ShouldTintText(txt.transform))
+                continue;
             textComponents.Add(txt);
+            RememberBaseColor(txt);
         }
 
         // Find all TMP_Text components (excluding exceptions)
@@ -96,7 +108,10 @@ public class HUDColorChanger : MonoBehaviour
         {
             if (IsUnderExceptionParent(tmp.transform))
                 continue;
+            if (tintOnlySymbologyElements && !SymbologyTintUtility.ShouldTintText(tmp.transform))
+                continue;
             tmpTextComponents.Add(tmp);
+            RememberBaseColor(tmp);
         }
     }
 
@@ -132,19 +147,19 @@ public class HUDColorChanger : MonoBehaviour
         // Update all images
         foreach (Image img in imageComponents)
         {
-            if (img != null) img.color = targetColor;
+            if (img != null) img.color = SymbologyTintUtility.BuildTintColor(targetColor, GetBaseColor(img), preserveElementAlpha);
         }
         
         // Update all Text components
         foreach (Text txt in textComponents)
         {
-            if (txt != null) txt.color = targetColor;
+            if (txt != null) txt.color = SymbologyTintUtility.BuildTintColor(targetColor, GetBaseColor(txt), preserveElementAlpha);
         }
 
         // Update all TMP_Text components
         foreach (TMP_Text tmp in tmpTextComponents)
         {
-            if (tmp != null) tmp.color = targetColor;
+            if (tmp != null) tmp.color = SymbologyTintUtility.BuildTintColor(targetColor, GetBaseColor(tmp), preserveElementAlpha);
         }
         
         // Update button appearance
@@ -162,5 +177,44 @@ public class HUDColorChanger : MonoBehaviour
             UnityEditor.SceneManagement.EditorSceneManager.MarkSceneDirty(gameObject.scene);
         }
 #endif
+    }
+
+    private void RememberBaseColor(Image image)
+    {
+        if (!imageBaseColors.ContainsKey(image))
+        {
+            imageBaseColors[image] = image.color;
+        }
+    }
+
+    private void RememberBaseColor(Text text)
+    {
+        if (!textBaseColors.ContainsKey(text))
+        {
+            textBaseColors[text] = text.color;
+        }
+    }
+
+    private void RememberBaseColor(TMP_Text text)
+    {
+        if (!tmpTextBaseColors.ContainsKey(text))
+        {
+            tmpTextBaseColors[text] = text.color;
+        }
+    }
+
+    private Color GetBaseColor(Image image)
+    {
+        return imageBaseColors.TryGetValue(image, out Color color) ? color : image.color;
+    }
+
+    private Color GetBaseColor(Text text)
+    {
+        return textBaseColors.TryGetValue(text, out Color color) ? color : text.color;
+    }
+
+    private Color GetBaseColor(TMP_Text text)
+    {
+        return tmpTextBaseColors.TryGetValue(text, out Color color) ? color : text.color;
     }
 }

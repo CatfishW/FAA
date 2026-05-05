@@ -282,7 +282,7 @@ namespace WeatherRadar.Editor
             returnRect.sizeDelta = new Vector2(radarSize, radarSize);
             returnRect.anchoredPosition = Vector2.zero;
             RawImage returnImage = returnObj.AddComponent<RawImage>();
-            returnImage.color = Color.white;
+            returnImage.color = Color.clear;
             RadarReturnRenderer returnRenderer = returnObj.AddComponent<RadarReturnRenderer>();
             
             // Wire return renderer
@@ -300,7 +300,7 @@ namespace WeatherRadar.Editor
             ringsRect.sizeDelta = new Vector2(radarSize, radarSize);
             ringsRect.anchoredPosition = Vector2.zero;
             RawImage ringsImage = ringsObj.AddComponent<RawImage>();
-            ringsImage.color = Color.white;
+            ringsImage.color = Color.clear;
             RangeRingsRenderer ringsRenderer = ringsObj.AddComponent<RangeRingsRenderer>();
 
             // Wire rings renderer
@@ -318,7 +318,7 @@ namespace WeatherRadar.Editor
             sweepRect.sizeDelta = new Vector2(radarSize, radarSize);
             sweepRect.anchoredPosition = Vector2.zero;
             RawImage sweepImage = sweepObj.AddComponent<RawImage>();
-            sweepImage.color = Color.white;
+            sweepImage.color = Color.clear;
             RadarSweepRenderer sweepRenderer = sweepObj.AddComponent<RadarSweepRenderer>();
 
             // Wire sweep renderer

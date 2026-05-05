@@ -353,7 +353,7 @@ namespace WeatherVisualization3D
             {
                 if (DensityVolume != null)
                 {
-                    UnityEngine.Object.Destroy(DensityVolume);
+                    DestroyUnityObject(DensityVolume);
                 }
                 
                 DensityVolume = new Texture3D(Resolution.x, Resolution.y, Resolution.z, TextureFormat.RGBA32, false);
@@ -483,7 +483,7 @@ namespace WeatherVisualization3D
 
             if (DensityVolume != null)
             {
-                UnityEngine.Object.Destroy(DensityVolume);
+                DestroyUnityObject(DensityVolume);
                 DensityVolume = null;
             }
 
@@ -494,6 +494,24 @@ namespace WeatherVisualization3D
             CloudLayers = null;
 
             _isDisposed = true;
+        }
+
+        private static void DestroyUnityObject(UnityEngine.Object target)
+        {
+            if (target == null)
+            {
+                return;
+            }
+
+#if UNITY_EDITOR
+            if (!Application.isPlaying)
+            {
+                UnityEngine.Object.DestroyImmediate(target);
+                return;
+            }
+#endif
+
+            UnityEngine.Object.Destroy(target);
         }
 
         #endregion

@@ -314,13 +314,17 @@ public class UniStormSystem : MonoBehaviour {
             {
                 if (GetPlayerMethod == GetPlayerMethodEnum.ByTag)
                 {
-                    PlayerTransform = GameObject.FindWithTag(PlayerTag).transform;
-                    PlayerCamera = GameObject.FindWithTag(CameraTag).GetComponent<Camera>();
+                    GameObject player = GameObject.FindWithTag(PlayerTag);
+                    GameObject cameraObject = GameObject.FindWithTag(CameraTag);
+                    PlayerTransform = player != null ? player.transform : null;
+                    PlayerCamera = cameraObject != null ? cameraObject.GetComponent<Camera>() : null;
                 }
                 else if (GetPlayerMethod == GetPlayerMethodEnum.ByName)
                 {
-                    PlayerTransform = GameObject.Find(PlayerName).transform;
-                    PlayerCamera = GameObject.Find(CameraName).GetComponent<Camera>();
+                    GameObject player = GameObject.Find(PlayerName);
+                    GameObject cameraObject = GameObject.Find(CameraName);
+                    PlayerTransform = player != null ? player.transform : null;
+                    PlayerCamera = cameraObject != null ? cameraObject.GetComponent<Camera>() : null;
                 }
                 InitializeUniStorm();
             }
@@ -338,13 +342,17 @@ public class UniStormSystem : MonoBehaviour {
         yield return new WaitWhile(() => PlayerTransform == null);
         if (GetPlayerMethod == GetPlayerMethodEnum.ByTag)
         {
-            PlayerTransform = GameObject.FindWithTag(PlayerTag).transform;
-            PlayerCamera = GameObject.FindWithTag(CameraTag).GetComponent<Camera>();
+            GameObject player = GameObject.FindWithTag(PlayerTag);
+            GameObject cameraObject = GameObject.FindWithTag(CameraTag);
+            PlayerTransform = player != null ? player.transform : null;
+            PlayerCamera = cameraObject != null ? cameraObject.GetComponent<Camera>() : null;
         }
         else if (GetPlayerMethod == GetPlayerMethodEnum.ByName)
         {
-            PlayerTransform = GameObject.Find(PlayerName).transform;
-            PlayerCamera = GameObject.Find(CameraName).GetComponent<Camera>();
+            GameObject player = GameObject.Find(PlayerName);
+            GameObject cameraObject = GameObject.Find(CameraName);
+            PlayerTransform = player != null ? player.transform : null;
+            PlayerCamera = cameraObject != null ? cameraObject.GetComponent<Camera>() : null;
         }
         InitializeUniStorm();
     }
@@ -502,7 +510,10 @@ public class UniStormSystem : MonoBehaviour {
         TempAudioSource.transform.localPosition = Vector3.zero;
         TempAudioSource.AddComponent<AudioSource>();
         TimeOfDayAudioSource = TempAudioSource.GetComponent<AudioSource>();
-        TimeOfDayAudioSource.outputAudioMixerGroup = UniStormAudioMixer.FindMatchingGroups("Master/Ambience")[0];
+        if (UniStormAudioMixer != null && UniStormAudioMixer.FindMatchingGroups("Master/Ambience").Length > 0)
+        {
+            TimeOfDayAudioSource.outputAudioMixerGroup = UniStormAudioMixer.FindMatchingGroups("Master/Ambience")[0];
+        }
         m_TimeOfDaySoundsSeconds = Random.Range(TimeOfDaySoundsSecondsMin, TimeOfDaySoundsSecondsMax+1);
 
         GameObject TempAudioSourceMusic = new GameObject("UniStorm Time of Day Music");
@@ -510,7 +521,10 @@ public class UniStormSystem : MonoBehaviour {
         TempAudioSourceMusic.transform.localPosition = Vector3.zero;
         TempAudioSourceMusic.AddComponent<AudioSource>();
         TimeOfDayMusicAudioSource = TempAudioSourceMusic.GetComponent<AudioSource>();
-        TimeOfDayMusicAudioSource.outputAudioMixerGroup = UniStormAudioMixer.FindMatchingGroups("Master/Music")[0];
+        if (UniStormAudioMixer != null && UniStormAudioMixer.FindMatchingGroups("Master/Music").Length > 0)
+        {
+            TimeOfDayMusicAudioSource.outputAudioMixerGroup = UniStormAudioMixer.FindMatchingGroups("Master/Music")[0];
+        }
 
         UniStormWindZone = GameObject.Find("UniStorm Windzone").GetComponent<WindZone>();
 
@@ -1259,6 +1273,11 @@ public class UniStormSystem : MonoBehaviour {
     //Calculates our time of day sounds according to the hour and randomized seconds set by the user.
     void PlayTimeOfDaySound ()
     {
+        if (TimeOfDayAudioSource == null)
+        {
+            return;
+        }
+
         m_TimeOfDaySoundsTimer += Time.deltaTime;
 
         if (m_TimeOfDaySoundsTimer >= m_TimeOfDaySoundsSeconds+m_CurrentClipLength)
@@ -1271,42 +1290,22 @@ public class UniStormSystem : MonoBehaviour {
                 if (CurrentTimeOfDay == CurrentTimeOfDayEnum.Morning)
                 {
                     //Morning Sounds
-                    if (MorningSounds.Count != 0)
-                    {
-                        TimeOfDayAudioSource.clip = MorningSounds[Random.Range(0, MorningSounds.Count)];
-                        TimeOfDayAudioSource.Play();
-                        m_CurrentClipLength = TimeOfDayAudioSource.clip.length;
-                    }
+                    PlayRandomSoundClip(MorningSounds);
                 }
                 else if (CurrentTimeOfDay == CurrentTimeOfDayEnum.Day)
                 {
                     //Day Sounds
-                    if (DaySounds.Count != 0)
-                    {
-                        TimeOfDayAudioSource.clip = DaySounds[Random.Range(0, DaySounds.Count)];
-                        TimeOfDayAudioSource.Play();
-                        m_CurrentClipLength = TimeOfDayAudioSource.clip.length;
-                    }
+                    PlayRandomSoundClip(DaySounds);
                 }
                 else if (CurrentTimeOfDay == CurrentTimeOfDayEnum.Evening)
                 {
                     //Evening Sounds
-                    if (EveningSounds.Count != 0)
-                    {
-                        TimeOfDayAudioSource.clip = EveningSounds[Random.Range(0, EveningSounds.Count)];
-                        TimeOfDayAudioSource.Play();
-                        m_CurrentClipLength = TimeOfDayAudioSource.clip.length;
-                    }
+                    PlayRandomSoundClip(EveningSounds);
                 }
                 else if (CurrentTimeOfDay == CurrentTimeOfDayEnum.Night)
                 {
                     //Night Sounds
-                    if (NightSounds.Count != 0)
-                    {
-                        TimeOfDayAudioSource.clip = NightSounds[Random.Range(0, NightSounds.Count)];
-                        TimeOfDayAudioSource.Play();
-                        m_CurrentClipLength = TimeOfDayAudioSource.clip.length;
-                    }
+                    PlayRandomSoundClip(NightSounds);
                 }
 
                 m_TimeOfDaySoundsTimer = 0;
@@ -1317,6 +1316,11 @@ public class UniStormSystem : MonoBehaviour {
     //Calculates our time of day sounds according to the hour and randomized seconds set by the user.
     void PlayTimeOfDayMusic()
     {
+        if (TimeOfDayMusicAudioSource == null)
+        {
+            return;
+        }
+
         m_TimeOfDayMusicTimer += Time.deltaTime;
 
         if (m_TimeOfDayMusicTimer >= m_CurrentMusicClipLength + TimeOfDayMusicDelay)
@@ -1324,46 +1328,72 @@ public class UniStormSystem : MonoBehaviour {
             if (CurrentTimeOfDay == CurrentTimeOfDayEnum.Morning)
             {
                 //Morning Music
-                if (MorningMusic.Count != 0)
-                {
-                    TimeOfDayMusicAudioSource.clip = MorningMusic[Random.Range(0, MorningMusic.Count)];
-                    TimeOfDayMusicAudioSource.Play();
-                    m_CurrentMusicClipLength = TimeOfDayMusicAudioSource.clip.length;
-                }
+                PlayRandomMusicClip(MorningMusic);
             }
             else if (CurrentTimeOfDay == CurrentTimeOfDayEnum.Day)
             {
                 //Day Music
-                if (DayMusic.Count != 0)
-                {
-                    TimeOfDayMusicAudioSource.clip = DayMusic[Random.Range(0, DayMusic.Count)];
-                    TimeOfDayMusicAudioSource.Play();
-                    m_CurrentMusicClipLength = TimeOfDayMusicAudioSource.clip.length;
-                }
+                PlayRandomMusicClip(DayMusic);
             }
             else if (CurrentTimeOfDay == CurrentTimeOfDayEnum.Evening)
             {
                 //Evening Music
-                if (EveningMusic.Count != 0)
-                {
-                    TimeOfDayMusicAudioSource.clip = EveningMusic[Random.Range(0, EveningMusic.Count)];
-                    TimeOfDayMusicAudioSource.Play();
-                    m_CurrentMusicClipLength = TimeOfDayMusicAudioSource.clip.length;
-                }
+                PlayRandomMusicClip(EveningMusic);
             }
             else if (CurrentTimeOfDay == CurrentTimeOfDayEnum.Night)
             {
                 //Night Music
-                if (NightMusic.Count != 0)
-                {
-                    TimeOfDayMusicAudioSource.clip = NightMusic[Random.Range(0, NightMusic.Count)];
-                    TimeOfDayMusicAudioSource.Play();
-                    m_CurrentMusicClipLength = TimeOfDayMusicAudioSource.clip.length;
-                }
+                PlayRandomMusicClip(NightMusic);
             }
 
             m_TimeOfDayMusicTimer = 0;
         }
+    }
+
+    void PlayRandomSoundClip(List<AudioClip> clips)
+    {
+        AudioClip clip = GetRandomValidClip(clips);
+        if (clip == null || TimeOfDayAudioSource == null)
+        {
+            return;
+        }
+
+        TimeOfDayAudioSource.clip = clip;
+        TimeOfDayAudioSource.Play();
+        m_CurrentClipLength = clip.length;
+    }
+
+    void PlayRandomMusicClip(List<AudioClip> clips)
+    {
+        AudioClip clip = GetRandomValidClip(clips);
+        if (clip == null || TimeOfDayMusicAudioSource == null)
+        {
+            return;
+        }
+
+        TimeOfDayMusicAudioSource.clip = clip;
+        TimeOfDayMusicAudioSource.Play();
+        m_CurrentMusicClipLength = clip.length;
+    }
+
+    AudioClip GetRandomValidClip(List<AudioClip> clips)
+    {
+        if (clips == null || clips.Count == 0)
+        {
+            return null;
+        }
+
+        int startIndex = Random.Range(0, clips.Count);
+        for (int i = 0; i < clips.Count; i++)
+        {
+            AudioClip clip = clips[(startIndex + i) % clips.Count];
+            if (clip != null)
+            {
+                return clip;
+            }
+        }
+
+        return null;
     }
 
     //Check our generated weather to see if it's time to update the weather.

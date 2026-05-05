@@ -270,6 +270,16 @@ namespace VoiceControl.UI
 
         private void ShowEditorPreview()
         {
+            if (_menuRoot == null)
+            {
+                SetupUI();
+            }
+
+            if (_menuRoot == null)
+            {
+                return;
+            }
+
             // In edit mode, show the menu open for preview
             _menuRoot.style.display = DisplayStyle.Flex;
             _openProgress = 1f;

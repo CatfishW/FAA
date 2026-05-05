@@ -24,7 +24,10 @@ namespace FAA.Geo
         }
         
         Instance = this;
-        DontDestroyOnLoad(gameObject);
+        if (transform.parent == null)
+        {
+            DontDestroyOnLoad(gameObject);
+        }
         
         InitializeProjection();
     }

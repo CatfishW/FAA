@@ -357,11 +357,11 @@ namespace WeatherVisualization3D
             {
                 rainMaterial = CreateRainMaterial();
             }
-            renderer.material = rainMaterial;
+            renderer.sharedMaterial = rainMaterial;
             renderer.shadowCastingMode = UnityEngine.Rendering.ShadowCastingMode.Off;
             renderer.receiveShadows = false;
 
-            Debug.Log($"[PrecipitationVFX] Rain system created with material: {(renderer.material != null ? renderer.material.name : "NULL")}");
+            Debug.Log($"[PrecipitationVFX] Rain system created with material: {(renderer.sharedMaterial != null ? renderer.sharedMaterial.name : "NULL")}");
 
             return ps;
         }
@@ -425,11 +425,11 @@ namespace WeatherVisualization3D
             {
                 snowMaterial = CreateSnowMaterial();
             }
-            renderer.material = snowMaterial;
+            renderer.sharedMaterial = snowMaterial;
             renderer.shadowCastingMode = UnityEngine.Rendering.ShadowCastingMode.Off;
             renderer.receiveShadows = false;
 
-            Debug.Log($"[PrecipitationVFX] Snow system created with material: {(renderer.material != null ? renderer.material.name : "NULL")}");
+            Debug.Log($"[PrecipitationVFX] Snow system created with material: {(renderer.sharedMaterial != null ? renderer.sharedMaterial.name : "NULL")}");
 
             return ps;
         }
@@ -596,14 +596,6 @@ namespace WeatherVisualization3D
         private void UpdateEmissionRates()
         {
             float rate = currentPrecipitationRate * effectIntensity;
-
-#if UNITY_EDITOR
-            if (rate > 0 && rainParticleSystem != null)
-            {
-                var emission = rainParticleSystem.emission;
-                Debug.Log($"[PrecipitationVFX] Setting emission rate: {rate * maxRainParticles:F0} (rate={rate:F2}, temp={currentTemperature:F1}°C)");
-            }
-#endif
 
             bool isSnow = currentTemperature <= snowThresholdCelsius;
 
