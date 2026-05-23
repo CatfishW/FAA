@@ -19,6 +19,8 @@ namespace FAA.Customization
         private const float LegacyScreenFlightHudScale = 420f;
         private const float MinimumReadableScreenFlightHudScale = 520f;
         private const float DefaultScreenFlightHudScale = 540f;
+        private const float MinimumTrafficRadarWidth = 520f;
+        private const float MinimumTrafficRadarHeight = 520f;
         private static readonly Vector2 LegacyScreenFlightHudAnchoredPosition = new Vector2(960f, 740f);
         private static readonly Vector2 DefaultScreenFlightHudAnchoredPosition = new Vector2(960f, 690f);
 
@@ -47,7 +49,7 @@ namespace FAA.Customization
         [SerializeField] private string trafficRadarRootName = "Traffic Radar System";
         [SerializeField] private string indicatorCanvasName = "XPlaneWeatherIndicatorCanvas";
         [SerializeField] private Vector2 weatherRadarSize = new Vector2(430f, 326f);
-        [SerializeField] private Vector2 trafficRadarSize = new Vector2(390f, 390f);
+        [SerializeField] private Vector2 trafficRadarSize = new Vector2(560f, 560f);
         [SerializeField] private Vector2 radarInset = new Vector2(28f, 28f);
         [SerializeField] private bool createRadarControlStrips = true;
         [SerializeField] private string radarControlsObjectName = DefaultRadarControlsObjectName;
@@ -151,6 +153,13 @@ namespace FAA.Customization
             if (Vector2.Distance(screenFlightHudAnchoredPosition, LegacyScreenFlightHudAnchoredPosition) < 0.5f)
             {
                 screenFlightHudAnchoredPosition = DefaultScreenFlightHudAnchoredPosition;
+            }
+
+            if (trafficRadarSize.x < MinimumTrafficRadarWidth || trafficRadarSize.y < MinimumTrafficRadarHeight)
+            {
+                trafficRadarSize = new Vector2(
+                    Mathf.Max(trafficRadarSize.x, MinimumTrafficRadarWidth),
+                    Mathf.Max(trafficRadarSize.y, MinimumTrafficRadarHeight));
             }
         }
 
@@ -348,7 +357,7 @@ namespace FAA.Customization
                 DisableWeatherReferenceOverlays(weatherRoot);
             }
 
-            Canvas trafficCanvas = EnsureOverlayCanvas(trafficRadarCanvasName, screenFlightHudSortingOrder + 30, true);
+            Canvas trafficCanvas = EnsureOverlayCanvas(trafficRadarCanvasName, screenFlightHudSortingOrder + 80, true);
             GameObject trafficRoot = FindPreferredTrafficRadarRoot();
             if (trafficRoot != null && trafficCanvas != null)
             {
@@ -395,11 +404,57 @@ namespace FAA.Customization
                 group.interactable = true;
             }
 
+            DisableTrafficDisplayMask(radarDisplay.gameObject);
             foreach (TrafficRadar.TrafficRadarDisplay display in radarDisplay.GetComponentsInChildren<TrafficRadar.TrafficRadarDisplay>(true))
             {
                 display.enabled = true;
                 display.ShowRadarBackground = false;
                 display.PreferXPlaneTrafficTexture = true;
+                ForceVisibleRawImage(display.RadarImage, true);
+            }
+        }
+
+        private static void DisableTrafficDisplayMask(GameObject radarDisplay)
+        {
+            if (radarDisplay == null)
+            {
+                return;
+            }
+
+            foreach (Mask mask in radarDisplay.GetComponents<Mask>())
+            {
+                if (mask != null)
+                {
+                    mask.enabled = false;
+                    mask.showMaskGraphic = false;
+                }
+            }
+
+            UnityEngine.UI.Image image = radarDisplay.GetComponent<UnityEngine.UI.Image>();
+            if (image != null)
+            {
+                Color color = image.color;
+                color.a = 0f;
+                image.color = color;
+                image.raycastTarget = false;
+            }
+        }
+
+        private static void ForceVisibleRawImage(RawImage image, bool preserveExistingTexture)
+        {
+            if (image == null)
+            {
+                return;
+            }
+
+            image.gameObject.SetActive(true);
+            image.enabled = true;
+            image.color = Color.white;
+            image.material = null;
+            image.raycastTarget = false;
+            if (!preserveExistingTexture || image.texture == null)
+            {
+                image.texture = Texture2D.blackTexture;
             }
         }
 
@@ -515,7 +570,9 @@ namespace FAA.Customization
                     continue;
                 }
 
-                if (canvas == null || candidate.transform.childCount > canvas.transform.childCount)
+                int candidateScore = ScoreOverlayCanvas(candidate);
+                int canvasScore = canvas != null ? ScoreOverlayCanvas(canvas) : int.MinValue;
+                if (canvas == null || candidateScore > canvasScore)
                 {
                     canvas = candidate;
                 }
@@ -566,6 +623,30 @@ namespace FAA.Customization
             }
             raycaster.enabled = raycasterEnabled;
             return canvas;
+        }
+
+        private static int ScoreOverlayCanvas(Canvas canvas)
+        {
+            if (canvas == null)
+            {
+                return int.MinValue;
+            }
+
+            int score = canvas.transform.childCount;
+            if (canvas.gameObject.activeInHierarchy)
+            {
+                score += 100;
+            }
+            if (canvas.renderMode == RenderMode.ScreenSpaceOverlay)
+            {
+                score += 50;
+            }
+            if (canvas.gameObject.name == "XPlaneTrafficRadarCanvas" || canvas.gameObject.name == "XPlaneWeatherRadarCanvas")
+            {
+                score += 25;
+            }
+
+            return score;
         }
 
         private static void RehomeDuplicateOverlayCanvases(string objectName, Canvas keep)
@@ -654,8 +735,8 @@ namespace FAA.Customization
 
         private GameObject FindPreferredTrafficRadarRoot()
         {
-            GameObject activeDisplayFallback = null;
-            GameObject nonWorldFallback = null;
+            GameObject bestRoot = null;
+            int bestScore = int.MinValue;
             GameObject fallback = null;
 
             foreach (Transform transform in FindObjectsByType<Transform>(FindObjectsInactive.Include, FindObjectsSortMode.None))
@@ -667,24 +748,66 @@ namespace FAA.Customization
 
                 fallback ??= transform.gameObject;
                 string path = GetHierarchyPath(transform);
-                bool isWorldSpaceDuplicate = path.Contains("faasymbologycanvasworldspace");
-                if (!isWorldSpaceDuplicate)
+                int score = ScoreTrafficRadarRoot(transform.gameObject, path);
+                if (score > bestScore)
                 {
-                    nonWorldFallback ??= transform.gameObject;
+                    bestRoot = transform.gameObject;
+                    bestScore = score;
                 }
+            }
 
-                Transform radarDisplay = FindChildRecursive(transform, "Radar Display");
-                if (radarDisplay != null && radarDisplay.gameObject.activeSelf)
+            return bestRoot != null ? bestRoot : fallback;
+        }
+
+        private static int ScoreTrafficRadarRoot(GameObject root, string path)
+        {
+            if (root == null)
+            {
+                return int.MinValue;
+            }
+
+            string lowerPath = (path ?? string.Empty).ToLowerInvariant();
+            int score = 0;
+            if (lowerPath.StartsWith("xplanetrafficradarcanvas/"))
+            {
+                score += 5000;
+            }
+            if (lowerPath.Contains("/faasymbologycanvas/radarcanvas") ||
+                lowerPath.Contains("faasymbologycanvasworldspace"))
+            {
+                score -= 2000;
+            }
+            if (root.activeSelf)
+            {
+                score += 500;
+            }
+            if (root.activeInHierarchy)
+            {
+                score += 500;
+            }
+
+            Transform radarDisplay = FindChildRecursive(root.transform, "Radar Display");
+            if (radarDisplay != null)
+            {
+                score += radarDisplay.gameObject.activeSelf ? 250 : 50;
+                TrafficRadar.TrafficRadarDisplay display =
+                    radarDisplay.GetComponentInChildren<TrafficRadar.TrafficRadarDisplay>(true);
+                if (display != null)
                 {
-                    activeDisplayFallback ??= transform.gameObject;
-                    if (!isWorldSpaceDuplicate)
+                    score += 100;
+                    RawImage image = display.RadarImage;
+                    if (image != null)
                     {
-                        return transform.gameObject;
+                        score += 100;
+                        if (image.gameObject.activeSelf && image.enabled && image.color.a > 0.01f)
+                        {
+                            score += 100;
+                        }
                     }
                 }
             }
 
-            return activeDisplayFallback != null ? activeDisplayFallback : nonWorldFallback ?? fallback;
+            return score;
         }
 
         private static Transform FindChildRecursive(Transform parent, string childName)

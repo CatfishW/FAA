@@ -45,6 +45,7 @@ namespace FAA.Editor
         private const string XPlaneWeatherRadarConfigPath = "Assets/_Project/ScriptableObjects/XPlaneWeatherRadarConfig.asset";
         private const string XPlaneWeatherRadarPreviewPath = "Assets/_Project/Textures/XPlaneWeatherRadarPreview.png";
         private const float ScreenFlightHudScale = 540f;
+        private static readonly Vector2 TrafficRadarSize = new Vector2(560f, 560f);
         private static readonly Vector2 ScreenFlightHudAnchoredPosition = new Vector2(960f, 690f);
         private const int ScreenFlightHudSortingOrder = 5000;
 
@@ -453,7 +454,7 @@ namespace FAA.Editor
             rootRect.anchorMax = new Vector2(1f, 0f);
             rootRect.pivot = new Vector2(1f, 0f);
             rootRect.anchoredPosition = new Vector2(-28f, 28f);
-            rootRect.sizeDelta = new Vector2(390f, 390f);
+            rootRect.sizeDelta = TrafficRadarSize;
             rootRect.localScale = Vector3.one;
 
             global::TrafficRadar.TrafficRadarDataManager dataManager =
@@ -476,6 +477,7 @@ namespace FAA.Editor
                 SetColor(displaySo, "backgroundColor", new Color(0f, 0f, 0f, 0.82f));
                 SetColor(displaySo, "rangeRingColor", new Color(0.42f, 0.95f, 0.52f, 0.45f));
                 SetColor(displaySo, "compassMarkingsColor", new Color(0.62f, 1f, 0.7f, 0.78f));
+                SetObject(displaySo, "radarImage", EnsureTrafficRadarImage(display));
                 displaySo.ApplyModifiedPropertiesWithoutUndo();
                 EditorUtility.SetDirty(display);
             }
@@ -512,6 +514,47 @@ namespace FAA.Editor
             EditorUtility.SetDirty(bridge);
         }
 
+        private static RawImage EnsureTrafficRadarImage(global::TrafficRadar.TrafficRadarDisplay display)
+        {
+            if (display == null)
+            {
+                return null;
+            }
+
+            RawImage image = display.RadarImage;
+            if (image == null)
+            {
+                Transform existing = FindChildRecursive(display.transform, "Radar Image");
+                GameObject imageObject = existing != null
+                    ? existing.gameObject
+                    : new GameObject("Radar Image", typeof(RectTransform), typeof(CanvasRenderer), typeof(RawImage));
+                imageObject.transform.SetParent(display.transform, false);
+                image = imageObject.GetComponent<RawImage>() ?? imageObject.AddComponent<RawImage>();
+            }
+
+            image.gameObject.name = "Radar Image";
+            image.gameObject.SetActive(true);
+            image.enabled = true;
+            image.texture = Texture2D.blackTexture;
+            image.color = Color.white;
+            image.material = null;
+            image.raycastTarget = false;
+
+            RectTransform imageRect = EnsureRectTransform(image.gameObject);
+            imageRect.anchorMin = Vector2.zero;
+            imageRect.anchorMax = Vector2.one;
+            imageRect.pivot = new Vector2(0.5f, 0.5f);
+            imageRect.anchoredPosition = Vector2.zero;
+            imageRect.sizeDelta = Vector2.zero;
+            imageRect.localScale = Vector3.one;
+            imageRect.localRotation = Quaternion.identity;
+
+            EditorUtility.SetDirty(image);
+            EditorUtility.SetDirty(image.gameObject);
+            EditorUtility.SetDirty(imageRect);
+            return image;
+        }
+
         private static void NormalizeTrafficRadarDisplayRoot(GameObject root, global::TrafficRadar.TrafficRadarDisplay display)
         {
             if (root == null || display == null)
@@ -530,8 +573,36 @@ namespace FAA.Editor
             displayRect.localRotation = Quaternion.identity;
             display.gameObject.SetActive(true);
             display.enabled = true;
+            DisableTrafficDisplayMask(display.gameObject);
+            EnsureTrafficRadarImage(display);
             EditorUtility.SetDirty(displayRect);
             EditorUtility.SetDirty(display.gameObject);
+        }
+
+        private static void DisableTrafficDisplayMask(GameObject displayObject)
+        {
+            if (displayObject == null)
+            {
+                return;
+            }
+
+            Mask mask = displayObject.GetComponent<Mask>();
+            if (mask != null)
+            {
+                mask.enabled = false;
+                mask.showMaskGraphic = false;
+                EditorUtility.SetDirty(mask);
+            }
+
+            UnityEngine.UI.Image image = displayObject.GetComponent<UnityEngine.UI.Image>();
+            if (image != null)
+            {
+                Color color = image.color;
+                color.a = 0f;
+                image.color = color;
+                image.raycastTarget = false;
+                EditorUtility.SetDirty(image);
+            }
         }
 
         private static void SuppressDuplicateTrafficRadarControllers(global::TrafficRadar.Core.TrafficRadarController keep)
@@ -834,7 +905,7 @@ namespace FAA.Editor
             canvas.enabled = true;
             canvas.renderMode = RenderMode.ScreenSpaceOverlay;
             canvas.overrideSorting = true;
-            canvas.sortingOrder = ScreenFlightHudSortingOrder + 30;
+            canvas.sortingOrder = ScreenFlightHudSortingOrder + 80;
 
             UnityEngine.UI.CanvasScaler scaler = canvas.GetComponent<UnityEngine.UI.CanvasScaler>();
             if (scaler == null)
@@ -863,10 +934,58 @@ namespace FAA.Editor
         {
             return FindSceneObjects<global::TrafficRadar.Core.TrafficRadarController>()
                 .Where(controller => controller != null && controller.gameObject.name == TrafficRadarRootName)
-                .OrderByDescending(controller => HasActiveChildNamed(controller.transform, "Radar Display"))
-                .ThenBy(controller => GetHierarchyPath(controller.transform).IndexOf("FAASymbologyCanvasWorldSpace", StringComparison.OrdinalIgnoreCase) >= 0 ? 1 : 0)
-                .ThenByDescending(controller => controller.gameObject.activeSelf)
+                .OrderByDescending(controller => ScoreTrafficRadarController(controller))
                 .FirstOrDefault();
+        }
+
+        private static int ScoreTrafficRadarController(global::TrafficRadar.Core.TrafficRadarController controller)
+        {
+            if (controller == null)
+            {
+                return int.MinValue;
+            }
+
+            string lowerPath = GetHierarchyPath(controller.transform).ToLowerInvariant();
+            int score = 0;
+            if (lowerPath.StartsWith("xplanetrafficradarcanvas/"))
+            {
+                score += 5000;
+            }
+            if (lowerPath.Contains("/faasymbologycanvas/radarcanvas") ||
+                lowerPath.Contains("faasymbologycanvasworldspace"))
+            {
+                score -= 2000;
+            }
+            if (controller.gameObject.activeSelf)
+            {
+                score += 500;
+            }
+            if (controller.gameObject.activeInHierarchy)
+            {
+                score += 500;
+            }
+            if (HasActiveChildNamed(controller.transform, "Radar Display"))
+            {
+                score += 250;
+            }
+
+            global::TrafficRadar.TrafficRadarDisplay display =
+                controller.GetComponentInChildren<global::TrafficRadar.TrafficRadarDisplay>(true);
+            if (display != null)
+            {
+                score += 100;
+                RawImage image = display.RadarImage;
+                if (image != null)
+                {
+                    score += 100;
+                    if (image.gameObject.activeSelf && image.enabled && image.color.a > 0.01f)
+                    {
+                        score += 100;
+                    }
+                }
+            }
+
+            return score;
         }
 
         private static bool HasActiveChildNamed(Transform root, string childName)
@@ -885,6 +1004,30 @@ namespace FAA.Editor
             }
 
             return false;
+        }
+
+        private static Transform FindChildRecursive(Transform root, string childName)
+        {
+            if (root == null)
+            {
+                return null;
+            }
+
+            foreach (Transform child in root)
+            {
+                if (child.name == childName)
+                {
+                    return child;
+                }
+
+                Transform match = FindChildRecursive(child, childName);
+                if (match != null)
+                {
+                    return match;
+                }
+            }
+
+            return null;
         }
 
         private static WeatherRadarConfig EnsureXPlaneWeatherRadarConfig()
@@ -1534,7 +1677,7 @@ namespace FAA.Editor
             SetString(serializedSanitizer, "trafficRadarCanvasName", XPlaneTrafficRadarCanvasName);
             SetString(serializedSanitizer, "trafficRadarRootName", TrafficRadarRootName);
             SetVector2(serializedSanitizer, "weatherRadarSize", new Vector2(430f, 326f));
-            SetVector2(serializedSanitizer, "trafficRadarSize", new Vector2(390f, 390f));
+            SetVector2(serializedSanitizer, "trafficRadarSize", TrafficRadarSize);
             SetVector2(serializedSanitizer, "radarInset", new Vector2(28f, 28f));
             SetBool(serializedSanitizer, "createRadarControlStrips", true);
             SetString(serializedSanitizer, "radarControlsObjectName", "X-Plane Radar Controls");

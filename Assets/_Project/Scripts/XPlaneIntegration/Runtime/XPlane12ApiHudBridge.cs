@@ -427,12 +427,16 @@ namespace FAA.XPlaneIntegration.Runtime
                 weatherImageTarget = xPlaneWeatherRadarDisplay.TargetImage;
             }
 
-            if (xPlaneTrafficRadarDisplay == null)
+            TrafficRadarDisplay preferredTrafficDisplay = FindPreferredTrafficRadarDisplay();
+            if (preferredTrafficDisplay != null &&
+                (xPlaneTrafficRadarDisplay == null ||
+                 xPlaneTrafficRadarDisplay != preferredTrafficDisplay ||
+                 !IsUsableTrafficImageTarget(trafficImageTarget)))
             {
-                xPlaneTrafficRadarDisplay = FindAnyObjectByType<TrafficRadarDisplay>(FindObjectsInactive.Include);
+                xPlaneTrafficRadarDisplay = preferredTrafficDisplay;
             }
 
-            if (trafficImageTarget == null && xPlaneTrafficRadarDisplay != null)
+            if (!IsUsableTrafficImageTarget(trafficImageTarget) && xPlaneTrafficRadarDisplay != null)
             {
                 trafficImageTarget = xPlaneTrafficRadarDisplay.RadarImage;
             }
@@ -1815,7 +1819,7 @@ namespace FAA.XPlaneIntegration.Runtime
                     });
                 }
 
-                if (trafficImageTarget != null)
+                if (IsUsableTrafficImageTarget(trafficImageTarget) || TryBindTrafficTextureTarget())
                 {
                     yield return DownloadTexture(GetTrafficTexturePath(), texture =>
                     {
@@ -1840,6 +1844,11 @@ namespace FAA.XPlaneIntegration.Runtime
                 return;
             }
 
+            if (!IsUsableTrafficImageTarget(trafficImageTarget))
+            {
+                TryBindTrafficTextureTarget();
+            }
+
             if (trafficImageTarget != null)
             {
                 trafficImageTarget.texture = texture;
@@ -1861,6 +1870,89 @@ namespace FAA.XPlaneIntegration.Runtime
                     display.ShowXPlaneTrafficTexture(texture);
                 }
             }
+        }
+
+        private bool TryBindTrafficTextureTarget()
+        {
+            TrafficRadarDisplay display = FindPreferredTrafficRadarDisplay();
+            if (display == null)
+            {
+                return false;
+            }
+
+            xPlaneTrafficRadarDisplay = display;
+            trafficImageTarget = display.RadarImage;
+            return IsUsableTrafficImageTarget(trafficImageTarget);
+        }
+
+        private static bool IsUsableTrafficImageTarget(RawImage image)
+        {
+            return image != null && image.gameObject.activeInHierarchy && image.enabled;
+        }
+
+        private static TrafficRadarDisplay FindPreferredTrafficRadarDisplay()
+        {
+            TrafficRadarDisplay best = null;
+            int bestScore = int.MinValue;
+            foreach (TrafficRadarDisplay display in FindObjectsByType<TrafficRadarDisplay>(FindObjectsInactive.Include, FindObjectsSortMode.None))
+            {
+                int score = ScoreTrafficRadarDisplay(display);
+                if (score > bestScore)
+                {
+                    best = display;
+                    bestScore = score;
+                }
+            }
+
+            return best;
+        }
+
+        private static int ScoreTrafficRadarDisplay(TrafficRadarDisplay display)
+        {
+            if (display == null)
+            {
+                return int.MinValue;
+            }
+
+            string path = GetHierarchyPath(display.transform).ToLowerInvariant();
+            int score = 0;
+            if (path.StartsWith("xplanetrafficradarcanvas/"))
+            {
+                score += 5000;
+            }
+            if (path.Contains("/faasymbologycanvas/radarcanvas") ||
+                path.Contains("faasymbologycanvasworldspace"))
+            {
+                score -= 2000;
+            }
+            if (display.gameObject.activeSelf)
+            {
+                score += 500;
+            }
+            if (display.gameObject.activeInHierarchy)
+            {
+                score += 500;
+            }
+            if (display.enabled)
+            {
+                score += 100;
+            }
+
+            RawImage image = display.RadarImage;
+            if (image != null)
+            {
+                score += 100;
+                if (image.gameObject.activeSelf && image.enabled)
+                {
+                    score += 100;
+                }
+                if (image.color.a > 0.01f)
+                {
+                    score += 100;
+                }
+            }
+
+            return score;
         }
 
         private string GetTrafficTexturePath()
@@ -2377,6 +2469,24 @@ namespace FAA.XPlaneIntegration.Runtime
 
             Destroy(texture);
             texture = null;
+        }
+
+        private static string GetHierarchyPath(Transform transform)
+        {
+            if (transform == null)
+            {
+                return string.Empty;
+            }
+
+            Stack<string> names = new Stack<string>();
+            Transform current = transform;
+            while (current != null)
+            {
+                names.Push(current.name);
+                current = current.parent;
+            }
+
+            return string.Join("/", names);
         }
     }
 
