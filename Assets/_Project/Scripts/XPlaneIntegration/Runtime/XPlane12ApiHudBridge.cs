@@ -427,16 +427,18 @@ namespace FAA.XPlaneIntegration.Runtime
                 weatherImageTarget = xPlaneWeatherRadarDisplay.TargetImage;
             }
 
-            TrafficRadarDisplay preferredTrafficDisplay = FindPreferredTrafficRadarDisplay();
+            TrafficRadarDisplay preferredTrafficDisplay = FindPreferredTrafficTextureDisplay();
             if (preferredTrafficDisplay != null &&
                 (xPlaneTrafficRadarDisplay == null ||
                  xPlaneTrafficRadarDisplay != preferredTrafficDisplay ||
-                 !IsUsableTrafficImageTarget(trafficImageTarget)))
+                 !IsUsableTrafficTextureTarget(trafficImageTarget)))
             {
                 xPlaneTrafficRadarDisplay = preferredTrafficDisplay;
             }
 
-            if (!IsUsableTrafficImageTarget(trafficImageTarget) && xPlaneTrafficRadarDisplay != null)
+            if (!IsUsableTrafficTextureTarget(trafficImageTarget) &&
+                xPlaneTrafficRadarDisplay != null &&
+                xPlaneTrafficRadarDisplay.UsesXPlaneTrafficTexture)
             {
                 trafficImageTarget = xPlaneTrafficRadarDisplay.RadarImage;
             }
@@ -1819,7 +1821,7 @@ namespace FAA.XPlaneIntegration.Runtime
                     });
                 }
 
-                if (IsUsableTrafficImageTarget(trafficImageTarget) || TryBindTrafficTextureTarget())
+                if (HasTrafficTextureConsumer())
                 {
                     yield return DownloadTexture(GetTrafficTexturePath(), texture =>
                     {
@@ -1844,12 +1846,12 @@ namespace FAA.XPlaneIntegration.Runtime
                 return;
             }
 
-            if (!IsUsableTrafficImageTarget(trafficImageTarget))
+            if (!IsUsableTrafficTextureTarget(trafficImageTarget))
             {
                 TryBindTrafficTextureTarget();
             }
 
-            if (trafficImageTarget != null)
+            if (IsUsableTrafficTextureTarget(trafficImageTarget))
             {
                 trafficImageTarget.texture = texture;
                 trafficImageTarget.color = Color.white;
@@ -1857,7 +1859,7 @@ namespace FAA.XPlaneIntegration.Runtime
                 trafficImageTarget.raycastTarget = false;
             }
 
-            if (xPlaneTrafficRadarDisplay != null)
+            if (xPlaneTrafficRadarDisplay != null && xPlaneTrafficRadarDisplay.UsesXPlaneTrafficTexture)
             {
                 xPlaneTrafficRadarDisplay.ShowXPlaneTrafficTexture(texture);
             }
@@ -1872,30 +1874,49 @@ namespace FAA.XPlaneIntegration.Runtime
             }
         }
 
+        private bool HasTrafficTextureConsumer()
+        {
+            if (xPlaneTrafficRadarDisplay != null &&
+                xPlaneTrafficRadarDisplay.UsesXPlaneTrafficTexture &&
+                IsUsableTrafficTextureTarget(xPlaneTrafficRadarDisplay.RadarImage))
+            {
+                trafficImageTarget = xPlaneTrafficRadarDisplay.RadarImage;
+                return true;
+            }
+
+            return TryBindTrafficTextureTarget();
+        }
+
         private bool TryBindTrafficTextureTarget()
         {
-            TrafficRadarDisplay display = FindPreferredTrafficRadarDisplay();
+            TrafficRadarDisplay display = FindPreferredTrafficTextureDisplay();
             if (display == null)
             {
+                trafficImageTarget = null;
                 return false;
             }
 
             xPlaneTrafficRadarDisplay = display;
             trafficImageTarget = display.RadarImage;
-            return IsUsableTrafficImageTarget(trafficImageTarget);
+            return IsUsableTrafficTextureTarget(trafficImageTarget);
         }
 
-        private static bool IsUsableTrafficImageTarget(RawImage image)
+        private static bool IsUsableTrafficTextureTarget(RawImage image)
         {
             return image != null && image.gameObject.activeInHierarchy && image.enabled;
         }
 
-        private static TrafficRadarDisplay FindPreferredTrafficRadarDisplay()
+        private static TrafficRadarDisplay FindPreferredTrafficTextureDisplay()
         {
             TrafficRadarDisplay best = null;
             int bestScore = int.MinValue;
             foreach (TrafficRadarDisplay display in FindObjectsByType<TrafficRadarDisplay>(FindObjectsInactive.Include, FindObjectsSortMode.None))
             {
+                if (display == null || !display.UsesXPlaneTrafficTexture || !display.gameObject.activeInHierarchy)
+                {
+                    continue;
+                }
+
                 int score = ScoreTrafficRadarDisplay(display);
                 if (score > bestScore)
                 {

@@ -469,8 +469,8 @@ namespace FAA.Editor
                 SetObject(displaySo, "radarController", controller);
                 SetBool(displaySo, "showChartBackground", false);
                 SetBool(displaySo, "showRadarBackground", false);
-                SetBool(displaySo, "preferXPlaneTrafficTexture", true);
-                SetBool(displaySo, "hideGeneratedOverlaysWithXPlaneTexture", true);
+                SetBool(displaySo, "preferXPlaneTrafficTexture", false);
+                SetBool(displaySo, "hideGeneratedOverlaysWithXPlaneTexture", false);
                 SetVector2(displaySo, "xPlaneTextureFallbackSize", new Vector2(420f, 480f));
                 SetFloat(displaySo, "rangeNM", 40f);
                 SetInt(displaySo, "rangeRingCount", 4);
@@ -504,8 +504,8 @@ namespace FAA.Editor
             SerializedObject bridgeSo = new SerializedObject(bridge);
             SetObject(bridgeSo, "trafficRadarDataManager", dataManager);
             SetObject(bridgeSo, "trafficRadarController", controller);
-            SetObject(bridgeSo, "xPlaneTrafficRadarDisplay", display);
-            SetObject(bridgeSo, "trafficImageTarget", display != null ? display.RadarImage : null);
+            SetObject(bridgeSo, "xPlaneTrafficRadarDisplay", null);
+            SetObject(bridgeSo, "trafficImageTarget", null);
             bridgeSo.ApplyModifiedPropertiesWithoutUndo();
 
             EditorUtility.SetDirty(root);
@@ -573,13 +573,13 @@ namespace FAA.Editor
             displayRect.localRotation = Quaternion.identity;
             display.gameObject.SetActive(true);
             display.enabled = true;
-            DisableTrafficDisplayMask(display.gameObject);
+            RestoreTrafficDisplayMask(display.gameObject);
             EnsureTrafficRadarImage(display);
             EditorUtility.SetDirty(displayRect);
             EditorUtility.SetDirty(display.gameObject);
         }
 
-        private static void DisableTrafficDisplayMask(GameObject displayObject)
+        private static void RestoreTrafficDisplayMask(GameObject displayObject)
         {
             if (displayObject == null)
             {
@@ -589,17 +589,15 @@ namespace FAA.Editor
             Mask mask = displayObject.GetComponent<Mask>();
             if (mask != null)
             {
-                mask.enabled = false;
-                mask.showMaskGraphic = false;
+                mask.enabled = true;
+                mask.showMaskGraphic = true;
                 EditorUtility.SetDirty(mask);
             }
 
             UnityEngine.UI.Image image = displayObject.GetComponent<UnityEngine.UI.Image>();
             if (image != null)
             {
-                Color color = image.color;
-                color.a = 0f;
-                image.color = color;
+                image.color = new Color(0.05f, 0.1f, 0.15f, 0.95f);
                 image.raycastTarget = false;
                 EditorUtility.SetDirty(image);
             }
@@ -627,7 +625,31 @@ namespace FAA.Editor
                     continue;
                 }
 
+                DisableTrafficTextureMode(controller.gameObject);
                 DisableLegacyOverlayRoot(controller.gameObject);
+            }
+        }
+
+        private static void DisableTrafficTextureMode(GameObject root)
+        {
+            if (root == null)
+            {
+                return;
+            }
+
+            foreach (global::TrafficRadar.TrafficRadarDisplay display in
+                     root.GetComponentsInChildren<global::TrafficRadar.TrafficRadarDisplay>(true))
+            {
+                if (display == null)
+                {
+                    continue;
+                }
+
+                SerializedObject displaySo = new SerializedObject(display);
+                SetBool(displaySo, "preferXPlaneTrafficTexture", false);
+                SetBool(displaySo, "hideGeneratedOverlaysWithXPlaneTexture", false);
+                displaySo.ApplyModifiedPropertiesWithoutUndo();
+                EditorUtility.SetDirty(display);
             }
         }
 

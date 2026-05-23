@@ -68,7 +68,7 @@ namespace TrafficRadar
 
         [Header("X-Plane Traffic Texture")]
         [Tooltip("Show the live X-Plane traffic radar PNG directly instead of reconstructing traffic symbols in Unity.")]
-        [SerializeField] private bool preferXPlaneTrafficTexture = true;
+        [SerializeField] private bool preferXPlaneTrafficTexture = false;
 
         [Tooltip("Hide Unity-generated rings, chart, range labels, and compass labels while the X-Plane texture is the selected source.")]
         [SerializeField] private bool hideGeneratedOverlaysWithXPlaneTexture = true;

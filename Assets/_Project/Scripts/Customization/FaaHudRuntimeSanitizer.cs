@@ -404,17 +404,17 @@ namespace FAA.Customization
                 group.interactable = true;
             }
 
-            DisableTrafficDisplayMask(radarDisplay.gameObject);
+            RestoreTrafficDisplayMask(radarDisplay.gameObject);
             foreach (TrafficRadar.TrafficRadarDisplay display in radarDisplay.GetComponentsInChildren<TrafficRadar.TrafficRadarDisplay>(true))
             {
                 display.enabled = true;
                 display.ShowRadarBackground = false;
-                display.PreferXPlaneTrafficTexture = true;
-                ForceVisibleRawImage(display.RadarImage, true);
+                display.PreferXPlaneTrafficTexture = false;
+                RestoreDesignedRadarImage(display.RadarImage);
             }
         }
 
-        private static void DisableTrafficDisplayMask(GameObject radarDisplay)
+        private static void RestoreTrafficDisplayMask(GameObject radarDisplay)
         {
             if (radarDisplay == null)
             {
@@ -425,22 +425,20 @@ namespace FAA.Customization
             {
                 if (mask != null)
                 {
-                    mask.enabled = false;
-                    mask.showMaskGraphic = false;
+                    mask.enabled = true;
+                    mask.showMaskGraphic = true;
                 }
             }
 
             UnityEngine.UI.Image image = radarDisplay.GetComponent<UnityEngine.UI.Image>();
             if (image != null)
             {
-                Color color = image.color;
-                color.a = 0f;
-                image.color = color;
+                image.color = new Color(0.05f, 0.1f, 0.15f, 0.95f);
                 image.raycastTarget = false;
             }
         }
 
-        private static void ForceVisibleRawImage(RawImage image, bool preserveExistingTexture)
+        private static void RestoreDesignedRadarImage(RawImage image)
         {
             if (image == null)
             {
@@ -450,12 +448,7 @@ namespace FAA.Customization
             image.gameObject.SetActive(true);
             image.enabled = true;
             image.color = Color.white;
-            image.material = null;
             image.raycastTarget = false;
-            if (!preserveExistingTexture || image.texture == null)
-            {
-                image.texture = Texture2D.blackTexture;
-            }
         }
 
         private static void DisableWeatherReferenceOverlays(GameObject weatherRoot)
@@ -519,7 +512,24 @@ namespace FAA.Customization
                     continue;
                 }
 
+                DisableTrafficTextureMode(transform.gameObject);
                 SuppressDuplicateHudRoot(transform.gameObject);
+            }
+        }
+
+        private static void DisableTrafficTextureMode(GameObject root)
+        {
+            if (root == null)
+            {
+                return;
+            }
+
+            foreach (TrafficRadar.TrafficRadarDisplay display in root.GetComponentsInChildren<TrafficRadar.TrafficRadarDisplay>(true))
+            {
+                if (display != null)
+                {
+                    display.PreferXPlaneTrafficTexture = false;
+                }
             }
         }
 
