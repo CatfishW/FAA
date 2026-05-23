@@ -14,6 +14,8 @@ namespace FAA.Editor
 {
     public static class FaaSceneDiagnostics
     {
+        private const string ExperimentScenePath = "Assets/_Project/Scenes/ExperimentScene.unity";
+
         [MenuItem("FAA/Diagnostics/Log Missing Scripts In Loaded Objects")]
         public static void LogMissingScriptsInLoadedObjects()
         {
@@ -304,7 +306,7 @@ namespace FAA.Editor
         public static void LogLargeOpaqueUiGraphics()
         {
             int count = 0;
-            foreach (Graphic graphic in Object.FindObjectsByType<Graphic>(FindObjectsInactive.Include))
+            foreach (Graphic graphic in Object.FindObjectsByType<Graphic>(FindObjectsInactive.Include, FindObjectsSortMode.None))
             {
                 if (graphic == null || graphic.color.a <= 0.01f)
                 {
@@ -357,6 +359,24 @@ namespace FAA.Editor
             ValidateBridge(ref issues);
 
             Debug.Log($"[FaaSceneDiagnostics] FAA HUD validation complete. Issues: {issues}.");
+        }
+
+        [MenuItem("FAA/Diagnostics/Validate Experiment Scene FAA HUD Components")]
+        public static void ValidateExperimentSceneFaaHudComponents()
+        {
+            if (!File.Exists(ExperimentScenePath))
+            {
+                Debug.LogError($"[FaaSceneDiagnostics] Experiment scene not found: {ExperimentScenePath}");
+                return;
+            }
+
+            Scene scene = SceneManager.GetActiveScene();
+            if (!scene.IsValid() || !scene.isLoaded || scene.path != ExperimentScenePath)
+            {
+                EditorSceneManager.OpenScene(ExperimentScenePath, OpenSceneMode.Single);
+            }
+
+            ValidateFaaHudComponents();
         }
 
         [MenuItem("FAA/Diagnostics/Validate FAA HUD Mode Switching")]
@@ -737,7 +757,14 @@ namespace FAA.Editor
                 ValidateRuntimeHudDataValues(latestFlightData, ref issues, bridge);
                 if (lastAge is float age)
                 {
-                    Require(!float.IsNaN(age) && !float.IsInfinity(age) && age <= 2f, $"X-Plane packet age is too high: {age:F2}s.", ref issues, bridge);
+                    float staleAfterSeconds = GetNumericMember(bridge, "staleAfterSeconds");
+                    float maxAllowedAge = IsFinite(staleAfterSeconds) && staleAfterSeconds > 0f
+                        ? Mathf.Max(2f, staleAfterSeconds)
+                        : 2f;
+                    Require(!float.IsNaN(age) && !float.IsInfinity(age) && age <= maxAllowedAge,
+                        $"X-Plane packet age is too high: {age:F2}s (limit {maxAllowedAge:F2}s).",
+                        ref issues,
+                        bridge);
                 }
             }
         }
@@ -760,16 +787,20 @@ namespace FAA.Editor
             float stateAlt = GetNumericMember(currentState, "AltitudeFeet");
             float stateHeading = GetNumericMember(currentState, "Heading");
 
-            Component airspeedElement = FindSceneObjects(FindType("HUDControl.Elements.AirspeedIndicatorElement"))
+            Component airspeedElement = FindRegisteredHudElement(hudController, "HUDControl.Elements.AirspeedIndicatorElement", "GetDisplayedAirspeed")
+                ?? FindSceneObjects(FindType("HUDControl.Elements.AirspeedIndicatorElement"))
                 .FirstOrDefault(IsPreferredLegacyHudComponent);
-            Component altimeterElement = FindSceneObjects(FindType("HUDControl.Elements.AltimeterElement"))
+            Component altimeterElement = FindRegisteredHudElement(hudController, "HUDControl.Elements.AltimeterElement", "GetDisplayedAltitude")
+                ?? FindSceneObjects(FindType("HUDControl.Elements.AltimeterElement"))
                 .FirstOrDefault(IsPreferredLegacyHudComponent);
             float displayedIas = InvokeNumericMethod(airspeedElement, "GetDisplayedAirspeed");
             float displayedAlt = InvokeNumericMethod(altimeterElement, "GetDisplayedAltitude");
 
             Debug.Log($"[FaaSceneDiagnostics] Runtime HUD data: bridgeIAS={bridgeIas:F1}, stateIAS={stateIas:F1}, " +
                       $"displayIAS={displayedIas:F1}, bridgeALT={bridgeAlt:F1}, stateALT={stateAlt:F1}, " +
-                      $"displayALT={displayedAlt:F1}, bridgeHDG={bridgeHeading:F1}, stateHDG={stateHeading:F1}.");
+                      $"displayALT={displayedAlt:F1}, bridgeHDG={bridgeHeading:F1}, stateHDG={stateHeading:F1}, " +
+                      $"airspeedElement='{(airspeedElement != null ? GetPath(airspeedElement.gameObject) : "<null>")}', " +
+                      $"altimeterElement='{(altimeterElement != null ? GetPath(altimeterElement.gameObject) : "<null>")}'.");
 
             if (IsFinite(bridgeIas) && bridgeIas > 5f)
             {
@@ -802,6 +833,43 @@ namespace FAA.Editor
                     ref issues,
                     hudController != null ? hudController : bridge);
             }
+        }
+
+        private static Component FindRegisteredHudElement(Component hudController, string fullTypeName, string numericMethodName)
+        {
+            if (hudController == null)
+            {
+                return null;
+            }
+
+            SerializedProperty elements = new SerializedObject(hudController).FindProperty("elements");
+            if (elements == null)
+            {
+                return null;
+            }
+
+            Component bestComponent = null;
+            float bestValue = float.NegativeInfinity;
+
+            for (int i = 0; i < elements.arraySize; i++)
+            {
+                Component component = elements.GetArrayElementAtIndex(i).objectReferenceValue as Component;
+                if (component == null ||
+                    component.GetType().FullName != fullTypeName ||
+                    !IsPreferredLegacyHudComponent(component))
+                {
+                    continue;
+                }
+
+                float value = InvokeNumericMethod(component, numericMethodName);
+                if (bestComponent == null || (IsFinite(value) && value > bestValue))
+                {
+                    bestComponent = component;
+                    bestValue = value;
+                }
+            }
+
+            return bestComponent;
         }
 
         private static void ValidateRuntimeSanitizer(ref int issues)
@@ -1040,14 +1108,15 @@ namespace FAA.Editor
                 return new Component[0];
             }
 
-            return Object.FindObjectsByType(componentType, FindObjectsInactive.Include)
+            return Object.FindObjectsByType(componentType, FindObjectsInactive.Include, FindObjectsSortMode.None)
                 .OfType<Component>()
+                .Where(component => component != null && component.gameObject.scene.IsValid())
                 .ToArray();
         }
 
         private static T[] FindSceneObjects<T>() where T : Component
         {
-            return Object.FindObjectsByType<T>(FindObjectsInactive.Include);
+            return Object.FindObjectsByType<T>(FindObjectsInactive.Include, FindObjectsSortMode.None);
         }
 
         private static void Require(bool condition, string message, ref int issues, Object context)

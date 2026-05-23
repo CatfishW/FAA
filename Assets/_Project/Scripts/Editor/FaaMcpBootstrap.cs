@@ -19,7 +19,7 @@ namespace FAA.Editor
         private const string SetupDismissed = "MCPForUnity.SetupDismissed";
         private const string ProjectScopedToolsLocalHttp = "MCPForUnity.ProjectScopedTools.LocalHttp";
         private const string ResumeHttpAfterReload = "MCPForUnity.ResumeHttpAfterReload";
-        internal const string ExperimentScenePath = "Assets/ExperimentScene.unity";
+        internal const string ExperimentScenePath = "Assets/_Project/Scenes/ExperimentScene.unity";
 
         private static bool reloadQueued;
 
