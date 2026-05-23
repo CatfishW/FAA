@@ -37,6 +37,27 @@ namespace FAA.Customization
             "readoutimage"
         };
 
+        private static readonly string[] UiChromePathFragments =
+        {
+            "radarcanvas",
+            "xplaneweatherradarcanvas",
+            "xplanetrafficradarcanvas",
+            "x-plane weather radar system",
+            "weather radar system",
+            "traffic radar system",
+            "[indicator system]",
+            "indicator system",
+            "traffic indicator",
+            "weather indicator",
+            "maskcanvas",
+            "scalemasker",
+            "visualunderstanding",
+            "analysis trigger buttons",
+            "/voice",
+            "/vc",
+            "minimap"
+        };
+
         private static readonly string[] SymbologyNameFragments =
         {
             "tick",
@@ -61,6 +82,27 @@ namespace FAA.Customization
             "cardinal"
         };
 
+        private static readonly string[] DefaultTextChromePathFragments =
+        {
+            "radarcanvas",
+            "xplaneweatherradarcanvas",
+            "xplanetrafficradarcanvas",
+            "x-plane weather radar system",
+            "weather radar system",
+            "traffic radar system",
+            "[indicator system]",
+            "indicator system",
+            "traffic indicator",
+            "weather indicator",
+            "maskcanvas",
+            "scalemasker",
+            "visualunderstanding",
+            "analysis trigger buttons",
+            "/voice",
+            "/vc",
+            "minimap"
+        };
+
         public static bool ShouldTintImage(Image image, IList<string> excludedPathFragments = null)
         {
             if (image == null)
@@ -70,6 +112,11 @@ namespace FAA.Customization
 
             string path = GetHierarchyPath(image.transform);
             if (HasExcludedPathFragment(path, excludedPathFragments))
+            {
+                return false;
+            }
+
+            if (HasFragment(path, UiChromePathFragments))
             {
                 return false;
             }
@@ -98,13 +145,16 @@ namespace FAA.Customization
             float effectiveHeight = height * Mathf.Max(lossyScaleY, 0.0001f);
             bool isHugeInWorld = effectiveWidth >= 120f && effectiveHeight >= 120f;
             bool isLargeSolidImage = hasUsableRect && width >= 16f && height >= 16f && image.sprite == null && !isThinLine;
+            bool isScreenHudSpriteSymbology = image.sprite != null &&
+                path.Contains("/faasymbologycanvas/second interation gui/") &&
+                HasFragment(lowerName, SymbologyNameFragments);
 
-            if (isLargeSolidImage || isHugeInWorld)
+            if (isLargeSolidImage || (isHugeInWorld && !isScreenHudSpriteSymbology))
             {
                 return false;
             }
 
-            return isThinLine || HasFragment(lowerName, SymbologyNameFragments);
+            return isThinLine || isScreenHudSpriteSymbology || HasFragment(lowerName, SymbologyNameFragments);
         }
 
         public static bool ShouldTintText(Transform textTransform, IList<string> excludedPathFragments = null)
@@ -115,14 +165,19 @@ namespace FAA.Customization
             }
 
             string path = GetHierarchyPath(textTransform);
-            if (path.Contains("/second interation gui/"))
-            {
-                return true;
-            }
-
             if (HasExcludedPathFragment(path, excludedPathFragments))
             {
                 return false;
+            }
+
+            if (HasFragment(path, DefaultTextChromePathFragments))
+            {
+                return false;
+            }
+
+            if (path.Contains("/second interation gui/"))
+            {
+                return true;
             }
 
             return path.Contains("/maskcanvas/") ||
@@ -261,7 +316,9 @@ namespace FAA.Customization
             "toggle",
             "header",
             "background",
+            "maskcanvas",
             "masker",
+            "scalemasker",
             "radarreturns",
             "rangerings",
             "sweepline",
@@ -299,6 +356,7 @@ namespace FAA.Customization
         private void Awake()
         {
             Initialize();
+            ApplyColorImmediate(_currentColor);
         }
         
         private void OnEnable()
@@ -307,6 +365,11 @@ namespace FAA.Customization
             {
                 colorToggleButton.onClick.RemoveListener(ToggleColor);
                 colorToggleButton.onClick.AddListener(ToggleColor);
+            }
+
+            if (Application.isPlaying)
+            {
+                ApplyColorImmediate(GetPresetColor(currentPreset));
             }
         }
         

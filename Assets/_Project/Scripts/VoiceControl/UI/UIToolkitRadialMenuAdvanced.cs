@@ -25,13 +25,14 @@ namespace VoiceControl.UI
 
         [Header("Menu Structure")]
         [SerializeField] private int mainSegmentCount = 4;
-        [SerializeField] private float innerRadius = 190f;
-        [SerializeField] private float middleRadius = 390f;
-        [SerializeField] private float outerRadius = 580f;
+        [SerializeField] private float innerRadius = 150f;
+        [SerializeField] private float middleRadius = 320f;
+        [SerializeField] private float outerRadius = 465f;
         [SerializeField] private bool enableSubMenus = true;
         [SerializeField] private bool startCollapsed = true;
-        [SerializeField] private float collapsedButtonSize = 80f;
-        [SerializeField] private Vector2 collapsedButtonPosition = new Vector2(100f, 100f);  // Bottom-left offset
+        [SerializeField] private float collapsedButtonSize = 68f;
+        [SerializeField] private Vector2 collapsedButtonPosition = new Vector2(72f, 72f);  // Bottom-left offset
+        [SerializeField, Range(4, 8)] private int maxSubSegmentCount = 6;
 
         [Header("Input")]
         [SerializeField] private KeyCode toggleKey = KeyCode.Tab;
@@ -41,11 +42,15 @@ namespace VoiceControl.UI
         [SerializeField] private float gestureSensitivity = 1.5f;
 
         [Header("Animation")]
-        [SerializeField] private float openDuration = 0.4f;
-        [SerializeField] private float closeDuration = 0.25f;
-        [SerializeField] private float subMenuExpandDuration = 0.25f;
+        [SerializeField] private float openDuration = 0.28f;
+        [SerializeField] private float closeDuration = 0.18f;
+        [SerializeField] private float subMenuExpandDuration = 0.18f;
         [SerializeField] private AnimationCurve springCurve;
         [SerializeField] private AnimationCurve bounceCurve;
+        [SerializeField] private bool reducedMotion = false;
+        [SerializeField, Range(0.01f, 0.08f)] private float mainSegmentStagger = 0.025f;
+        [SerializeField, Range(0.01f, 0.08f)] private float subSegmentStagger = 0.02f;
+        [SerializeField, Range(0f, 0.14f)] private float hoverScaleBoost = 0.06f;
 
         [Header("Visual Effects")]
         [SerializeField] private bool useRippleEffect = true;
@@ -63,25 +68,28 @@ namespace VoiceControl.UI
         [SerializeField] private AudioClip selectSound;
         [SerializeField] private AudioClip executeSound;
 
-        private const float MainSegmentWidth = 210f;
-        private const float MainSegmentHeight = 120f;
-        private const float SubSegmentWidth = 165f;
-        private const float SubSegmentHeight = 92f;
-        private const float MainIconContainerSize = 80f;
-        private const float MainIconSize = 68f;
-        private const float SubIconContainerSize = 48f;
-        private const float SubIconSize = 36f;
+        private const float MainSegmentWidth = 190f;
+        private const float MainSegmentHeight = 104f;
+        private const float SubSegmentWidth = 150f;
+        private const float SubSegmentHeight = 84f;
+        private const float MainIconContainerSize = 62f;
+        private const float MainIconSize = 52f;
+        private const float SubIconContainerSize = 42f;
+        private const float SubIconSize = 32f;
 
         [Header("Typography")]
-        [SerializeField] private float mainLabelFontSize = 18f;
-        [SerializeField] private float subLabelFontSize = 14f;
-        [SerializeField] private float centerTitleFontSize = 24f;
-        [SerializeField] private float centerSubtitleFontSize = 16f;
-        private static readonly Color SubBorderBaseColor = new Color(0.4f, 0.6f, 0.9f, 0.35f);
-        private const float SubMenuSpreadDegrees = 70f;
-        private const float SubMenuInnerOffset = 40f;
-        private const float SubMenuOuterInset = 40f;
-        private const float CenterSizePadding = 60f;
+        [SerializeField] private float mainLabelFontSize = 16f;
+        [SerializeField] private float subLabelFontSize = 13f;
+        [SerializeField] private float centerTitleFontSize = 21f;
+        [SerializeField] private float centerSubtitleFontSize = 13f;
+        private static readonly Color PanelBackgroundColor = new Color(0.02f, 0.025f, 0.03f, 0.94f);
+        private static readonly Color SegmentBackgroundColor = new Color(0.035f, 0.055f, 0.06f, 0.95f);
+        private static readonly Color SegmentBorderColor = new Color(0.18f, 0.95f, 0.72f, 0.38f);
+        private static readonly Color SubBorderBaseColor = new Color(0.30f, 0.85f, 0.70f, 0.32f);
+        private const float SubMenuSpreadDegrees = 64f;
+        private const float SubMenuInnerOffset = 26f;
+        private const float SubMenuOuterInset = 24f;
+        private const float CenterSizePadding = 46f;
 
         // Events
         public event Action<MenuCommand> OnCommandExecuted;
@@ -100,6 +108,7 @@ namespace VoiceControl.UI
         private Label _centerSubtitle;
         private VisualElement _rippleContainer;
         private VisualElement _gestureIndicator;
+        private VisualElement _builtRoot;
 
         // Menu state
         private List<MainSegment> _mainSegments = new List<MainSegment>();
@@ -116,6 +125,11 @@ namespace VoiceControl.UI
         private Vector2 _lastMousePos;
         private float _gestureAccumulator;
         private bool _isLoadingCommands; // Prevent recursive LoadCommands calls
+        private bool _uiBuilt;
+
+#if UNITY_EDITOR
+        private bool _editorRefreshQueued;
+#endif
 
         // Category definitions for voice control commands - using FAA-styled icon paths
         private readonly Dictionary<string, (string iconPath, Color color)> _categoryDefs = new()
@@ -217,14 +231,51 @@ namespace VoiceControl.UI
             }
         }
 
+        private static Color WithAlpha(Color color, float alpha)
+        {
+            return new Color(color.r, color.g, color.b, alpha);
+        }
+
+        private static void SetBorderColor(VisualElement element, Color color)
+        {
+            if (element == null) return;
+
+            element.style.borderTopColor = color;
+            element.style.borderBottomColor = color;
+            element.style.borderLeftColor = color;
+            element.style.borderRightColor = color;
+        }
+
+        private static void SetBorderWidth(VisualElement element, float width)
+        {
+            if (element == null) return;
+
+            element.style.borderTopWidth = width;
+            element.style.borderBottomWidth = width;
+            element.style.borderLeftWidth = width;
+            element.style.borderRightWidth = width;
+        }
+
+        private static void SetRadius(VisualElement element, float radius)
+        {
+            if (element == null) return;
+
+            element.style.borderTopLeftRadius = radius;
+            element.style.borderTopRightRadius = radius;
+            element.style.borderBottomLeftRadius = radius;
+            element.style.borderBottomRightRadius = radius;
+        }
+
 #if UNITY_EDITOR
         private void OnValidate()
         {
             // Hot-reload: refresh UI when properties change in editor
-            if (!Application.isPlaying && uiDocument != null)
+            if (!Application.isPlaying && uiDocument != null && !_editorRefreshQueued)
             {
+                _editorRefreshQueued = true;
                 EditorApplication.delayCall += () =>
                 {
+                    _editorRefreshQueued = false;
                     if (this != null && uiDocument != null)
                     {
                         RefreshUI();
@@ -234,10 +285,15 @@ namespace VoiceControl.UI
         }
 
         /// <summary>
-        /// Refreshes the UI in edit mode for live preview.
+        /// Refreshes the UI tree without forcing the edit-mode preview open.
         /// </summary>
-        [ContextMenu("Refresh UI Preview")]
+        [ContextMenu("Refresh UI")]
         public void RefreshUI()
+        {
+            RefreshUI(false);
+        }
+
+        public void RefreshUI(bool showPreview)
         {
             if (uiDocument == null)
                 uiDocument = GetComponent<UIDocument>();
@@ -248,10 +304,16 @@ namespace VoiceControl.UI
             // Rebuild UI
             SetupUI();
 
-            // Show preview state in editor
             if (!Application.isPlaying)
             {
-                ShowEditorPreview();
+                if (showPreview)
+                {
+                    ShowEditorPreview();
+                }
+                else
+                {
+                    HideEditorPreview();
+                }
             }
         }
 
@@ -266,9 +328,11 @@ namespace VoiceControl.UI
             _mainSegments.Clear();
             _subSegments.Clear();
             _ripples.Clear();
+            _uiBuilt = false;
+            _builtRoot = null;
         }
 
-        private void ShowEditorPreview()
+        public void ShowEditorPreview()
         {
             if (_menuRoot == null)
             {
@@ -292,6 +356,30 @@ namespace VoiceControl.UI
             if (_collapsedButton != null)
             {
                 _collapsedButton.style.display = DisplayStyle.None;
+            }
+        }
+
+        public void HideEditorPreview()
+        {
+            _isOpen = false;
+            _isAnimating = false;
+            _subMenuOpen = false;
+            _openProgress = 0f;
+            _subMenuProgress = 0f;
+            _selectedMainIndex = -1;
+            _selectedSubIndex = -1;
+
+            if (_menuRoot != null)
+            {
+                _menuRoot.style.display = DisplayStyle.None;
+                _menuRoot.style.opacity = 0f;
+            }
+
+            if (_collapsedButton != null)
+            {
+                _collapsedButton.style.display = DisplayStyle.None;
+                _collapsedButton.style.opacity = 1f;
+                _collapsedButton.style.scale = new Scale(Vector3.one);
             }
         }
 
@@ -327,6 +415,8 @@ namespace VoiceControl.UI
             var registry = VoiceCommandRegistry.Instance;
             if (registry != null)
                 registry.OnRegistryUpdated -= OnRegistryUpdated;
+
+            _ripples.Clear();
         }
 
         private void Update()
@@ -363,6 +453,16 @@ namespace VoiceControl.UI
 
             _root = uiDocument.rootVisualElement;
             if (_root == null) return;
+
+            if (_uiBuilt && _builtRoot == _root)
+            {
+                ApplyInlineStyles();
+                return;
+            }
+
+            _mainSegments.Clear();
+            _subSegments.Clear();
+            _ripples.Clear();
 
             // Query for existing elements from UXML template or create new ones
             _collapsedButton = _root.Q<VisualElement>("CollapsedButton");
@@ -445,8 +545,17 @@ namespace VoiceControl.UI
             }
             else
             {
-                SetMenuOpen(false);
+                _isOpen = false;
+                _openProgress = 0f;
+                _menuRoot.style.display = DisplayStyle.None;
+                if (_collapsedButton != null)
+                {
+                    _collapsedButton.style.display = DisplayStyle.None;
+                }
             }
+
+            _uiBuilt = true;
+            _builtRoot = _root;
         }
 
         private void CreateCollapsedButton()
@@ -461,19 +570,10 @@ namespace VoiceControl.UI
             _collapsedButton.style.bottom = collapsedButtonPosition.y;
             _collapsedButton.style.width = collapsedButtonSize;
             _collapsedButton.style.height = collapsedButtonSize;
-            _collapsedButton.style.backgroundColor = new Color(0.08f, 0.12f, 0.2f, 0.95f);
-            _collapsedButton.style.borderTopLeftRadius = collapsedButtonSize / 2;
-            _collapsedButton.style.borderTopRightRadius = collapsedButtonSize / 2;
-            _collapsedButton.style.borderBottomLeftRadius = collapsedButtonSize / 2;
-            _collapsedButton.style.borderBottomRightRadius = collapsedButtonSize / 2;
-            _collapsedButton.style.borderTopWidth = 3;
-            _collapsedButton.style.borderBottomWidth = 3;
-            _collapsedButton.style.borderLeftWidth = 3;
-            _collapsedButton.style.borderRightWidth = 3;
-            _collapsedButton.style.borderTopColor = new Color(0.3f, 0.6f, 0.9f, 0.7f);
-            _collapsedButton.style.borderBottomColor = new Color(0.3f, 0.6f, 0.9f, 0.7f);
-            _collapsedButton.style.borderLeftColor = new Color(0.3f, 0.6f, 0.9f, 0.7f);
-            _collapsedButton.style.borderRightColor = new Color(0.3f, 0.6f, 0.9f, 0.7f);
+            _collapsedButton.style.backgroundColor = PanelBackgroundColor;
+            SetRadius(_collapsedButton, collapsedButtonSize / 2);
+            SetBorderWidth(_collapsedButton, 2);
+            SetBorderColor(_collapsedButton, SegmentBorderColor);
             _collapsedButton.style.alignItems = Align.Center;
             _collapsedButton.style.justifyContent = Justify.Center;
             _collapsedButton.style.transitionProperty = new List<StylePropertyName>
@@ -522,21 +622,15 @@ namespace VoiceControl.UI
             _collapsedButton.RegisterCallback<MouseEnterEvent>(evt =>
             {
                 _collapsedButton.style.scale = new Scale(new Vector3(1.1f, 1.1f, 1));
-                _collapsedButton.style.backgroundColor = new Color(0.12f, 0.18f, 0.28f, 0.98f);
-                _collapsedButton.style.borderTopColor = new Color(0.4f, 0.75f, 1f, 0.9f);
-                _collapsedButton.style.borderBottomColor = new Color(0.4f, 0.75f, 1f, 0.9f);
-                _collapsedButton.style.borderLeftColor = new Color(0.4f, 0.75f, 1f, 0.9f);
-                _collapsedButton.style.borderRightColor = new Color(0.4f, 0.75f, 1f, 0.9f);
+                _collapsedButton.style.backgroundColor = new Color(0.035f, 0.075f, 0.075f, 0.98f);
+                SetBorderColor(_collapsedButton, new Color(0.25f, 1f, 0.72f, 0.75f));
             });
 
             _collapsedButton.RegisterCallback<MouseLeaveEvent>(evt =>
             {
                 _collapsedButton.style.scale = new Scale(Vector3.one);
-                _collapsedButton.style.backgroundColor = new Color(0.08f, 0.12f, 0.2f, 0.95f);
-                _collapsedButton.style.borderTopColor = new Color(0.3f, 0.6f, 0.9f, 0.7f);
-                _collapsedButton.style.borderBottomColor = new Color(0.3f, 0.6f, 0.9f, 0.7f);
-                _collapsedButton.style.borderLeftColor = new Color(0.3f, 0.6f, 0.9f, 0.7f);
-                _collapsedButton.style.borderRightColor = new Color(0.3f, 0.6f, 0.9f, 0.7f);
+                _collapsedButton.style.backgroundColor = PanelBackgroundColor;
+                SetBorderColor(_collapsedButton, SegmentBorderColor);
             });
 
             // Click to expand
@@ -693,8 +787,8 @@ namespace VoiceControl.UI
 
         private void CreateSubSegments()
         {
-            // Create up to 8 sub-segments per category
-            for (int i = 0; i < 8; i++)
+            int segmentLimit = Mathf.Clamp(maxSubSegmentCount, 4, 8);
+            for (int i = 0; i < segmentLimit; i++)
             {
                 var segment = new SubSegment
                 {
@@ -773,26 +867,16 @@ namespace VoiceControl.UI
             _menuRoot.style.width = 0;
             _menuRoot.style.height = 0;
 
-            // Ring background - MUCH larger outer ring
-            float ringSize = middleRadius * 2 + 100;
+            float ringSize = middleRadius * 2 + 64;
             _ringBackground.style.position = Position.Absolute;
             _ringBackground.style.width = ringSize;
             _ringBackground.style.height = ringSize;
             _ringBackground.style.left = -ringSize / 2;
             _ringBackground.style.top = -ringSize / 2;
-            _ringBackground.style.backgroundColor = new Color(0.02f, 0.04f, 0.08f, ringBackgroundTransparency);
-            _ringBackground.style.borderTopLeftRadius = ringSize / 2;
-            _ringBackground.style.borderTopRightRadius = ringSize / 2;
-            _ringBackground.style.borderBottomLeftRadius = ringSize / 2;
-            _ringBackground.style.borderBottomRightRadius = ringSize / 2;
-            _ringBackground.style.borderTopWidth = 4;
-            _ringBackground.style.borderBottomWidth = 4;
-            _ringBackground.style.borderLeftWidth = 4;
-            _ringBackground.style.borderRightWidth = 4;
-            _ringBackground.style.borderTopColor = new Color(0.2f, 0.4f, 0.7f, 0.5f * menuTransparency);
-            _ringBackground.style.borderBottomColor = new Color(0.2f, 0.4f, 0.7f, 0.5f * menuTransparency);
-            _ringBackground.style.borderLeftColor = new Color(0.2f, 0.4f, 0.7f, 0.5f * menuTransparency);
-            _ringBackground.style.borderRightColor = new Color(0.2f, 0.4f, 0.7f, 0.5f * menuTransparency);
+            _ringBackground.style.backgroundColor = WithAlpha(PanelBackgroundColor, ringBackgroundTransparency);
+            SetRadius(_ringBackground, ringSize / 2);
+            SetBorderWidth(_ringBackground, 2);
+            SetBorderColor(_ringBackground, new Color(0.15f, 0.95f, 0.70f, 0.36f * menuTransparency));
 
             // Main segments - compact, readable buttons
             float segmentWidth = MainSegmentWidth;
@@ -802,35 +886,23 @@ namespace VoiceControl.UI
                 seg.Container.style.position = Position.Absolute;
                 seg.Container.style.width = segmentWidth;
                 seg.Container.style.height = segmentHeight;
-                seg.Container.style.backgroundColor = new Color(0.08f, 0.12f, 0.18f, segmentTransparency);
-                seg.Container.style.borderTopLeftRadius = 24;
-                seg.Container.style.borderTopRightRadius = 24;
-                seg.Container.style.borderBottomLeftRadius = 24;
-                seg.Container.style.borderBottomRightRadius = 24;
-                seg.Container.style.borderTopWidth = 3;
-                seg.Container.style.borderBottomWidth = 3;
-                seg.Container.style.borderLeftWidth = 3;
-                seg.Container.style.borderRightWidth = 3;
-                seg.Container.style.borderTopColor = new Color(0.3f, 0.5f, 0.8f, 0.4f);
-                seg.Container.style.borderBottomColor = new Color(0.3f, 0.5f, 0.8f, 0.4f);
-                seg.Container.style.borderLeftColor = new Color(0.3f, 0.5f, 0.8f, 0.4f);
-                seg.Container.style.borderRightColor = new Color(0.3f, 0.5f, 0.8f, 0.4f);
+                seg.Container.style.backgroundColor = WithAlpha(SegmentBackgroundColor, segmentTransparency);
+                SetRadius(seg.Container, 10);
+                SetBorderWidth(seg.Container, 2);
+                SetBorderColor(seg.Container, SegmentBorderColor);
                 seg.Container.style.alignItems = Align.Center;
                 seg.Container.style.justifyContent = Justify.Center;
                 seg.Container.style.flexDirection = FlexDirection.Column;
-                seg.Container.style.paddingTop = 12;
-                seg.Container.style.paddingBottom = 12;
+                seg.Container.style.paddingTop = 8;
+                seg.Container.style.paddingBottom = 8;
 
                 seg.Background.style.position = Position.Absolute;
                 seg.Background.style.width = new Length(100, LengthUnit.Percent);
                 seg.Background.style.height = new Length(100, LengthUnit.Percent);
                 seg.Background.style.left = 0;
                 seg.Background.style.top = 0;
-                seg.Background.style.borderTopLeftRadius = 24;
-                seg.Background.style.borderTopRightRadius = 24;
-                seg.Background.style.borderBottomLeftRadius = 24;
-                seg.Background.style.borderBottomRightRadius = 24;
-                seg.Background.style.backgroundColor = new Color(0.15f, 0.25f, 0.35f, 0.3f);
+                SetRadius(seg.Background, 10);
+                seg.Background.style.backgroundColor = new Color(0.04f, 0.11f, 0.10f, 0.24f);
 
                 // Icon container - holds the image
                 seg.IconContainer.style.position = Position.Relative;
@@ -852,8 +924,8 @@ namespace VoiceControl.UI
                 seg.NameLabel.style.unityTextAlign = TextAnchor.MiddleCenter;
                 seg.NameLabel.style.unityFontStyleAndWeight = FontStyle.Bold;
                 seg.NameLabel.style.width = segmentWidth - 20;
-                seg.NameLabel.style.whiteSpace = WhiteSpace.NoWrap;
-                seg.NameLabel.style.letterSpacing = 1;
+                seg.NameLabel.style.whiteSpace = WhiteSpace.Normal;
+                seg.NameLabel.style.letterSpacing = 0;
             }
 
             // Sub segments - compact secondary buttons
@@ -864,19 +936,10 @@ namespace VoiceControl.UI
                 seg.Container.style.position = Position.Absolute;
                 seg.Container.style.width = subWidth;
                 seg.Container.style.height = subHeight;
-                seg.Container.style.backgroundColor = new Color(0.06f, 0.10f, 0.16f, segmentTransparency);
-                seg.Container.style.borderTopLeftRadius = 18;
-                seg.Container.style.borderTopRightRadius = 18;
-                seg.Container.style.borderBottomLeftRadius = 18;
-                seg.Container.style.borderBottomRightRadius = 18;
-                seg.Container.style.borderTopWidth = 2;
-                seg.Container.style.borderBottomWidth = 2;
-                seg.Container.style.borderLeftWidth = 2;
-                seg.Container.style.borderRightWidth = 2;
-                seg.Container.style.borderTopColor = SubBorderBaseColor;
-                seg.Container.style.borderBottomColor = SubBorderBaseColor;
-                seg.Container.style.borderLeftColor = SubBorderBaseColor;
-                seg.Container.style.borderRightColor = SubBorderBaseColor;
+                seg.Container.style.backgroundColor = WithAlpha(SegmentBackgroundColor, segmentTransparency);
+                SetRadius(seg.Container, 8);
+                SetBorderWidth(seg.Container, 2);
+                SetBorderColor(seg.Container, SubBorderBaseColor);
                 seg.Container.style.alignItems = Align.Center;
                 seg.Container.style.justifyContent = Justify.Center;
                 seg.Container.style.flexDirection = FlexDirection.Column;
@@ -897,10 +960,7 @@ namespace VoiceControl.UI
                 seg.Background.style.height = new Length(100, LengthUnit.Percent);
                 seg.Background.style.left = 0;
                 seg.Background.style.top = 0;
-                seg.Background.style.borderTopLeftRadius = 18;
-                seg.Background.style.borderTopRightRadius = 18;
-                seg.Background.style.borderBottomLeftRadius = 18;
-                seg.Background.style.borderBottomRightRadius = 18;
+                SetRadius(seg.Background, 8);
 
                 seg.IconContainer.style.width = SubIconContainerSize;
                 seg.IconContainer.style.height = SubIconContainerSize;
@@ -924,6 +984,7 @@ namespace VoiceControl.UI
                 seg.NameLabel.style.unityTextAlign = TextAnchor.MiddleCenter;
                 seg.NameLabel.style.unityFontStyleAndWeight = FontStyle.Bold;
                 seg.NameLabel.style.width = subWidth - 16;
+                seg.NameLabel.style.whiteSpace = WhiteSpace.Normal;
             }
 
             // Center info - LARGE prominent center hub
@@ -933,28 +994,19 @@ namespace VoiceControl.UI
             _centerInfo.style.height = centerSize;
             _centerInfo.style.left = -centerSize / 2;
             _centerInfo.style.top = -centerSize / 2;
-            _centerInfo.style.backgroundColor = new Color(0.03f, 0.06f, 0.12f, centerTransparency);
-            _centerInfo.style.borderTopLeftRadius = centerSize / 2;
-            _centerInfo.style.borderTopRightRadius = centerSize / 2;
-            _centerInfo.style.borderBottomLeftRadius = centerSize / 2;
-            _centerInfo.style.borderBottomRightRadius = centerSize / 2;
-            _centerInfo.style.borderTopWidth = 4;
-            _centerInfo.style.borderBottomWidth = 4;
-            _centerInfo.style.borderLeftWidth = 4;
-            _centerInfo.style.borderRightWidth = 4;
-            _centerInfo.style.borderTopColor = new Color(0.25f, 0.5f, 0.85f, 0.7f * menuTransparency);
-            _centerInfo.style.borderBottomColor = new Color(0.25f, 0.5f, 0.85f, 0.7f * menuTransparency);
-            _centerInfo.style.borderLeftColor = new Color(0.25f, 0.5f, 0.85f, 0.7f * menuTransparency);
-            _centerInfo.style.borderRightColor = new Color(0.25f, 0.5f, 0.85f, 0.7f * menuTransparency);
+            _centerInfo.style.backgroundColor = WithAlpha(PanelBackgroundColor, centerTransparency);
+            SetRadius(_centerInfo, centerSize / 2);
+            SetBorderWidth(_centerInfo, 2);
+            SetBorderColor(_centerInfo, new Color(0.25f, 1f, 0.72f, 0.62f * menuTransparency));
             _centerInfo.style.alignItems = Align.Center;
             _centerInfo.style.justifyContent = Justify.Center;
 
             // Center title - LARGE sharp text
             _centerTitle.style.fontSize = centerTitleFontSize;
-            _centerTitle.style.color = new Color(0.3f, 0.75f, 1f, 1f);
+            _centerTitle.style.color = new Color(0.35f, 1f, 0.72f, 1f);
             _centerTitle.style.unityFontStyleAndWeight = FontStyle.Bold;
             _centerTitle.style.unityTextAlign = TextAnchor.MiddleCenter;
-            _centerTitle.style.letterSpacing = 1;
+            _centerTitle.style.letterSpacing = 0;
 
             // Center subtitle
             _centerSubtitle.style.fontSize = centerSubtitleFontSize;
@@ -1151,11 +1203,8 @@ namespace VoiceControl.UI
                         string initial = !string.IsNullOrEmpty(_categories[i].DisplayName)
                             ? _categories[i].DisplayName.Substring(0, 1).ToUpper()
                             : "?";
-                        _mainSegments[i].IconImage.style.backgroundColor = _categories[i].Color * 0.4f;
-                        _mainSegments[i].IconImage.style.borderTopLeftRadius = 32;
-                        _mainSegments[i].IconImage.style.borderTopRightRadius = 32;
-                        _mainSegments[i].IconImage.style.borderBottomLeftRadius = 32;
-                        _mainSegments[i].IconImage.style.borderBottomRightRadius = 32;
+                        _mainSegments[i].IconImage.style.backgroundColor = WithAlpha(_categories[i].Color, 0.32f);
+                        SetRadius(_mainSegments[i].IconImage, 32);
 
                         // Add initial label if not present
                         var existingLabel = _mainSegments[i].IconImage.Q<Label>("fallback-initial");
@@ -1177,7 +1226,7 @@ namespace VoiceControl.UI
                     }
 
                     _mainSegments[i].NameLabel.text = _categories[i].DisplayName;
-                    _mainSegments[i].Background.style.backgroundColor = _categories[i].Color * 0.25f;
+                    SetMainSegmentHover(_mainSegments[i], _selectedMainIndex == i);
                 }
                 else
                 {
@@ -1290,7 +1339,7 @@ namespace VoiceControl.UI
 #endif
             _openProgress = Mathf.MoveTowards(_openProgress, targetOpen, deltaTime * openSpeed);
 
-            float curvedOpen = springCurve.Evaluate(_openProgress);
+            float curvedOpen = reducedMotion ? _openProgress : springCurve.Evaluate(_openProgress);
 
             // Animate ring background
             float ringScale = 0.8f + 0.2f * curvedOpen;
@@ -1305,9 +1354,9 @@ namespace VoiceControl.UI
                 var seg = _mainSegments[i];
                 if (seg.Category == null) continue;
 
-                float stagger = i * 0.04f;
+                float stagger = reducedMotion ? 0f : i * mainSegmentStagger;
                 float segProgress = Mathf.Clamp01((_openProgress - stagger) / (1f - stagger));
-                float segCurved = springCurve.Evaluate(segProgress);
+                float segCurved = reducedMotion ? segProgress : springCurve.Evaluate(segProgress);
 
                 // Position in circle - center of the ring between inner and middle
                 float angleRad = (seg.Angle + _rotationOffset) * Mathf.Deg2Rad;
@@ -1322,7 +1371,7 @@ namespace VoiceControl.UI
 
                 // Scale based on selection with spring effect
                 float baseScale = segCurved;
-                float selectionBoost = _selectedMainIndex == i ? 1.1f : 1f;
+                float selectionBoost = GetMainSegmentScaleBoost(seg, i);
                 seg.Container.style.scale = new Scale(new Vector3(baseScale * selectionBoost, baseScale * selectionBoost, 1));
             }
 
@@ -1339,23 +1388,22 @@ namespace VoiceControl.UI
 
             if (_subMenuProgress > 0)
             {
-                float subCurved = bounceCurve.Evaluate(_subMenuProgress);
                 float subWidth = SubSegmentWidth;
                 float subHeight = SubSegmentHeight;
+                int visibleCount = _subSegments.Count(s => s.IsVisible);
 
                 for (int i = 0; i < _subSegments.Count; i++)
                 {
                     var seg = _subSegments[i];
                     if (!seg.IsVisible) continue;
 
-                    float stagger = i * 0.03f;
+                    float stagger = reducedMotion ? 0f : i * subSegmentStagger;
                     float segProgress = Mathf.Clamp01((_subMenuProgress - stagger) / (1f - stagger));
-                    segProgress = bounceCurve.Evaluate(segProgress);
+                    segProgress = reducedMotion ? segProgress : bounceCurve.Evaluate(segProgress);
 
                     // Position relative to parent segment - fan out from the selected main segment
                     float baseAngle = _mainSegments[_selectedMainIndex].Angle + _rotationOffset;
                     float spread = SubMenuSpreadDegrees;  // degrees spread for sub-items
-                    int visibleCount = _subSegments.Count(s => s.IsVisible);
                     float angleOffset = (i - (visibleCount - 1) / 2f) * (spread / Mathf.Max(1, visibleCount - 1));
                     float angle = (baseAngle + angleOffset) * Mathf.Deg2Rad;
 
@@ -1370,7 +1418,8 @@ namespace VoiceControl.UI
                     seg.Container.style.left = x - subWidth / 2;
                     seg.Container.style.top = y - subHeight / 2;
                     seg.Container.style.opacity = segProgress;
-                    seg.Container.style.scale = new Scale(new Vector3(segProgress, segProgress, 1));
+                    float hoverBoost = _selectedSubIndex == i ? 1f + hoverScaleBoost : 1f;
+                    seg.Container.style.scale = new Scale(new Vector3(segProgress * hoverBoost, segProgress * hoverBoost, 1));
                 }
             }
             else
@@ -1398,12 +1447,27 @@ namespace VoiceControl.UI
             }
         }
 
+        private float GetMainSegmentScaleBoost(MainSegment seg, int index)
+        {
+            float boost = 1f;
+            if (_selectedMainIndex == index)
+            {
+                boost += hoverScaleBoost;
+            }
+
+            if (seg.IsHovered)
+            {
+                boost += hoverScaleBoost * 0.5f;
+            }
+
+            return boost;
+        }
+
         private void UpdateGestureRecognition()
         {
             if (!useGestures) return;
 
             Vector2 currentMousePos = Input.mousePosition;
-            Vector2 delta = currentMousePos - _lastMousePos;
 
             // Circular gesture detection
             Vector2 center = new Vector2(Screen.width / 2, Screen.height / 2);
@@ -1470,9 +1534,10 @@ namespace VoiceControl.UI
             if (_selectedMainIndex < 0 || _selectedMainIndex >= _mainSegments.Count) return;
 
             var seg = _mainSegments[_selectedMainIndex];
-            float pulse = 0.9f + 0.1f * Mathf.Sin(Time.unscaledTime * 3f);
+            if (seg.Category == null) return;
 
-            seg.Background.style.backgroundColor = seg.Category.Color * pulse * 0.5f;
+            float pulse = 0.30f + 0.08f * Mathf.Sin(Time.unscaledTime * 3f);
+            seg.Background.style.backgroundColor = WithAlpha(seg.Category.Color, pulse);
         }
 
         private void CreateRipple(Vector2 position, Color color)
@@ -1485,8 +1550,8 @@ namespace VoiceControl.UI
             ripple.style.height = 20;
             ripple.style.left = position.x - 10;
             ripple.style.top = position.y - 10;
-            // ripple.style.borderRadius = 10;
-            ripple.style.backgroundColor = color;
+            SetRadius(ripple, 10);
+            ripple.style.backgroundColor = WithAlpha(color, 0.28f);
 
             _rippleContainer.Add(ripple);
 
@@ -1503,16 +1568,29 @@ namespace VoiceControl.UI
         {
             if (_categories.Count == 0) return;
 
-            int newIndex;
             if (_subMenuOpen)
             {
-                newIndex = (_selectedSubIndex + direction + _subSegments.Count(s => s.IsVisible)) % _subSegments.Count(s => s.IsVisible);
-                newIndex = Mathf.Max(0, newIndex);
-                SelectSubSegment(newIndex);
+                var visibleIndexes = _subSegments
+                    .Where(s => s.IsVisible)
+                    .Select(s => s.Index)
+                    .ToList();
+                if (visibleIndexes.Count == 0)
+                {
+                    return;
+                }
+
+                int currentPosition = visibleIndexes.IndexOf(_selectedSubIndex);
+                if (currentPosition < 0)
+                {
+                    currentPosition = direction > 0 ? -1 : 0;
+                }
+
+                int newPosition = (currentPosition + direction + visibleIndexes.Count) % visibleIndexes.Count;
+                SelectSubSegment(visibleIndexes[newPosition]);
             }
             else
             {
-                newIndex = (_selectedMainIndex + direction + _categories.Count) % _categories.Count;
+                int newIndex = (_selectedMainIndex + direction + _categories.Count) % _categories.Count;
                 SelectMainSegment(newIndex);
             }
 
@@ -1524,6 +1602,7 @@ namespace VoiceControl.UI
             if (!_isOpen) return;
 
             _mainSegments[index].IsHovered = hovered;
+            SetMainSegmentHover(_mainSegments[index], hovered || _selectedMainIndex == index);
 
             if (hovered && _selectedMainIndex != index)
             {
@@ -1600,13 +1679,13 @@ namespace VoiceControl.UI
             {
                 var prev = _mainSegments[_selectedMainIndex];
                 prev.Container.RemoveFromClassList("adv-main-selected");
-                prev.Background.style.backgroundColor = prev.Category?.Color * 0.3f ?? Color.gray;
+                SetMainSegmentHover(prev, prev.IsHovered);
             }
 
             _selectedMainIndex = index;
             var seg = _mainSegments[index];
             seg.Container.AddToClassList("adv-main-selected");
-            seg.Background.style.backgroundColor = seg.Category?.Color * 0.6f ?? Color.gray;
+            SetMainSegmentHover(seg, true);
 
             // Update center info
             if (seg.Category != null)
@@ -1624,7 +1703,13 @@ namespace VoiceControl.UI
         {
             if (_selectedSubIndex == index) return;
 
+            if (_selectedSubIndex >= 0 && _selectedSubIndex < _subSegments.Count)
+            {
+                SetSubSegmentHover(_subSegments[_selectedSubIndex], false);
+            }
+
             _selectedSubIndex = index;
+            SetSubSegmentHover(_subSegments[index], true);
 
             var cmd = _subSegments[index].Command;
             if (cmd != null)
@@ -1633,24 +1718,38 @@ namespace VoiceControl.UI
             }
         }
 
+        private void SetMainSegmentHover(MainSegment seg, bool active)
+        {
+            if (seg == null || seg.Category == null) return;
+
+            Color accent = seg.Category.Color;
+            seg.Background.style.backgroundColor = WithAlpha(accent, active ? 0.38f : 0.22f);
+            seg.Container.style.backgroundColor = active
+                ? new Color(0.035f, 0.085f, 0.075f, segmentTransparency)
+                : WithAlpha(SegmentBackgroundColor, segmentTransparency);
+            SetBorderColor(seg.Container, active ? WithAlpha(accent, 0.82f) : SegmentBorderColor);
+            seg.IconContainer.style.opacity = active ? 1f : 0.86f;
+            seg.NameLabel.style.color = active
+                ? new Color(0.95f, 1f, 0.96f, 1f)
+                : new Color(0.86f, 0.92f, 0.90f, 0.94f);
+        }
+
         private void SetSubSegmentHover(SubSegment seg, bool hovered)
         {
             if (seg == null || seg.Command == null) return;
 
             var baseColor = seg.Command.Color;
-            float bgAlpha = hovered ? 0.6f : 0.4f;
+            float bgAlpha = hovered ? 0.42f : 0.24f;
             var borderColor = Color.Lerp(SubBorderBaseColor, baseColor, hovered ? 0.8f : 0.2f);
 
-            seg.Container.style.scale = new Scale(new Vector3(hovered ? 1.08f : 1f, hovered ? 1.08f : 1f, 1f));
-            seg.IconContainer.style.scale = new Scale(new Vector3(hovered ? 1.1f : 1f, hovered ? 1.1f : 1f, 1f));
+            float scale = hovered ? 1f + hoverScaleBoost : 1f;
+            seg.Container.style.scale = new Scale(new Vector3(scale, scale, 1f));
+            seg.IconContainer.style.scale = new Scale(new Vector3(hovered ? 1.08f : 1f, hovered ? 1.08f : 1f, 1f));
             seg.IconContainer.style.opacity = hovered ? 1f : 0.9f;
 
-            seg.Container.style.borderTopColor = borderColor;
-            seg.Container.style.borderBottomColor = borderColor;
-            seg.Container.style.borderLeftColor = borderColor;
-            seg.Container.style.borderRightColor = borderColor;
+            SetBorderColor(seg.Container, borderColor);
 
-            seg.Background.style.backgroundColor = baseColor * bgAlpha;
+            seg.Background.style.backgroundColor = WithAlpha(baseColor, bgAlpha);
             seg.NameLabel.style.color = hovered
                 ? new Color(0.95f, 0.97f, 1f, 1f)
                 : new Color(0.85f, 0.90f, 0.95f, 0.95f);
@@ -1677,33 +1776,44 @@ namespace VoiceControl.UI
             }
 
             _subMenuOpen = true;
+            int visibleCommandCount = Mathf.Min(category.Commands.Count, _subSegments.Count);
 
             // Setup sub segments
             for (int i = 0; i < _subSegments.Count; i++)
             {
                 var seg = _subSegments[i];
-                if (i < category.Commands.Count)
+                if (i < visibleCommandCount)
                 {
                     seg.Command = category.Commands[i];
                     TrySetIcon(seg.IconImage, seg.Command.IconPath, Color.white);
                     seg.NameLabel.text = seg.Command.DisplayName;
-                    seg.Background.style.backgroundColor = category.Color * 0.4f;
+                    seg.Background.style.backgroundColor = WithAlpha(category.Color, 0.24f);
                     seg.IsVisible = true;
                     SetSubSegmentHover(seg, false);
                 }
                 else
                 {
                     seg.IsVisible = false;
+                    seg.Command = null;
+                    seg.Container.style.display = DisplayStyle.None;
                 }
             }
 
             _selectedSubIndex = -1;
+            _centerSubtitle.text = category.Commands.Count > visibleCommandCount
+                ? $"{visibleCommandCount}/{category.Commands.Count} commands"
+                : $"{category.Commands.Count} commands";
         }
 
         private void CloseSubMenu()
         {
             _subMenuOpen = false;
             _selectedSubIndex = -1;
+
+            if (_selectedMainIndex < 0 || _selectedMainIndex >= _mainSegments.Count)
+            {
+                return;
+            }
 
             var seg = _mainSegments[_selectedMainIndex];
             if (seg.Category != null)
@@ -1758,6 +1868,30 @@ namespace VoiceControl.UI
 
         public void SetMenuOpen(bool open)
         {
+            if (_menuRoot == null)
+            {
+                SetupUI();
+            }
+
+            if (_menuRoot == null) return;
+
+#if UNITY_EDITOR
+            if (!Application.isPlaying)
+            {
+                if (open)
+                {
+                    LoadCommands();
+                    ShowEditorPreview();
+                }
+                else
+                {
+                    HideEditorPreview();
+                }
+
+                return;
+            }
+#endif
+
             if (_isOpen == open) return;
 
             _isOpen = open;
@@ -1766,6 +1900,11 @@ namespace VoiceControl.UI
             if (_isOpen)
             {
                 _menuRoot.style.display = DisplayStyle.Flex;
+                if (_collapsedButton != null)
+                {
+                    _collapsedButton.style.display = DisplayStyle.None;
+                }
+
                 _lastMousePos = Input.mousePosition;
                 _gestureAccumulator = 0;
                 LoadCommands();
@@ -1797,7 +1936,13 @@ namespace VoiceControl.UI
 
         private string FormatCommandName(string name)
         {
+            if (string.IsNullOrWhiteSpace(name))
+            {
+                return "Command";
+            }
+
             return string.Join(" ", name.Split('_')
+                .Where(w => !string.IsNullOrEmpty(w))
                 .Select(w => char.ToUpper(w[0]) + w.Substring(1)));
         }
 
@@ -1878,9 +2023,9 @@ namespace VoiceControl.UI
         /// </summary>
         public void SetRadialDimensions(float inner, float middle, float outer)
         {
-            innerRadius = inner;
-            middleRadius = middle;
-            outerRadius = outer;
+            innerRadius = Mathf.Max(90f, inner);
+            middleRadius = Mathf.Max(innerRadius + 90f, middle);
+            outerRadius = Mathf.Max(middleRadius + 80f, outer);
 
 #if UNITY_EDITOR
             if (!Application.isPlaying)
@@ -1895,13 +2040,13 @@ namespace VoiceControl.UI
         /// </summary>
         public void SetCollapsedButton(float size, Vector2 position)
         {
-            collapsedButtonSize = size;
+            collapsedButtonSize = Mathf.Clamp(size, 48f, 96f);
             collapsedButtonPosition = position;
 
             if (_collapsedButton != null)
             {
-                _collapsedButton.style.width = size;
-                _collapsedButton.style.height = size;
+                _collapsedButton.style.width = collapsedButtonSize;
+                _collapsedButton.style.height = collapsedButtonSize;
                 _collapsedButton.style.left = position.x;
                 _collapsedButton.style.bottom = position.y;
             }
@@ -1912,9 +2057,50 @@ namespace VoiceControl.UI
         /// </summary>
         public void SetAnimationDurations(float open, float close, float subMenu)
         {
-            openDuration = open;
-            closeDuration = close;
-            subMenuExpandDuration = subMenu;
+            openDuration = Mathf.Clamp(open, 0.05f, 0.75f);
+            closeDuration = Mathf.Clamp(close, 0.05f, 0.5f);
+            subMenuExpandDuration = Mathf.Clamp(subMenu, 0.05f, 0.5f);
+        }
+
+        /// <summary>
+        /// Applies the compact FAA cockpit preset used by ExperimentScene.
+        /// </summary>
+        public void ApplyAviationHudPreset(bool refresh = true)
+        {
+            innerRadius = 150f;
+            middleRadius = 320f;
+            outerRadius = 465f;
+            collapsedButtonSize = 68f;
+            collapsedButtonPosition = new Vector2(72f, 72f);
+            maxSubSegmentCount = 6;
+            openDuration = 0.28f;
+            closeDuration = 0.18f;
+            subMenuExpandDuration = 0.18f;
+            mainSegmentStagger = 0.025f;
+            subSegmentStagger = 0.02f;
+            hoverScaleBoost = 0.06f;
+            menuTransparency = 0.92f;
+            ringBackgroundTransparency = 0.82f;
+            segmentTransparency = 0.94f;
+            centerTransparency = 0.94f;
+            mainLabelFontSize = 16f;
+            subLabelFontSize = 13f;
+            centerTitleFontSize = 21f;
+            centerSubtitleFontSize = 13f;
+            usePulseAnimation = true;
+            useRippleEffect = true;
+
+            if (refresh)
+            {
+#if UNITY_EDITOR
+                if (!Application.isPlaying)
+                {
+                    RefreshUI();
+                    return;
+                }
+#endif
+                ApplyInlineStyles();
+            }
         }
 
         #endregion

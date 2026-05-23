@@ -82,9 +82,20 @@ namespace IndicatorSystem.Controller
             if (!_isInitialized)
                 Initialize();
         }
+
+        private void Start()
+        {
+            if (!_isInitialized)
+                Initialize();
+        }
         
         private void LateUpdate()
         {
+            if (!_isInitialized)
+            {
+                Initialize();
+            }
+
             if (!_isInitialized || settings == null || !settings.enabled)
                 return;
             
@@ -113,7 +124,7 @@ namespace IndicatorSystem.Controller
             // Setup camera
             if (targetCamera == null)
             {
-                targetCamera = Camera.main;
+                targetCamera = FindBestCamera();
             }
             
             if (targetCamera == null)
@@ -141,6 +152,34 @@ namespace IndicatorSystem.Controller
             
             _isInitialized = true;
             Log("Indicator system initialized");
+        }
+
+        private static Camera FindBestCamera()
+        {
+            Camera mainCamera = Camera.main;
+            if (mainCamera != null)
+            {
+                return mainCamera;
+            }
+
+            Camera[] cameras = FindObjectsByType<Camera>(FindObjectsInactive.Include, FindObjectsSortMode.None);
+            Camera fallback = null;
+            foreach (Camera camera in cameras)
+            {
+                if (camera == null)
+                {
+                    continue;
+                }
+
+                if (camera.isActiveAndEnabled)
+                {
+                    return camera;
+                }
+
+                fallback ??= camera;
+            }
+
+            return fallback;
         }
         
         /// <summary>
@@ -217,6 +256,44 @@ namespace IndicatorSystem.Controller
         {
             _targets.Clear();
             AddOrUpdateTargets(targets);
+        }
+
+        /// <summary>
+        /// Replace only targets of one source type, preserving other active sources.
+        /// </summary>
+        public void SetTargetsForType(IndicatorType type, IEnumerable<IIndicatorTarget> targets)
+        {
+            var incomingTargets = new List<IIndicatorTarget>();
+            var incomingIds = new HashSet<string>();
+            if (targets != null)
+            {
+                foreach (var target in targets)
+                {
+                    if (target == null || string.IsNullOrEmpty(target.Id))
+                    {
+                        continue;
+                    }
+
+                    incomingTargets.Add(target);
+                    incomingIds.Add(target.Id);
+                }
+            }
+
+            var toRemove = new List<string>();
+            foreach (var pair in _targets)
+            {
+                if (pair.Value != null && pair.Value.Type == type && !incomingIds.Contains(pair.Key))
+                {
+                    toRemove.Add(pair.Key);
+                }
+            }
+
+            foreach (string id in toRemove)
+            {
+                RemoveTarget(id);
+            }
+
+            AddOrUpdateTargets(incomingTargets);
         }
         
         /// <summary>
@@ -368,8 +445,17 @@ namespace IndicatorSystem.Controller
                 }
             }
             
-            // Sort by priority (higher priority on top)
-            _indicatorDataList.Sort((a, b) => a.Priority.CompareTo(b.Priority));
+            // Keep the display sparse by taking the most important and nearest targets first.
+            _indicatorDataList.Sort((a, b) =>
+            {
+                int priorityCompare = b.Priority.CompareTo(a.Priority);
+                if (priorityCompare != 0)
+                {
+                    return priorityCompare;
+                }
+
+                return a.DistanceNM.CompareTo(b.DistanceNM);
+            });
             
             // Limit to max indicators
             int count = Mathf.Min(_indicatorDataList.Count, settings.maxIndicators);

@@ -8,6 +8,9 @@ namespace IndicatorSystem.Core
     /// </summary>
     public static class ScreenIndicatorCalculator
     {
+        private const float LowerBandEligibleHeightRatio = 0.58f;
+        private const float LowerBandTargetHeightRatio = 0.42f;
+
         /// <summary>
         /// Calculate indicator data from a world position.
         /// </summary>
@@ -84,6 +87,7 @@ namespace IndicatorSystem.Core
                     data.Visibility = IndicatorVisibility.OffScreen;
                 
                 Vector2 clampedPos = ClampToScreenEdge(screenPos, screenWidth, screenHeight, padding);
+                clampedPos = ApplyLowerBandBias(target.Type, screenPos, clampedPos, screenWidth, screenHeight, padding);
                 data.ScreenPosition = clampedPos;
                 
                 // Calculate arrow rotation pointing toward target
@@ -126,6 +130,35 @@ namespace IndicatorSystem.Core
             float t = Mathf.Min(Mathf.Abs(tX), Mathf.Abs(tY));
             
             return center + direction * t;
+        }
+
+        private static Vector2 ApplyLowerBandBias(
+            IndicatorType type,
+            Vector2 sourceScreenPos,
+            Vector2 clampedPos,
+            float width,
+            float height,
+            float padding)
+        {
+            if (type != IndicatorType.Weather && type != IndicatorType.Traffic)
+            {
+                return clampedPos;
+            }
+
+            bool sideClamped = clampedPos.x <= padding + 1f || clampedPos.x >= width - padding - 1f;
+            bool lowerHalfTarget = sourceScreenPos.y <= height * LowerBandEligibleHeightRatio ||
+                                   clampedPos.y <= height * LowerBandEligibleHeightRatio;
+            if (!sideClamped || !lowerHalfTarget)
+            {
+                return clampedPos;
+            }
+
+            float lowerBandY = Mathf.Clamp(
+                height * LowerBandTargetHeightRatio,
+                padding + 18f,
+                height - padding - 18f);
+            clampedPos.y = Mathf.Min(clampedPos.y, lowerBandY);
+            return clampedPos;
         }
 
         /// <summary>

@@ -14,6 +14,7 @@ namespace WeatherRadar.Editor
         private enum ProviderType
         {
             Simulated,
+            XPlane12_OriginalTexture,
             IEM_NEXRAD,  // Recommended: Real-time NEXRAD from Iowa Environmental Mesonet
             NOAA,
             MQTT
@@ -133,6 +134,12 @@ namespace WeatherRadar.Editor
                         "Configure API keys and preferred service on the component.",
                         MessageType.Info);
                     break;
+                case ProviderType.XPlane12_OriginalTexture:
+                    EditorGUILayout.HelpBox(
+                        "Uses the original X-Plane 12 weather radar PNG from faa.agaii.org. " +
+                        "The texture is shown directly and is not recolored into synthetic returns.",
+                        MessageType.Info);
+                    break;
                 case ProviderType.Simulated:
                     EditorGUILayout.HelpBox(
                         "Procedural noise-based simulation. No network required.", MessageType.Info);
@@ -221,6 +228,10 @@ namespace WeatherRadar.Editor
 
             // Create weather provider and wire to panel
             WeatherRadarProviderBase weatherProvider = CreateWeatherProvider(radarRoot);
+            if (selectedProvider == ProviderType.XPlane12_OriginalTexture)
+            {
+                CreateXPlaneOriginalTextureDisplay(panel, weatherProvider, dataProvider);
+            }
             
             // Wire up the panel references using SerializedObject
             SerializedObject panelSO = new SerializedObject(panel);
@@ -408,6 +419,8 @@ namespace WeatherRadar.Editor
             {
                 case ProviderType.Simulated:
                     return parent.AddComponent<SimulatedWeatherProvider>();
+                case ProviderType.XPlane12_OriginalTexture:
+                    return parent.AddComponent<XPlaneOriginalWeatherRadarProvider>();
                 case ProviderType.IEM_NEXRAD:
                     return parent.AddComponent<IEMWeatherProvider>();
                 case ProviderType.NOAA:
@@ -417,6 +430,42 @@ namespace WeatherRadar.Editor
                 default:
                     return parent.AddComponent<SimulatedWeatherProvider>();
             }
+        }
+
+        private XPlaneOriginalWeatherRadarDisplay CreateXPlaneOriginalTextureDisplay(
+            WeatherRadarPanel panel,
+            WeatherRadarProviderBase weatherProvider,
+            WeatherRadarDataProvider dataProvider)
+        {
+            GameObject textureObj = new GameObject("XPlaneOriginalTexture");
+            textureObj.transform.SetParent(panel.transform, false);
+
+            int radarSize = displaySize - 20;
+            RectTransform rect = textureObj.AddComponent<RectTransform>();
+            rect.anchorMin = new Vector2(0.5f, 0.5f);
+            rect.anchorMax = new Vector2(0.5f, 0.5f);
+            rect.pivot = new Vector2(0.5f, 0.5f);
+            rect.anchoredPosition = Vector2.zero;
+            rect.sizeDelta = new Vector2(radarSize, Mathf.Round(radarSize * 512f / 724f));
+
+            RawImage image = textureObj.AddComponent<RawImage>();
+            image.color = new Color(1f, 1f, 1f, 0.96f);
+            image.raycastTarget = false;
+
+            AspectRatioFitter aspect = textureObj.AddComponent<AspectRatioFitter>();
+            aspect.aspectMode = AspectRatioFitter.AspectMode.FitInParent;
+            aspect.aspectRatio = 724f / 512f;
+
+            XPlaneOriginalWeatherRadarDisplay display = textureObj.AddComponent<XPlaneOriginalWeatherRadarDisplay>();
+            SerializedObject displaySO = new SerializedObject(display);
+            displaySO.FindProperty("weatherProvider").objectReferenceValue = weatherProvider;
+            displaySO.FindProperty("dataProvider").objectReferenceValue = dataProvider;
+            displaySO.FindProperty("targetImage").objectReferenceValue = image;
+            displaySO.FindProperty("aspectRatioFitter").objectReferenceValue = aspect;
+            displaySO.ApplyModifiedPropertiesWithoutUndo();
+
+            textureObj.transform.SetSiblingIndex(1);
+            return display;
         }
 
         private void CreateControlPanel(Transform parent, WeatherRadarDataProvider dataProvider)

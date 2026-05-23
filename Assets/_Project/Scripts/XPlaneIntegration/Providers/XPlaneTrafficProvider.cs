@@ -30,7 +30,7 @@ namespace FAA.XPlaneIntegration.Providers
 
         [Tooltip("Maximum number of traffic slots to monitor (X-Plane supports 1-19)")]
         [Range(1, 19)]
-        [SerializeField] private int maxTrafficSlots = 10;
+        [SerializeField] private int maxTrafficSlots = 19;
 
         [Tooltip("Update interval in seconds for traffic data polling")]
         [Range(0.1f, 5f)]
@@ -110,7 +110,28 @@ namespace FAA.XPlaneIntegration.Providers
         public int MaxTrafficSlots
         {
             get => maxTrafficSlots;
-            set => maxTrafficSlots = Mathf.Clamp(value, 1, 20);
+            set
+            {
+                int clamped = Mathf.Clamp(value, 1, 19);
+                if (maxTrafficSlots == clamped)
+                {
+                    return;
+                }
+
+                bool restart = IsMonitoring;
+                if (restart)
+                {
+                    StopTrafficMonitoring();
+                }
+
+                maxTrafficSlots = clamped;
+                BuildDataRefPaths();
+
+                if (restart && enableXPlaneTraffic)
+                {
+                    StartTrafficMonitoring();
+                }
+            }
         }
 
         /// <summary>

@@ -2,6 +2,9 @@ using System;
 using System.Collections;
 using System.Collections.Generic;
 using System.Globalization;
+using System.IO;
+using System.Net.Sockets;
+using System.Net.WebSockets;
 using System.Reflection;
 using System.Text;
 using System.Threading;
@@ -20,6 +23,7 @@ using UnityEngine;
 using UnityEngine.Networking;
 using UnityEngine.UI;
 using WeatherRadar;
+using HUDControl.Elements;
 using AircraftRuntimeState = AircraftControl.Core.AircraftState;
 
 namespace FAA.XPlaneIntegration.Runtime
@@ -35,7 +39,9 @@ namespace FAA.XPlaneIntegration.Runtime
         public enum TransportMode
         {
             HttpApi = 0,
-            MqttSnapshot = 1
+            MqttSnapshot = 1,
+            WebSocketStream = 2,
+            TcpNdjsonStream = 3
         }
 
         public enum DataSmoothingStrategy
@@ -52,7 +58,15 @@ namespace FAA.XPlaneIntegration.Runtime
         [SerializeField] private float staleAfterSeconds = 5f;
 
         [Header("Transport")]
-        [SerializeField] private TransportMode transportMode = TransportMode.HttpApi;
+        [SerializeField] private TransportMode transportMode = TransportMode.TcpNdjsonStream;
+        [SerializeField] private string tcpStreamHost = "127.0.0.1";
+        [SerializeField] private int tcpStreamPort = 37212;
+        [SerializeField] private string webSocketUrl = "ws://127.0.0.1:37212/v1/stream/ws";
+        [SerializeField] private float webSocketReconnectDelaySeconds = 0.5f;
+        [SerializeField] private int webSocketReceiveBufferBytes = 262144;
+        [SerializeField] private bool webSocketUseMqttFallback = true;
+        [SerializeField] private bool webSocketUseHttpFallback = true;
+        [SerializeField] private float webSocketFallbackAfterSeconds = 1.25f;
         [SerializeField] private string mqttBrokerHost = "127.0.0.1";
         [SerializeField] private int mqttBrokerPort = 18883;
         [SerializeField] private string mqttSnapshotTopic = "xplane12/snapshot";
@@ -65,14 +79,16 @@ namespace FAA.XPlaneIntegration.Runtime
         [Header("Latency")]
         [SerializeField] private DataSmoothingStrategy smoothingStrategy = DataSmoothingStrategy.LowLatencyAdaptive;
         [SerializeField] private bool compensatePacketAge = true;
-        [SerializeField] private float maxPredictionSeconds = 0.35f;
-        [SerializeField] private float smoothingResponseRate = 32f;
-        [SerializeField] private float aggressiveSmoothingResponseRate = 70f;
+        [SerializeField] private bool interpolateDisplayBetweenPackets = true;
+        [SerializeField] private float maxPredictionSeconds = 0.2f;
+        [SerializeField] private float smoothingResponseRate = 90f;
+        [SerializeField] private float aggressiveSmoothingResponseRate = 180f;
         [SerializeField] private float attitudeSnapDegrees = 35f;
         [SerializeField] private float headingSnapDegrees = 60f;
         [SerializeField] private float airspeedSnapKnots = 50f;
         [SerializeField] private float altitudeSnapFeet = 1000f;
         [SerializeField] private float verticalSpeedSnapFpm = 2500f;
+        [SerializeField] private float staleHoldSeconds = 0.75f;
 
         [Header("Categories")]
         [SerializeField] private bool pollAircraft = true;
@@ -86,9 +102,13 @@ namespace FAA.XPlaneIntegration.Runtime
         [SerializeField] private AviationUIManager uiManager;
         [SerializeField] private AviationFlightDataProvider flightDataProvider;
         [SerializeField] private AircraftController aircraftController;
+        [SerializeField] private HUDControl.Core.HUDController hudController;
         [SerializeField] private TrafficRadarDataManager trafficRadarDataManager;
         [SerializeField] private TrafficRadarController trafficRadarController;
+        [SerializeField] private WeatherRadarDataProvider weatherRadarDataProvider;
         [SerializeField] private WeatherRadarProviderBase weatherRadarProvider;
+        [SerializeField] private XPlaneOriginalWeatherRadarDisplay xPlaneWeatherRadarDisplay;
+        [SerializeField] private TrafficRadarDisplay xPlaneTrafficRadarDisplay;
         [SerializeField] private RawImage weatherImageTarget;
         [SerializeField] private RawImage trafficImageTarget;
 
@@ -101,6 +121,8 @@ namespace FAA.XPlaneIntegration.Runtime
         [SerializeField] private bool disableUserControlWhenReceiving = true;
         [SerializeField] private bool disableTrafficApiWhenReceiving = true;
         [SerializeField] private bool refreshWeatherRadarTexture = false;
+        [SerializeField] private bool treatFreshWeatherTextureAsRadarOn = true;
+        [SerializeField] private float minimumUnityTerrainClearanceMeters = 120f;
 
         [Header("Debug")]
         [SerializeField] private bool verboseLogging = false;
@@ -109,11 +131,13 @@ namespace FAA.XPlaneIntegration.Runtime
         private Coroutine _pollRoutine;
         private Coroutine _renderAssetRoutine;
         private AviationFlightData _rawFlightData;
+        private AviationFlightData _targetFlightData;
         private AviationFlightData _latestFlightData;
         private AviationFlightData _smoothedFlightData;
         private bool _lastHealthyState;
         private bool _hasLoggedConnection;
         private bool _hasSmoothedFlightData;
+        private bool _hasTargetFlightData;
         private bool _suppressedUserControl;
         private bool _userControlWasEnabledBeforeApi;
         private bool _suppressedAircraftControl;
@@ -121,13 +145,29 @@ namespace FAA.XPlaneIntegration.Runtime
         private bool _suppressedTrafficFetching;
         private bool _trafficWasFetchingBeforeApi;
         private float _lastWeatherRefreshTime;
-        private float _lastSnapshotApplyRealtime;
+        private float _lastDisplayApplyRealtime;
+        private bool _hasWeatherRadarPowerState;
+        private bool _isWeatherRadarPowered;
+        private int _weatherRadarMode = -1;
         private readonly object _mqttMessageLock = new object();
         private MqttFactory _mqttFactory;
         private IMqttClient _mqttClient;
         private IMqttClientOptions _mqttOptions;
         private bool _mqttTransportRunning;
         private string _pendingSnapshotJson;
+        private readonly object _webSocketMessageLock = new object();
+        private CancellationTokenSource _webSocketCancellation;
+        private ClientWebSocket _webSocketClient;
+        private bool _webSocketTransportRunning;
+        private CancellationTokenSource _tcpStreamCancellation;
+        private TcpClient _tcpStreamClient;
+        private bool _tcpStreamTransportRunning;
+        private string _pendingWebSocketSnapshotJson;
+        private float _lastWebSocketSnapshotRealtime = -1f;
+        private float _lastMqttSnapshotRealtime = -1f;
+        private bool _usingHttpFallback;
+        private bool _usingMqttFallback;
+        private readonly List<TrafficRadarDataManager.AircraftData> _trafficRows = new List<TrafficRadarDataManager.AircraftData>(19);
 
         private AirspeedHUD[] _airspeedHuds = Array.Empty<AirspeedHUD>();
         private AltitudeHUD[] _altitudeHuds = Array.Empty<AltitudeHUD>();
@@ -139,8 +179,12 @@ namespace FAA.XPlaneIntegration.Runtime
         private FlightPathVector[] _flightPathVectors = Array.Empty<FlightPathVector>();
         private SlipSkidHUD[] _slipSkidHuds = Array.Empty<SlipSkidHUD>();
         private AltitudeAGL[] _altitudeAglDisplays = Array.Empty<AltitudeAGL>();
+        private CourseDeviation[] _courseDeviationHuds = Array.Empty<CourseDeviation>();
+        private Glideslope[] _glideslopeHuds = Array.Empty<Glideslope>();
+        private LocalizerElement[] _localizerElements = Array.Empty<LocalizerElement>();
+        private GlidescopeElement[] _glidescopeElements = Array.Empty<GlidescopeElement>();
 
-        public bool IsRunning => _pollRoutine != null || _mqttTransportRunning;
+        public bool IsRunning => _pollRoutine != null || _mqttTransportRunning || _webSocketTransportRunning || _tcpStreamTransportRunning;
         public bool IsFeedHealthy { get; private set; }
         public string LastError { get; private set; } = string.Empty;
         public float LastPacketAgeSeconds { get; private set; } = float.PositiveInfinity;
@@ -154,6 +198,7 @@ namespace FAA.XPlaneIntegration.Runtime
 
         public Texture2D LatestWeatherTexture => _latestWeatherTexture;
         public Texture2D LatestTrafficTexture => _latestTrafficTexture;
+        public TransportMode CurrentTransportMode => transportMode;
 
         private void Awake()
         {
@@ -170,12 +215,23 @@ namespace FAA.XPlaneIntegration.Runtime
 
         private void Update()
         {
-            if (!Application.isPlaying || transportMode != TransportMode.MqttSnapshot)
+            if (!Application.isPlaying)
             {
                 return;
             }
 
-            ProcessPendingMqttSnapshot();
+            if (transportMode == TransportMode.MqttSnapshot || _usingMqttFallback)
+            {
+                ProcessPendingMqttSnapshot();
+            }
+
+            if (transportMode == TransportMode.WebSocketStream || transportMode == TransportMode.TcpNdjsonStream)
+            {
+                ProcessPendingWebSocketSnapshot();
+                UpdateWebSocketFallbackState();
+            }
+
+            ApplyContinuousDisplayFrame();
         }
 
         private void OnDisable()
@@ -198,13 +254,32 @@ namespace FAA.XPlaneIntegration.Runtime
             }
 
             FindDependencies();
-            if (transportMode == TransportMode.HttpApi)
+            if (transportMode == TransportMode.WebSocketStream || transportMode == TransportMode.TcpNdjsonStream)
             {
-                _pollRoutine = StartCoroutine(PollLoop());
+                if (webSocketUseMqttFallback)
+                {
+                    StartMqttTransport();
+                }
+                if (transportMode == TransportMode.TcpNdjsonStream)
+                {
+                    StartTcpStreamTransport();
+                }
+                else
+                {
+                    StartWebSocketTransport();
+                }
+                if (webSocketUseHttpFallback)
+                {
+                    _pollRoutine = StartCoroutine(PollLoop());
+                }
+            }
+            else if (transportMode == TransportMode.MqttSnapshot)
+            {
+                StartMqttTransport();
             }
             else
             {
-                StartMqttTransport();
+                _pollRoutine = StartCoroutine(PollLoop());
             }
 
             if (pollRenderAssets && _renderAssetRoutine == null)
@@ -223,6 +298,8 @@ namespace FAA.XPlaneIntegration.Runtime
             }
 
             StopMqttTransport();
+            StopWebSocketTransport();
+            StopTcpStreamTransport();
 
             if (_renderAssetRoutine != null)
             {
@@ -233,11 +310,63 @@ namespace FAA.XPlaneIntegration.Runtime
             RestoreSuppressedSystems();
             IsFeedHealthy = false;
             _pendingSnapshotJson = null;
+            _pendingWebSocketSnapshotJson = null;
+            _lastWebSocketSnapshotRealtime = -1f;
+            _lastMqttSnapshotRealtime = -1f;
+            _usingMqttFallback = false;
+            _usingHttpFallback = false;
             _hasSmoothedFlightData = false;
             _smoothedFlightData = null;
             _rawFlightData = null;
+            _targetFlightData = null;
             _latestFlightData = null;
-            _lastSnapshotApplyRealtime = 0f;
+            _lastDisplayApplyRealtime = 0f;
+            _hasTargetFlightData = false;
+        }
+
+        [ContextMenu("Transport/Use WebSocket Stream")]
+        public void UseWebSocketTransport()
+        {
+            SetTransportMode(TransportMode.WebSocketStream);
+        }
+
+        [ContextMenu("Transport/Use TCP NDJSON Stream")]
+        public void UseTcpNdjsonTransport()
+        {
+            SetTransportMode(TransportMode.TcpNdjsonStream);
+        }
+
+        [ContextMenu("Transport/Use MQTT Snapshot")]
+        public void UseMqttTransport()
+        {
+            SetTransportMode(TransportMode.MqttSnapshot);
+        }
+
+        [ContextMenu("Transport/Use HTTP API Polling")]
+        public void UseHttpApiTransport()
+        {
+            SetTransportMode(TransportMode.HttpApi);
+        }
+
+        public void SetTransportMode(TransportMode mode, bool restartIfRunning = true)
+        {
+            if (transportMode == mode)
+            {
+                return;
+            }
+
+            bool wasRunning = IsRunning;
+            if (wasRunning && restartIfRunning)
+            {
+                StopBridge();
+            }
+
+            transportMode = mode;
+
+            if (wasRunning && restartIfRunning && Application.isPlaying && enabled)
+            {
+                StartBridge();
+            }
         }
 
         [ContextMenu("Refresh Targets")]
@@ -263,6 +392,11 @@ namespace FAA.XPlaneIntegration.Runtime
                 aircraftController = FindAnyObjectByType<AircraftController>(FindObjectsInactive.Include);
             }
 
+            if (hudController == null)
+            {
+                hudController = FindAnyObjectByType<HUDControl.Core.HUDController>(FindObjectsInactive.Include);
+            }
+
             if (trafficRadarDataManager == null)
             {
                 trafficRadarDataManager = FindAnyObjectByType<TrafficRadarDataManager>(FindObjectsInactive.Include);
@@ -276,6 +410,31 @@ namespace FAA.XPlaneIntegration.Runtime
             if (weatherRadarProvider == null)
             {
                 weatherRadarProvider = FindAnyObjectByType<WeatherRadarProviderBase>(FindObjectsInactive.Include);
+            }
+
+            if (weatherRadarDataProvider == null)
+            {
+                weatherRadarDataProvider = FindAnyObjectByType<WeatherRadarDataProvider>(FindObjectsInactive.Include);
+            }
+
+            if (xPlaneWeatherRadarDisplay == null)
+            {
+                xPlaneWeatherRadarDisplay = FindAnyObjectByType<XPlaneOriginalWeatherRadarDisplay>(FindObjectsInactive.Include);
+            }
+
+            if (weatherImageTarget == null && xPlaneWeatherRadarDisplay != null)
+            {
+                weatherImageTarget = xPlaneWeatherRadarDisplay.TargetImage;
+            }
+
+            if (xPlaneTrafficRadarDisplay == null)
+            {
+                xPlaneTrafficRadarDisplay = FindAnyObjectByType<TrafficRadarDisplay>(FindObjectsInactive.Include);
+            }
+
+            if (trafficImageTarget == null && xPlaneTrafficRadarDisplay != null)
+            {
+                trafficImageTarget = xPlaneTrafficRadarDisplay.RadarImage;
             }
 
             CacheLegacyHudComponents();
@@ -293,6 +452,10 @@ namespace FAA.XPlaneIntegration.Runtime
             _flightPathVectors = FindSceneObjects<FlightPathVector>();
             _slipSkidHuds = FindSceneObjects<SlipSkidHUD>();
             _altitudeAglDisplays = FindSceneObjects<AltitudeAGL>();
+            _courseDeviationHuds = FindSceneObjects<CourseDeviation>();
+            _glideslopeHuds = FindSceneObjects<Glideslope>();
+            _localizerElements = FindSceneObjects<LocalizerElement>();
+            _glidescopeElements = FindSceneObjects<GlidescopeElement>();
         }
 
         private static T[] FindSceneObjects<T>() where T : Component
@@ -300,8 +463,296 @@ namespace FAA.XPlaneIntegration.Runtime
             return FindObjectsByType<T>(FindObjectsInactive.Include, FindObjectsSortMode.None);
         }
 
+        private void StartWebSocketTransport()
+        {
+            if (_webSocketTransportRunning)
+            {
+                return;
+            }
+
+            _webSocketTransportRunning = true;
+            _webSocketCancellation = new CancellationTokenSource();
+            CancellationToken token = _webSocketCancellation.Token;
+            _ = Task.Run(() => RunWebSocketLoopAsync(token), token);
+        }
+
+        private void StopWebSocketTransport()
+        {
+            _webSocketTransportRunning = false;
+
+            CancellationTokenSource cancellation = _webSocketCancellation;
+            _webSocketCancellation = null;
+            if (cancellation != null)
+            {
+                try
+                {
+                    cancellation.Cancel();
+                }
+                catch (ObjectDisposedException)
+                {
+                }
+            }
+
+            ClientWebSocket client = _webSocketClient;
+            _webSocketClient = null;
+            if (client != null)
+            {
+                try
+                {
+                    client.Abort();
+                    client.Dispose();
+                }
+                catch (ObjectDisposedException)
+                {
+                }
+            }
+
+            cancellation?.Dispose();
+        }
+
+        private void StartTcpStreamTransport()
+        {
+            if (_tcpStreamTransportRunning)
+            {
+                return;
+            }
+
+            _tcpStreamTransportRunning = true;
+            _tcpStreamCancellation = new CancellationTokenSource();
+            CancellationToken token = _tcpStreamCancellation.Token;
+            _ = Task.Run(() => RunTcpStreamLoopAsync(token), token);
+        }
+
+        private void StopTcpStreamTransport()
+        {
+            _tcpStreamTransportRunning = false;
+
+            CancellationTokenSource cancellation = _tcpStreamCancellation;
+            _tcpStreamCancellation = null;
+            if (cancellation != null)
+            {
+                try
+                {
+                    cancellation.Cancel();
+                }
+                catch (ObjectDisposedException)
+                {
+                }
+            }
+
+            TcpClient client = _tcpStreamClient;
+            _tcpStreamClient = null;
+            if (client != null)
+            {
+                try
+                {
+                    client.Close();
+                    client.Dispose();
+                }
+                catch (ObjectDisposedException)
+                {
+                }
+            }
+
+            cancellation?.Dispose();
+        }
+
+        private async Task RunTcpStreamLoopAsync(CancellationToken cancellationToken)
+        {
+            string host = string.IsNullOrWhiteSpace(tcpStreamHost) ? "127.0.0.1" : tcpStreamHost.Trim();
+            int port = Mathf.Clamp(tcpStreamPort, 1, 65535);
+
+            while (!cancellationToken.IsCancellationRequested)
+            {
+                try
+                {
+                    using (TcpClient client = new TcpClient())
+                    {
+                        client.NoDelay = true;
+                        _tcpStreamClient = client;
+                        await client.ConnectAsync(host, port);
+
+                        LastSender = "tcp-ndjson";
+                        LastError = string.Empty;
+                        LastPacketAgeSeconds = 0f;
+                        SetHealthy(true);
+
+                        using (NetworkStream stream = client.GetStream())
+                        using (StreamReader reader = new StreamReader(stream, Encoding.UTF8, false, Mathf.Clamp(webSocketReceiveBufferBytes, 4096, 1024 * 1024), leaveOpen: false))
+                        {
+                            while (!cancellationToken.IsCancellationRequested && client.Connected)
+                            {
+                                string snapshotJson = await reader.ReadLineAsync();
+                                if (snapshotJson == null)
+                                {
+                                    break;
+                                }
+
+                                if (string.IsNullOrWhiteSpace(snapshotJson))
+                                {
+                                    continue;
+                                }
+
+                                lock (_webSocketMessageLock)
+                                {
+                                    _pendingWebSocketSnapshotJson = snapshotJson;
+                                }
+                            }
+                        }
+                    }
+                }
+                catch (OperationCanceledException)
+                {
+                    break;
+                }
+                catch (Exception ex)
+                {
+                    if (!_tcpStreamTransportRunning || cancellationToken.IsCancellationRequested)
+                    {
+                        break;
+                    }
+
+                    LastError = $"TCP NDJSON stream failed: {ex.Message}";
+                    SetHealthy(_hasTargetFlightData && LastPacketAgeSeconds <= staleHoldSeconds);
+                    if (verboseLogging)
+                    {
+                        Debug.LogWarning($"[XPlane12ApiHudBridge] {LastError}");
+                    }
+                }
+                finally
+                {
+                    _tcpStreamClient = null;
+                }
+
+                if (!_tcpStreamTransportRunning || cancellationToken.IsCancellationRequested)
+                {
+                    break;
+                }
+
+                try
+                {
+                    int delayMs = Mathf.RoundToInt(Mathf.Max(0.1f, webSocketReconnectDelaySeconds) * 1000f);
+                    await Task.Delay(delayMs, cancellationToken);
+                }
+                catch (OperationCanceledException)
+                {
+                    break;
+                }
+            }
+        }
+
+        private async Task RunWebSocketLoopAsync(CancellationToken cancellationToken)
+        {
+            while (!cancellationToken.IsCancellationRequested)
+            {
+                string url = string.IsNullOrWhiteSpace(webSocketUrl)
+                    ? "ws://127.0.0.1:37212/v1/stream/ws"
+                    : webSocketUrl.Trim();
+
+                try
+                {
+                    using (ClientWebSocket client = new ClientWebSocket())
+                    {
+                        _webSocketClient = client;
+                        client.Options.KeepAliveInterval = TimeSpan.FromSeconds(10);
+                        await client.ConnectAsync(new Uri(url), cancellationToken);
+
+                        LastSender = "websocket";
+                        LastError = string.Empty;
+                        LastPacketAgeSeconds = 0f;
+                        SetHealthy(true);
+
+                        await ReceiveWebSocketMessagesAsync(client, cancellationToken);
+                    }
+                }
+                catch (OperationCanceledException)
+                {
+                    break;
+                }
+                catch (Exception ex)
+                {
+                    if (!_webSocketTransportRunning || cancellationToken.IsCancellationRequested)
+                    {
+                        break;
+                    }
+
+                    LastError = $"WebSocket stream failed: {ex.Message}";
+                    SetHealthy(_hasTargetFlightData && LastPacketAgeSeconds <= staleHoldSeconds);
+                    if (verboseLogging)
+                    {
+                        Debug.LogWarning($"[XPlane12ApiHudBridge] {LastError}");
+                    }
+                }
+                finally
+                {
+                    _webSocketClient = null;
+                }
+
+                if (!_webSocketTransportRunning || cancellationToken.IsCancellationRequested)
+                {
+                    break;
+                }
+
+                try
+                {
+                    int delayMs = Mathf.RoundToInt(Mathf.Max(0.1f, webSocketReconnectDelaySeconds) * 1000f);
+                    await Task.Delay(delayMs, cancellationToken);
+                }
+                catch (OperationCanceledException)
+                {
+                    break;
+                }
+            }
+        }
+
+        private async Task ReceiveWebSocketMessagesAsync(ClientWebSocket client, CancellationToken cancellationToken)
+        {
+            int bufferSize = Mathf.Clamp(webSocketReceiveBufferBytes, 4096, 1024 * 1024);
+            byte[] buffer = new byte[bufferSize];
+
+            while (!cancellationToken.IsCancellationRequested && client.State == WebSocketState.Open)
+            {
+                using (MemoryStream messageStream = new MemoryStream(bufferSize))
+                {
+                    WebSocketReceiveResult result;
+                    do
+                    {
+                        result = await client.ReceiveAsync(new ArraySegment<byte>(buffer), cancellationToken);
+                        if (result.MessageType == WebSocketMessageType.Close)
+                        {
+                            return;
+                        }
+
+                        messageStream.Write(buffer, 0, result.Count);
+                    }
+                    while (!result.EndOfMessage);
+
+                    if (result.MessageType != WebSocketMessageType.Text)
+                    {
+                        continue;
+                    }
+
+                    string snapshotJson = Encoding.UTF8.GetString(messageStream.ToArray());
+                    if (string.IsNullOrWhiteSpace(snapshotJson))
+                    {
+                        continue;
+                    }
+
+                    lock (_webSocketMessageLock)
+                    {
+                        _pendingWebSocketSnapshotJson = snapshotJson;
+                    }
+                }
+            }
+        }
+
         private void StartMqttTransport()
         {
+            if (_mqttTransportRunning)
+            {
+                return;
+            }
+
             _mqttTransportRunning = true;
             EnsureMqttClient();
             _ = ConnectMqttAsync();
@@ -445,6 +896,83 @@ namespace FAA.XPlaneIntegration.Runtime
             }
         }
 
+        private void UpdateWebSocketFallbackState()
+        {
+            if (!webSocketUseMqttFallback && !webSocketUseHttpFallback)
+            {
+                _usingMqttFallback = false;
+                _usingHttpFallback = false;
+                return;
+            }
+
+            float now = Time.realtimeSinceStartup;
+            float fallbackAfter = Mathf.Max(0.25f, webSocketFallbackAfterSeconds);
+            bool webSocketRecent = _lastWebSocketSnapshotRealtime >= 0f &&
+                now - _lastWebSocketSnapshotRealtime <= fallbackAfter;
+            bool mqttRecent = _lastMqttSnapshotRealtime >= 0f &&
+                now - _lastMqttSnapshotRealtime <= fallbackAfter;
+            string expectedStreamSender = transportMode == TransportMode.TcpNdjsonStream ? "tcp-ndjson" : "websocket";
+            bool shouldUseStreamFallback = !webSocketRecent &&
+                (!IsFeedHealthy || LastSender != expectedStreamSender || LastPacketAgeSeconds > fallbackAfter);
+            bool shouldUseMqttFallback = webSocketUseMqttFallback && shouldUseStreamFallback;
+            bool shouldUseHttpFallback = webSocketUseHttpFallback && shouldUseStreamFallback && !mqttRecent;
+
+            if (shouldUseMqttFallback == _usingMqttFallback && shouldUseHttpFallback == _usingHttpFallback)
+            {
+                return;
+            }
+
+            _usingMqttFallback = shouldUseMqttFallback;
+            _usingHttpFallback = shouldUseHttpFallback;
+            if (verboseLogging)
+            {
+                if (_usingHttpFallback)
+                {
+                    Debug.Log("[XPlane12ApiHudBridge] Stream/MQTT stale; applying HTTP snapshot fallback.");
+                }
+                else if (_usingMqttFallback)
+                {
+                    Debug.Log("[XPlane12ApiHudBridge] Stream stale; applying MQTT fallback snapshots.");
+                }
+                else
+                {
+                    Debug.Log("[XPlane12ApiHudBridge] stream snapshots recovered; fallbacks remain standby.");
+                }
+            }
+        }
+
+        private void ProcessPendingWebSocketSnapshot()
+        {
+            string snapshotJson = null;
+            lock (_webSocketMessageLock)
+            {
+                if (!string.IsNullOrWhiteSpace(_pendingWebSocketSnapshotJson))
+                {
+                    snapshotJson = _pendingWebSocketSnapshotJson;
+                    _pendingWebSocketSnapshotJson = null;
+                }
+            }
+
+            if (string.IsNullOrWhiteSpace(snapshotJson))
+            {
+                return;
+            }
+
+            try
+            {
+                JObject snapshot = JObject.Parse(snapshotJson);
+                _lastWebSocketSnapshotRealtime = Time.realtimeSinceStartup;
+                _usingMqttFallback = false;
+                _usingHttpFallback = false;
+                ApplySnapshotEnvelope(snapshot);
+            }
+            catch (Exception ex)
+            {
+                LastError = $"WebSocket snapshot parse failed: {ex.Message}";
+                SetHealthy(false);
+            }
+        }
+
         private void ProcessPendingMqttSnapshot()
         {
             string snapshotJson = null;
@@ -465,6 +993,7 @@ namespace FAA.XPlaneIntegration.Runtime
             try
             {
                 JObject snapshot = JObject.Parse(snapshotJson);
+                _lastMqttSnapshotRealtime = Time.realtimeSinceStartup;
                 ApplySnapshotEnvelope(snapshot);
             }
             catch (Exception ex)
@@ -478,20 +1007,44 @@ namespace FAA.XPlaneIntegration.Runtime
         {
             while (enabled)
             {
-                yield return PollOnce();
+                if ((transportMode != TransportMode.WebSocketStream && transportMode != TransportMode.TcpNdjsonStream) || _usingHttpFallback)
+                {
+                    yield return PollOnce();
+                }
                 yield return new WaitForSeconds(Mathf.Max(0.05f, pollIntervalSeconds));
             }
         }
 
         private IEnumerator PollOnce()
         {
+            if (transportMode == TransportMode.WebSocketStream || transportMode == TransportMode.TcpNdjsonStream)
+            {
+                yield return RequestJson("v1/snapshot", snapshot =>
+                {
+                    LastSender = "http";
+                    LastPacketAgeSeconds = 0f;
+                    ApplySnapshotEnvelope(snapshot);
+                }, suppressFailureState: true);
+                yield break;
+            }
+
             bool receivedAny = false;
 
+            bool receivedHealth = false;
             yield return RequestJson("api/health", json =>
             {
                 ApplyHealth(json);
+                receivedHealth = true;
                 receivedAny = true;
-            });
+            }, suppressFailureState: true);
+            if (!receivedHealth)
+            {
+                yield return RequestJson("health", json =>
+                {
+                    ApplyHealth(json);
+                    receivedAny = true;
+                });
+            }
 
             if (pollAircraft)
             {
@@ -516,6 +1069,7 @@ namespace FAA.XPlaneIntegration.Runtime
                 yield return RequestValues("systems", values =>
                 {
                     _snapshot.Systems = values;
+                    ApplyWeatherRadarPowerStateToDisplay();
                     receivedAny = true;
                 });
             }
@@ -537,8 +1091,26 @@ namespace FAA.XPlaneIntegration.Runtime
 
         private IEnumerator RequestValues(string category, Action<Dictionary<string, float>> onSuccess)
         {
-            string url = BuildUrl($"api/data?category={category}");
-            yield return RequestJson(url, json =>
+            bool receivedValues = false;
+            string primaryUrl = BuildUrl($"api/data?category={category}");
+            yield return RequestJson(primaryUrl, json =>
+            {
+                onSuccess?.Invoke(ReadValues(json));
+                receivedValues = true;
+                string lastError = json.Value<string>("last_error") ?? string.Empty;
+                if (!string.IsNullOrWhiteSpace(lastError))
+                {
+                    LastError = lastError;
+                }
+            }, true, suppressFailureState: true);
+
+            if (receivedValues)
+            {
+                yield break;
+            }
+
+            string fallbackUrl = BuildUrl($"data?category={category}");
+            yield return RequestJson(fallbackUrl, json =>
             {
                 onSuccess?.Invoke(ReadValues(json));
                 string lastError = json.Value<string>("last_error") ?? string.Empty;
@@ -549,7 +1121,11 @@ namespace FAA.XPlaneIntegration.Runtime
             }, true);
         }
 
-        private IEnumerator RequestJson(string relativeOrAbsoluteUrl, Action<JObject> onSuccess, bool alreadyBuiltUrl = false)
+        private IEnumerator RequestJson(
+            string relativeOrAbsoluteUrl,
+            Action<JObject> onSuccess,
+            bool alreadyBuiltUrl = false,
+            bool suppressFailureState = false)
         {
             string url = alreadyBuiltUrl ? relativeOrAbsoluteUrl : BuildUrl(relativeOrAbsoluteUrl);
             using (UnityWebRequest request = UnityWebRequest.Get(url))
@@ -559,8 +1135,11 @@ namespace FAA.XPlaneIntegration.Runtime
 
                 if (request.result != UnityWebRequest.Result.Success)
                 {
-                    LastError = $"{url}: {request.error}";
-                    SetHealthy(false);
+                    if (!suppressFailureState)
+                    {
+                        LastError = $"{url}: {request.error}";
+                        SetHealthy(false);
+                    }
                     yield break;
                 }
 
@@ -571,8 +1150,11 @@ namespace FAA.XPlaneIntegration.Runtime
                 }
                 catch (Exception ex)
                 {
-                    LastError = $"{url}: JSON parse failed: {ex.Message}";
-                    SetHealthy(false);
+                    if (!suppressFailureState)
+                    {
+                        LastError = $"{url}: JSON parse failed: {ex.Message}";
+                        SetHealthy(false);
+                    }
                 }
             }
         }
@@ -600,16 +1182,16 @@ namespace FAA.XPlaneIntegration.Runtime
             {
                 LastPacketAgeSeconds = ReadFloat(health["last_packet_age_sec"], 0f);
                 LastError = health.Value<string>("last_error") ?? string.Empty;
-                LastSender = snapshot.Value<string>("source_mode") ?? "mqtt";
+                LastSender = snapshot.Value<string>("source_mode") ?? LastSender;
                 bool healthy = string.Equals(health.Value<string>("status"), "ok", StringComparison.OrdinalIgnoreCase) &&
                     LastPacketAgeSeconds <= staleAfterSeconds;
                 SetHealthy(healthy);
             }
             else
             {
-                LastPacketAgeSeconds = 0f;
-                LastSender = snapshot.Value<string>("source_mode") ?? "mqtt";
+                LastSender = snapshot.Value<string>("source_mode") ?? LastSender;
                 LastError = string.Empty;
+                LastPacketAgeSeconds = 0f;
                 SetHealthy(true);
             }
 
@@ -618,10 +1200,18 @@ namespace FAA.XPlaneIntegration.Runtime
             {
                 PopulateSnapshotFromSections(snapshot);
             }
+            if (!HasMultiplayerTraffic(_snapshot.Traffic))
+            {
+                PopulateTrafficFromSections(snapshot);
+            }
 
             if (_snapshot.Aircraft.Count > 0)
             {
                 ApplySnapshot();
+            }
+            else
+            {
+                ApplyWeatherRadarPowerStateToDisplay();
             }
         }
 
@@ -649,7 +1239,38 @@ namespace FAA.XPlaneIntegration.Runtime
         private void ApplySnapshot()
         {
             _rawFlightData = BuildFlightData(_snapshot.Aircraft, _snapshot.Weather, _snapshot.Systems);
-            _latestFlightData = BuildDisplayFlightData(_rawFlightData);
+            _targetFlightData = BuildDisplayTargetFlightData(_rawFlightData);
+            _hasTargetFlightData = _targetFlightData != null;
+            ApplyWeatherRadarPowerStateToDisplay();
+
+            if (_hasTargetFlightData)
+            {
+                ApplyContinuousDisplayFrame(!interpolateDisplayBetweenPackets);
+            }
+
+            if (applyToTrafficRadar && _targetFlightData != null)
+            {
+                ApplyToTrafficRadar(_targetFlightData);
+            }
+
+            if (verboseLogging && _targetFlightData != null)
+            {
+                Debug.Log($"[XPlane12ApiHudBridge] HUD target IAS={_targetFlightData.indicatedAirspeed:F0} ALT={_targetFlightData.altitudeMSL:F0} HDG={_targetFlightData.heading:F0} traffic={TrafficCount}");
+            }
+        }
+
+        private void ApplyContinuousDisplayFrame(bool forceSnap = false)
+        {
+            if (!_hasTargetFlightData || _targetFlightData == null)
+            {
+                return;
+            }
+
+            _latestFlightData = BuildContinuousDisplayFlightData(_targetFlightData, forceSnap);
+            if (_latestFlightData == null)
+            {
+                return;
+            }
 
             if (applyToAviationHud)
             {
@@ -661,14 +1282,11 @@ namespace FAA.XPlaneIntegration.Runtime
                 ApplyToAircraftController(_latestFlightData);
             }
 
+            ApplyToHudControlStack(_latestFlightData);
+
             if (applyToLegacyHud)
             {
                 ApplyToLegacyHud(_latestFlightData);
-            }
-
-            if (applyToTrafficRadar)
-            {
-                ApplyToTrafficRadar(_latestFlightData);
             }
 
             if (applyToWeatherRadar)
@@ -676,13 +1294,9 @@ namespace FAA.XPlaneIntegration.Runtime
                 ApplyToWeatherRadar(_latestFlightData);
             }
 
-            if (verboseLogging)
-            {
-                Debug.Log($"[XPlane12ApiHudBridge] HUD update IAS={_latestFlightData.indicatedAirspeed:F0} ALT={_latestFlightData.altitudeMSL:F0} HDG={_latestFlightData.heading:F0} traffic={TrafficCount}");
-            }
         }
 
-        private AviationFlightData BuildDisplayFlightData(AviationFlightData rawData)
+        private AviationFlightData BuildDisplayTargetFlightData(AviationFlightData rawData)
         {
             if (rawData == null)
             {
@@ -692,22 +1306,32 @@ namespace FAA.XPlaneIntegration.Runtime
             AviationFlightData targetData = rawData.Clone();
             ApplyPacketAgeCompensation(targetData);
 
-            if (smoothingStrategy == DataSmoothingStrategy.None)
+            return targetData;
+        }
+
+        private AviationFlightData BuildContinuousDisplayFlightData(AviationFlightData targetData, bool forceSnap)
+        {
+            if (targetData == null)
+            {
+                return null;
+            }
+
+            if (smoothingStrategy == DataSmoothingStrategy.None || forceSnap || !interpolateDisplayBetweenPackets)
             {
                 ResetSmoothedFlightData(targetData);
-                return targetData;
+                return targetData.Clone();
             }
 
             float now = Time.realtimeSinceStartup;
-            float dt = _lastSnapshotApplyRealtime > 0f
-                ? Mathf.Clamp(now - _lastSnapshotApplyRealtime, 0.001f, 0.5f)
+            float dt = _lastDisplayApplyRealtime > 0f
+                ? Mathf.Clamp(now - _lastDisplayApplyRealtime, 0.001f, 0.1f)
                 : Time.unscaledDeltaTime;
-            _lastSnapshotApplyRealtime = now;
+            _lastDisplayApplyRealtime = now;
 
             if (!_hasSmoothedFlightData || _smoothedFlightData == null || ShouldSnapToTarget(_smoothedFlightData, targetData))
             {
                 ResetSmoothedFlightData(targetData);
-                return targetData;
+                return targetData.Clone();
             }
 
             float responseRate = ShouldUseAggressiveSmoothing(_smoothedFlightData, targetData)
@@ -819,9 +1443,14 @@ namespace FAA.XPlaneIntegration.Runtime
 
             data.flightPathAngle = CalculateFlightPathAngle(data.verticalSpeed, data.groundSpeed);
             data.slipSkid = Mathf.Clamp(Get(aircraft, "sim/flightmodel/forces/g_side"), -1f, 1f);
+            data.courseDeviation = Mathf.Clamp(GetNavigationDeviation(systems), -2.5f, 2.5f);
+            data.glideslopeDeviation = Mathf.Clamp(GetGlideslopeDeviation(systems), -2.5f, 2.5f);
             data.gpsValid = true;
             data.ilsValid = GetAny(systems, 0f,
                 "sim/cockpit2/radios/nav1_has_glideslope",
+                "sim/cockpit/radios/nav1_CDI",
+                "sim/cockpit/radios/gps_has_glideslope",
+                "sim/cockpit/radios/gps2_has_glideslope",
                 "sim/cockpit2/autopilot/nav_status") > 0.5f;
             data.autopilotEngaged = IsAutopilotEngaged(systems);
 
@@ -913,6 +1542,20 @@ namespace FAA.XPlaneIntegration.Runtime
             ApplyExternalAircraftTransform(latitude, longitude, altitudeMeters, data);
         }
 
+        private void ApplyToHudControlStack(AviationFlightData data)
+        {
+            if (data != null)
+            {
+                ForEach(_localizerElements, element => element.SetDeviation(data.courseDeviation));
+                ForEach(_glidescopeElements, element => element.SetDeviation(data.glideslopeDeviation));
+            }
+
+            if (hudController != null && aircraftController?.State != null)
+            {
+                hudController.InjectState(aircraftController.State);
+            }
+        }
+
         private void SuppressLocalAircraftSimulation()
         {
             if (!disableUserControlWhenReceiving || aircraftController == null)
@@ -945,7 +1588,10 @@ namespace FAA.XPlaneIntegration.Runtime
             GeoPosUnityPosProjectManager geoProjection = GeoPosUnityPosProjectManager.Instance;
             if (geoProjection != null)
             {
-                aircraftController.transform.position = geoProjection.GeoToUnityPosition(latitude, longitude, altitudeMeters);
+                float projectedAltitudeMeters = Mathf.Max(
+                    altitudeMeters,
+                    GeoAltitudeFromAgl(data) + Mathf.Max(0f, minimumUnityTerrainClearanceMeters));
+                aircraftController.transform.position = geoProjection.GeoToUnityPosition(latitude, longitude, projectedAltitudeMeters);
             }
 
             aircraftController.transform.rotation = Quaternion.Euler(data.pitch, data.heading, -data.roll);
@@ -970,19 +1616,19 @@ namespace FAA.XPlaneIntegration.Runtime
 
             double ownLat = Get(_snapshot.Aircraft, "sim/flightmodel/position/latitude", 0d);
             double ownLon = Get(_snapshot.Aircraft, "sim/flightmodel/position/longitude", 0d);
-            var trafficRows = BuildTrafficRows(_snapshot.Traffic, ownLat, ownLon);
-            TrafficCount = trafficRows.Count;
+            BuildTrafficRows(_snapshot.Traffic, ownLat, ownLon, _trafficRows);
+            TrafficCount = _trafficRows.Count;
 
             trafficRadarDataManager.aircraftMap.Clear();
             trafficRadarDataManager.aircraftList.Clear();
-            foreach (TrafficRadarDataManager.AircraftData row in trafficRows)
+            foreach (TrafficRadarDataManager.AircraftData row in _trafficRows)
             {
                 trafficRadarDataManager.aircraftMap[row.icao24] = row;
                 trafficRadarDataManager.aircraftList.Add(row);
             }
 
             trafficRadarDataManager.SetReferencePosition((float)ownLat, (float)ownLon);
-            trafficRadarDataManager.onDataUpdated?.Invoke(trafficRows);
+            trafficRadarDataManager.onDataUpdated?.Invoke(_trafficRows);
 
             if (trafficRadarController != null)
             {
@@ -990,16 +1636,19 @@ namespace FAA.XPlaneIntegration.Runtime
             }
         }
 
-        private List<TrafficRadarDataManager.AircraftData> BuildTrafficRows(
+        private void BuildTrafficRows(
             IDictionary<string, float> traffic,
             double ownLat,
-            double ownLon)
+            double ownLon,
+            List<TrafficRadarDataManager.AircraftData> rows)
         {
-            var rows = new List<TrafficRadarDataManager.AircraftData>();
+            rows.Clear();
             if (traffic == null)
             {
-                return rows;
+                return;
             }
+
+            DateTime timestamp = DateTime.UtcNow;
 
             for (int i = 1; i <= 19; i++)
             {
@@ -1029,12 +1678,10 @@ namespace FAA.XPlaneIntegration.Runtime
                     heading = XPlaneDataRefMapper.NormalizeHeading(Get(traffic, prefix + "_psi")),
                     verticalRate = vy,
                     onGround = elevationMeters < 5f,
-                    lastUpdateTime = DateTime.UtcNow,
+                    lastUpdateTime = timestamp,
                     type = TrafficRadarDataManager.AircraftType.Unknown
                 });
             }
-
-            return rows;
         }
 
         private void ApplyToWeatherRadar(AviationFlightData data)
@@ -1052,6 +1699,57 @@ namespace FAA.XPlaneIntegration.Runtime
             {
                 _lastWeatherRefreshTime = Time.time;
                 weatherRadarProvider.RefreshData();
+            }
+        }
+
+        private void ApplyWeatherRadarPowerStateToDisplay()
+        {
+            bool hasWeatherOn = TryGetAny(_snapshot.Systems, out float weatherOn,
+                "sim/cockpit2/EFIS/EFIS_weather_on",
+                "sim/cockpit2/EFIS/EFIS_weather_on_copilot");
+
+            _hasWeatherRadarPowerState = hasWeatherOn;
+            bool copilotRadarOn = Get(_snapshot.Systems, "sim/cockpit2/EFIS/EFIS_weather_on_copilot") > 0.5f;
+            bool hasFreshOriginalTexture = xPlaneWeatherRadarDisplay != null && xPlaneWeatherRadarDisplay.HasUsableTexture;
+            _isWeatherRadarPowered = !hasWeatherOn || weatherOn > 0.5f || copilotRadarOn ||
+                (treatFreshWeatherTextureAsRadarOn && hasFreshOriginalTexture);
+            _weatherRadarMode = TryGetAny(_snapshot.Systems, out float mode,
+                "sim/cockpit2/EFIS/EFIS_weather_mode",
+                "sim/cockpit2/EFIS/EFIS_weather_mode_copilot")
+                ? Mathf.RoundToInt(mode)
+                : -1;
+
+            if (xPlaneWeatherRadarDisplay != null)
+            {
+                xPlaneWeatherRadarDisplay.SetRadarPowerState(
+                    _hasWeatherRadarPowerState,
+                    _isWeatherRadarPowered,
+                    _weatherRadarMode);
+            }
+
+            if (weatherRadarProvider != null && _hasWeatherRadarPowerState)
+            {
+                if (_isWeatherRadarPowered && weatherRadarProvider.Status == ProviderStatus.Inactive)
+                {
+                    weatherRadarProvider.Activate();
+                }
+                else if (!_isWeatherRadarPowered && weatherRadarProvider.Status != ProviderStatus.Inactive && !hasFreshOriginalTexture)
+                {
+                    weatherRadarProvider.Deactivate();
+                }
+            }
+
+            if (weatherRadarDataProvider != null && _hasWeatherRadarPowerState)
+            {
+                RadarMode currentMode = weatherRadarDataProvider.RadarData.currentMode;
+                if (!_isWeatherRadarPowered && currentMode != RadarMode.STBY)
+                {
+                    weatherRadarDataProvider.SetMode(RadarMode.STBY);
+                }
+                else if (_isWeatherRadarPowered && currentMode == RadarMode.STBY)
+                {
+                    weatherRadarDataProvider.SetMode(RadarMode.WX);
+                }
             }
         }
 
@@ -1081,44 +1779,120 @@ namespace FAA.XPlaneIntegration.Runtime
             ForEach(_flightPathVectors, hud => hud.UpdateFPV(relativeFlightPathPitch, relativeTrack, data.indicatedAirspeed));
             ForEach(_slipSkidHuds, hud => hud.UpdateSlip(data.slipSkid));
             ForEach(_altitudeAglDisplays, hud => hud.UpdateText(altitudeMeters, aglMeters));
+            ForEach(_courseDeviationHuds, hud => hud.UpdateDeviation(0, data.courseDeviation, data.courseDeviation, data.courseDeviation));
+            ForEach(_glideslopeHuds, hud => hud.UpdateGlideslope(data.glideslopeDeviation));
         }
 
         private IEnumerator RenderAssetLoop()
         {
             while (enabled)
             {
-                yield return DownloadTexture("v1/render/weather.png", texture =>
+                if (ShouldBridgeDownloadWeatherTexture())
                 {
-                    ReplaceTexture(ref _latestWeatherTexture, texture);
-                    if (weatherImageTarget != null)
+                    yield return DownloadTexture("v1/render/weather.png", texture =>
                     {
-                        weatherImageTarget.texture = _latestWeatherTexture;
-                    }
-                    ApplyTextureToWeatherProvider(_latestWeatherTexture);
-                });
+                        ReplaceTexture(ref _latestWeatherTexture, texture);
+                        if (weatherImageTarget != null)
+                        {
+                            weatherImageTarget.texture = _latestWeatherTexture;
+                            weatherImageTarget.color = Color.white;
+                            weatherImageTarget.enabled = true;
+                            weatherImageTarget.raycastTarget = false;
+                        }
+                        if (xPlaneWeatherRadarDisplay != null)
+                        {
+                            xPlaneWeatherRadarDisplay.ShowTexture(_latestWeatherTexture);
+                        }
+                        foreach (XPlaneOriginalWeatherRadarDisplay display in
+                                 FindObjectsByType<XPlaneOriginalWeatherRadarDisplay>(FindObjectsInactive.Include, FindObjectsSortMode.None))
+                        {
+                            if (display != null && display != xPlaneWeatherRadarDisplay)
+                            {
+                                display.ShowTexture(_latestWeatherTexture);
+                            }
+                        }
+                        ApplyTextureToWeatherProvider(_latestWeatherTexture);
+                    });
+                }
 
-                yield return DownloadTexture("v1/render/traffic.png", texture =>
+                if (trafficImageTarget != null)
                 {
-                    ReplaceTexture(ref _latestTrafficTexture, texture);
-                    if (trafficImageTarget != null)
+                    yield return DownloadTexture(GetTrafficTexturePath(), texture =>
                     {
-                        trafficImageTarget.texture = _latestTrafficTexture;
-                    }
-                });
+                        ReplaceTexture(ref _latestTrafficTexture, texture);
+                        ApplyTrafficTexture(_latestTrafficTexture);
+                    });
+                }
 
                 yield return RequestJson("v1/render/gauges.json", json =>
                 {
                     _snapshot.GaugeManifest = json.ToString(Newtonsoft.Json.Formatting.None);
-                });
+                }, suppressFailureState: true);
 
                 yield return new WaitForSeconds(Mathf.Max(0.5f, renderAssetPollIntervalSeconds));
             }
         }
 
+        private void ApplyTrafficTexture(Texture2D texture)
+        {
+            if (texture == null)
+            {
+                return;
+            }
+
+            if (trafficImageTarget != null)
+            {
+                trafficImageTarget.texture = texture;
+                trafficImageTarget.color = Color.white;
+                trafficImageTarget.enabled = true;
+                trafficImageTarget.raycastTarget = false;
+            }
+
+            if (xPlaneTrafficRadarDisplay != null)
+            {
+                xPlaneTrafficRadarDisplay.ShowXPlaneTrafficTexture(texture);
+            }
+
+            foreach (TrafficRadarDisplay display in
+                     FindObjectsByType<TrafficRadarDisplay>(FindObjectsInactive.Include, FindObjectsSortMode.None))
+            {
+                if (display != null && display != xPlaneTrafficRadarDisplay && display.UsesXPlaneTrafficTexture)
+                {
+                    display.ShowXPlaneTrafficTexture(texture);
+                }
+            }
+        }
+
+        private string GetTrafficTexturePath()
+        {
+            float rangeNm = 120f;
+            if (trafficRadarController != null)
+            {
+                rangeNm = trafficRadarController.RangeNM;
+            }
+            else if (xPlaneTrafficRadarDisplay != null)
+            {
+                rangeNm = xPlaneTrafficRadarDisplay.RangeNM;
+            }
+
+            return "v1/render/traffic.png?range_nm=" + Mathf.Clamp(rangeNm, 5f, 160f).ToString("0", CultureInfo.InvariantCulture);
+        }
+
+        private bool ShouldBridgeDownloadWeatherTexture()
+        {
+            if (weatherRadarProvider is XPlaneOriginalWeatherRadarProvider)
+            {
+                return false;
+            }
+
+            return weatherImageTarget != null || xPlaneWeatherRadarDisplay != null || weatherRadarProvider != null;
+        }
+
         private IEnumerator DownloadTexture(string relativeUrl, Action<Texture2D> onSuccess)
         {
-            string url = BuildUrl(relativeUrl) + "?t=" + DateTimeOffset.UtcNow.ToUnixTimeMilliseconds().ToString(CultureInfo.InvariantCulture);
-            using (UnityWebRequest request = UnityWebRequestTexture.GetTexture(url))
+            string separator = relativeUrl.Contains("?") ? "&" : "?";
+            string url = BuildUrl(relativeUrl) + separator + "t=" + DateTimeOffset.UtcNow.ToUnixTimeMilliseconds().ToString(CultureInfo.InvariantCulture);
+            using (UnityWebRequest request = UnityWebRequestTexture.GetTexture(url, true))
             {
                 request.timeout = Mathf.Max(1, Mathf.RoundToInt(requestTimeoutSeconds));
                 yield return request.SendWebRequest();
@@ -1145,6 +1919,15 @@ namespace FAA.XPlaneIntegration.Runtime
         {
             if (texture == null || weatherRadarProvider == null)
             {
+                return;
+            }
+
+            if (weatherRadarProvider is XPlaneOriginalWeatherRadarProvider originalProvider)
+            {
+                if (!_hasWeatherRadarPowerState || _isWeatherRadarPowered)
+                {
+                    originalProvider.PublishTexture(texture);
+                }
                 return;
             }
 
@@ -1254,11 +2037,91 @@ namespace FAA.XPlaneIntegration.Runtime
             }
         }
 
+        private void PopulateTrafficFromSections(JObject snapshot)
+        {
+            JArray traffic = snapshot?["traffic"] as JArray;
+            if (traffic == null)
+            {
+                return;
+            }
+
+            int planeIndex = 1;
+            foreach (JToken token in traffic)
+            {
+                if (planeIndex > 19)
+                {
+                    break;
+                }
+
+                JObject target = token as JObject;
+                if (target == null)
+                {
+                    continue;
+                }
+
+                float latitude = ReadFloat(target["latitude"], float.NaN);
+                float longitude = ReadFloat(target["longitude"], float.NaN);
+                float altitudeMeters = ReadFloat(target["altitude_m"], float.NaN);
+                if (!IsFinite(latitude) || !IsFinite(longitude) || !IsFinite(altitudeMeters))
+                {
+                    continue;
+                }
+
+                float heading = ReadFloat(target["heading_deg"], 0f);
+                float speed = Mathf.Max(0f, ReadFloat(target["velocity_mps"], 0f));
+                float verticalRate = ReadFloat(target["vertical_rate_mps"], 0f);
+                float headingRadians = heading * Mathf.Deg2Rad;
+                string prefix = $"sim/multiplayer/position/plane{planeIndex}";
+
+                _snapshot.Traffic[prefix + "_lat"] = latitude;
+                _snapshot.Traffic[prefix + "_lon"] = longitude;
+                _snapshot.Traffic[prefix + "_el"] = altitudeMeters;
+                _snapshot.Traffic[prefix + "_psi"] = heading;
+                _snapshot.Traffic[prefix + "_v_x"] = Mathf.Sin(headingRadians) * speed;
+                _snapshot.Traffic[prefix + "_v_y"] = verticalRate;
+                _snapshot.Traffic[prefix + "_v_z"] = Mathf.Cos(headingRadians) * speed;
+                planeIndex++;
+            }
+        }
+
+        private static bool HasMultiplayerTraffic(IDictionary<string, float> traffic)
+        {
+            if (traffic == null)
+            {
+                return false;
+            }
+
+            for (int i = 1; i <= 19; i++)
+            {
+                string prefix = $"sim/multiplayer/position/plane{i}";
+                float latitude = Get(traffic, prefix + "_lat");
+                float longitude = Get(traffic, prefix + "_lon");
+                float elevationMeters = Get(traffic, prefix + "_el");
+                if (Mathf.Abs(latitude) > 0.0001f || Mathf.Abs(longitude) > 0.0001f || Mathf.Abs(elevationMeters) > 1f)
+                {
+                    return true;
+                }
+            }
+
+            return false;
+        }
+
         private string DescribeTransport()
         {
-            return transportMode == TransportMode.MqttSnapshot
-                ? $"MQTT {mqttBrokerHost}:{mqttBrokerPort} ({mqttSnapshotTopic})"
-                : baseUrl;
+            switch (transportMode)
+            {
+                case TransportMode.WebSocketStream:
+                    return string.IsNullOrWhiteSpace(webSocketUrl)
+                        ? "WebSocket ws://127.0.0.1:37212/v1/stream/ws"
+                        : $"WebSocket {webSocketUrl.Trim()}";
+                case TransportMode.TcpNdjsonStream:
+                    return $"TCP NDJSON {tcpStreamHost}:{tcpStreamPort}";
+                case TransportMode.MqttSnapshot:
+                    return $"MQTT {mqttBrokerHost}:{mqttBrokerPort} ({mqttSnapshotTopic})";
+                case TransportMode.HttpApi:
+                default:
+                    return baseUrl;
+            }
         }
 
         private string BuildUrl(string relativeUrl)
@@ -1365,6 +2228,25 @@ namespace FAA.XPlaneIntegration.Runtime
             return defaultValue;
         }
 
+        private static bool TryGetAny(IDictionary<string, float> values, out float value, params string[] keys)
+        {
+            value = 0f;
+            if (values == null)
+            {
+                return false;
+            }
+
+            foreach (string key in keys)
+            {
+                if (values.TryGetValue(key, out value) && !float.IsNaN(value))
+                {
+                    return true;
+                }
+            }
+
+            return false;
+        }
+
         private static float GetWindSpeed(IDictionary<string, float> weather)
         {
             if (weather == null)
@@ -1398,6 +2280,29 @@ namespace FAA.XPlaneIntegration.Runtime
             return !float.IsNaN(pascals) ? pascals * 0.000295300f : 29.92f;
         }
 
+        private static float GetNavigationDeviation(IDictionary<string, float> systems)
+        {
+            return GetAny(systems, 0f,
+                "sim/cockpit2/radios/indicators/hsi_hdef_dots_pilot",
+                "sim/cockpit2/radios/indicators/nav1_hdef_dots_pilot",
+                "sim/cockpit2/radios/indicators/nav2_hdef_dots_pilot",
+                "sim/cockpit2/radios/indicators/gps_hdef_dots_pilot",
+                "sim/cockpit/radios/nav1_hdef_dot",
+                "sim/cockpit/radios/nav2_hdef_dot",
+                "sim/cockpit/radios/gps_hdef_dot");
+        }
+
+        private static float GetGlideslopeDeviation(IDictionary<string, float> systems)
+        {
+            return GetAny(systems, 0f,
+                "sim/cockpit2/radios/indicators/hsi_vdef_dots_pilot",
+                "sim/cockpit2/radios/indicators/nav1_vdef_dots_pilot",
+                "sim/cockpit2/radios/indicators/nav2_vdef_dots_pilot",
+                "sim/cockpit/radios/nav1_vdef_dot",
+                "sim/cockpit/radios/nav2_vdef_dot",
+                "sim/cockpit/radios/gps_vdef_dot");
+        }
+
         private static bool IsAutopilotEngaged(IDictionary<string, float> systems)
         {
             float state = GetAny(systems, 0f,
@@ -1408,6 +2313,16 @@ namespace FAA.XPlaneIntegration.Runtime
             float altitudeStatus = Get(systems, "sim/cockpit2/autopilot/altitude_hold_status");
             float flightDirectorMode = Get(systems, "sim/cockpit2/autopilot/flight_director_mode");
             return state > 0.5f || headingStatus > 0.5f || navStatus > 0.5f || altitudeStatus > 0.5f || flightDirectorMode > 0.5f;
+        }
+
+        private static float GeoAltitudeFromAgl(AviationFlightData data)
+        {
+            if (data == null)
+            {
+                return 0f;
+            }
+
+            return (data.altitudeMSL - Mathf.Max(0f, data.altitudeAGL)) / MetersToFeet;
         }
 
         private static float CalculateFlightPathAngle(float verticalSpeedFpm, float groundSpeedKnots)

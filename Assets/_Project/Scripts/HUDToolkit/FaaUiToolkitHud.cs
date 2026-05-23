@@ -35,6 +35,11 @@ namespace FAA.HUDToolkit
         private VisualElement _fpvLeft;
         private VisualElement _fpvRight;
         private VisualElement _fpvTop;
+        private VisualElement _navReferenceLine;
+        private VisualElement _navCenterTick;
+        private VisualElement _navDeviationNeedle;
+        private VisualElement _navLeftDot;
+        private VisualElement _navRightDot;
         private Label _bankPointer;
         private Label _statusLabel;
         private Label _airspeedValue;
@@ -250,6 +255,27 @@ namespace FAA.HUDToolkit
             _hudRoot.Add(_fpvRight);
             _hudRoot.Add(_fpvTop);
 
+            _navReferenceLine = MakeLine();
+            _navCenterTick = MakeLine();
+            _navDeviationNeedle = MakeLine();
+            _navLeftDot = MakeBox();
+            _navRightDot = MakeBox();
+            _navLeftDot.style.borderTopLeftRadius = 4f;
+            _navLeftDot.style.borderTopRightRadius = 4f;
+            _navLeftDot.style.borderBottomLeftRadius = 4f;
+            _navLeftDot.style.borderBottomRightRadius = 4f;
+            _navRightDot.style.borderTopLeftRadius = 4f;
+            _navRightDot.style.borderTopRightRadius = 4f;
+            _navRightDot.style.borderBottomLeftRadius = 4f;
+            _navRightDot.style.borderBottomRightRadius = 4f;
+            _navLeftDot.style.backgroundColor = hudColor;
+            _navRightDot.style.backgroundColor = hudColor;
+            _hudRoot.Add(_navReferenceLine);
+            _hudRoot.Add(_navCenterTick);
+            _hudRoot.Add(_navDeviationNeedle);
+            _hudRoot.Add(_navLeftDot);
+            _hudRoot.Add(_navRightDot);
+
             _bankPointer = MakeLabel("^", 22, TextAnchor.MiddleCenter);
             _hudRoot.Add(_bankPointer);
 
@@ -384,6 +410,7 @@ namespace FAA.HUDToolkit
             UpdatePitchLadder(centerX, centerY, scale, pitch);
             UpdateBankTicks(centerX, centerY, scale, roll);
             UpdateFlightPathVector(centerX, centerY, scale, data);
+            UpdateNavigationLine(centerX, centerY, scale, data);
             UpdateReadouts(centerX, centerY, scale, data, pitch, roll, heading);
         }
 
@@ -454,6 +481,21 @@ namespace FAA.HUDToolkit
             SetBox(_fpvLeft, x - 42f * scale, y - 1f * scale, 24f * scale, Mathf.Max(1f, 2f * scale));
             SetBox(_fpvRight, x + 18f * scale, y - 1f * scale, 24f * scale, Mathf.Max(1f, 2f * scale));
             SetBox(_fpvTop, x - 1f * scale, y - 42f * scale, Mathf.Max(1f, 2f * scale), 24f * scale);
+        }
+
+        private void UpdateNavigationLine(float centerX, float centerY, float scale, AviationFlightData data)
+        {
+            float navY = centerY + 154f * scale;
+            float lineWidth = 118f * scale;
+            float lineHeight = Mathf.Max(1f, 2f * scale);
+            float dotSize = Mathf.Max(4f, 5f * scale);
+            float deviationPixels = Mathf.Clamp(data.courseDeviation, -2.5f, 2.5f) * 18f * scale;
+
+            SetBox(_navReferenceLine, centerX - lineWidth * 0.5f, navY, lineWidth, lineHeight);
+            SetBox(_navCenterTick, centerX - scale, navY - 10f * scale, Mathf.Max(1f, 2f * scale), 20f * scale);
+            SetBox(_navDeviationNeedle, centerX + deviationPixels - scale, navY - 18f * scale, Mathf.Max(1f, 2f * scale), 36f * scale);
+            SetBox(_navLeftDot, centerX - 38f * scale - dotSize * 0.5f, navY - dotSize * 0.5f, dotSize, dotSize);
+            SetBox(_navRightDot, centerX + 38f * scale - dotSize * 0.5f, navY - dotSize * 0.5f, dotSize, dotSize);
         }
 
         private void UpdateReadouts(

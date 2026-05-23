@@ -1,0 +1,22 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 753d35473895a482caf2752372d0f329, type: 3}
+  m_Name: WeatherPrefabRegistry
+  m_EditorClassIdentifier: Assembly-CSharp::WeatherVisualization3D.WeatherPrefabRegistry
+  weatherSystemRoot: {fileID: 2656073809792052613, guid: 5559737f335bd4e27bb8680fd2e8de41, type: 3}
+  weatherSimulator: {fileID: 1780909648521335477, guid: 8c8c2cbd393604c14b1e4b98f7cda92e, type: 3}
+  intensityPillarRenderer: {fileID: 7434343302112352523, guid: 7d0565f7a89fa45b4bed1dfd15f872cb, type: 3}
+  volumetricLightning: {fileID: 6448329222417308172, guid: ca68a68dd929f41aa9340839855d3c31, type: 3}
+  lightningBolt: {fileID: 0}
+  precipitationVFX: {fileID: 7965410677033828957, guid: cc20871dc4de943139b8f9c972856c13, type: 3}
+  rainParticles: {fileID: 0}
+  snowParticles: {fileID: 0}

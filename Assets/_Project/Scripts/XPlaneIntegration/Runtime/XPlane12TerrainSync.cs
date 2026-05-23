@@ -25,6 +25,9 @@ namespace FAA.XPlaneIntegration.Runtime
         [SerializeField] private string cesiumGeoreferenceObjectName = "CesiumGeoreference";
         [SerializeField] private bool useAircraftAltitudeForCesium = false;
         [SerializeField] private float cesiumReferenceHeightMeters = 100f;
+        [SerializeField] private float cesiumHeightOffsetMeters = 0f;
+        [SerializeField] private bool keepOriginNearGround = false;
+        [SerializeField] private float minimumOriginGroundClearanceMeters = 120f;
 
         [Header("Recenter Threshold")]
         [SerializeField] private bool anchorOnStart = true;
@@ -142,7 +145,14 @@ namespace FAA.XPlaneIntegration.Runtime
 
             if (syncCesiumGeoreference)
             {
-                float cesiumHeight = useAircraftAltitudeForCesium ? altitudeMeters : cesiumReferenceHeightMeters;
+                float cesiumHeight = useAircraftAltitudeForCesium
+                    ? altitudeMeters + cesiumHeightOffsetMeters
+                    : cesiumReferenceHeightMeters;
+                if (keepOriginNearGround && !useAircraftAltitudeForCesium)
+                {
+                    float maxOriginHeight = altitudeMeters - Mathf.Max(0f, minimumOriginGroundClearanceMeters);
+                    cesiumHeight = Mathf.Min(cesiumHeight, maxOriginHeight);
+                }
                 TrySetCesiumOrigin(latitude, longitude, cesiumHeight);
             }
 

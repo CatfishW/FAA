@@ -421,6 +421,17 @@ namespace WeatherRadar
         }
 
         /// <summary>
+        /// Set visibility
+        /// </summary>
+        public void SetVisible(bool visible)
+        {
+            if (returnDisplay != null)
+            {
+                returnDisplay.gameObject.SetActive(visible);
+            }
+        }
+
+        /// <summary>
         /// Set persistence enabled
         /// </summary>
         public void SetPersistence(bool enabled, float duration = 8f)

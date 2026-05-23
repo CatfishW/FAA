@@ -1,4 +1,5 @@
 using UnityEngine;
+using UnityEngine.UI;
 using TMPro;
 using AircraftControl.Core;
 
@@ -31,6 +32,7 @@ namespace HUDControl.CompassBar
         [Header("Animation Enables")]
         [SerializeField] private bool enableTapeScroll = true;
         [SerializeField] private bool enableReadout = true;
+        [SerializeField] private bool ensurePanelMask = true;
         
         #endregion
         
@@ -68,6 +70,7 @@ namespace HUDControl.CompassBar
         protected override void OnInitialize()
         {
             displayedHeading = 0f;
+            EnsurePanelMask();
             
             // Get settings from generator if available
             if (autoFromGenerator && tapeGenerator != null)
@@ -153,6 +156,14 @@ namespace HUDControl.CompassBar
             while (newHeading >= 360f) newHeading -= 360f;
             
             return newHeading;
+        }
+
+        private void EnsurePanelMask()
+        {
+            if (!ensurePanelMask) return;
+            if (GetComponent<Mask>() != null || GetComponent<RectMask2D>() != null) return;
+
+            gameObject.AddComponent<RectMask2D>();
         }
         
         public float GetDisplayedHeading() => displayedHeading;

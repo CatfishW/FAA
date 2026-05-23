@@ -49,6 +49,7 @@ namespace HUDControl.Elements
         #endregion
         
         private float displayedDeviation;
+        private float targetDeviation;
         private Vector2 gsBasePos;
         
         public override string ElementId => "Glidescope";
@@ -56,6 +57,7 @@ namespace HUDControl.Elements
         protected override void OnInitialize()
         {
             displayedDeviation = 0f;
+            targetDeviation = Mathf.Clamp(simulatedDeviation, -2.5f, 2.5f);
             
             if (glidescopeNeedle != null)
                 gsBasePos = glidescopeNeedle.anchoredPosition;
@@ -65,8 +67,8 @@ namespace HUDControl.Elements
         {
             if (!enableGS || glidescopeNeedle == null) return;
             
-            float targetDeviation = simulateDeviation ? simulatedDeviation : 0f;
-            displayedDeviation = Core.HUDAnimator.SmoothValue(displayedDeviation, targetDeviation, smoothing);
+            float desiredDeviation = simulateDeviation ? simulatedDeviation : targetDeviation;
+            displayedDeviation = Core.HUDAnimator.SmoothValue(displayedDeviation, desiredDeviation, smoothing);
             
             // Calculate offset with strict bounds (positive deviation = above glideslope = needle down)
             float offset = -displayedDeviation * pixelsPerDot;
@@ -80,7 +82,7 @@ namespace HUDControl.Elements
         public void SetDeviation(float dots)
         {
             simulateDeviation = false;
-            displayedDeviation = Mathf.Clamp(dots, -2.5f, 2.5f);
+            targetDeviation = Mathf.Clamp(dots, -2.5f, 2.5f);
         }
         
         public float GetDisplayedDeviation() => displayedDeviation;

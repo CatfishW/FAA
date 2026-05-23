@@ -324,6 +324,7 @@ class XPlaneConnectSource:
         target_speed_kt: float,
         recovery_altitude_ft: float,
         traffic_slots: int,
+        synthesize_traffic_when_empty: bool,
     ) -> None:
         try:
             import xpc  # type: ignore
@@ -340,6 +341,7 @@ class XPlaneConnectSource:
         self._target_speed_kt = target_speed_kt
         self._recovery_altitude_m = recovery_altitude_ft * 0.3048
         self._traffic_slots = traffic_slots
+        self._synthesize_traffic_when_empty = synthesize_traffic_when_empty
 
     def close(self) -> None:
         self._xpc.close()
@@ -524,7 +526,7 @@ class XPlaneConnectSource:
                 )
             )
 
-        if not targets:
+        if self._synthesize_traffic_when_empty and not targets:
             for idx in range(3):
                 targets.append(
                     TrafficTarget(
@@ -564,6 +566,7 @@ def run(args: argparse.Namespace) -> None:
             args.target_speed_kt,
             args.recovery_altitude_ft,
             args.traffic_slots,
+            args.synthesize_traffic_when_empty,
         )
         closer = source.close
 
@@ -604,6 +607,11 @@ def build_arg_parser() -> argparse.ArgumentParser:
     parser.add_argument("--xplane-host", default="127.0.0.1")
     parser.add_argument("--xplane-port", type=int, default=49009)
     parser.add_argument("--traffic-slots", type=int, default=5)
+    parser.add_argument(
+        "--synthesize-traffic-when-empty",
+        action="store_true",
+        help="In xpc mode, emit synthetic traffic only when X-Plane multiplayer slots are empty.",
+    )
     return parser
 
 

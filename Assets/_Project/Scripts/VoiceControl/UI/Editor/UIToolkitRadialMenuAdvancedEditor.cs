@@ -19,6 +19,40 @@ namespace VoiceControl.UI.Editor
             _menu = (UIToolkitRadialMenuAdvanced)target;
         }
 
+        [MenuItem("FAA/Voice Control/Show Advanced Radial Menu Preview")]
+        private static void ShowAdvancedMenuPreview()
+        {
+            var menu = FindAdvancedMenu();
+            if (menu == null)
+            {
+                Debug.LogWarning("[UIToolkitRadialMenuAdvanced] No advanced radial menu found in the active scene.");
+                return;
+            }
+
+            menu.ApplyAviationHudPreset(false);
+            menu.RefreshUI(true);
+            EditorUtility.SetDirty(menu);
+        }
+
+        [MenuItem("FAA/Voice Control/Hide Advanced Radial Menu Preview")]
+        private static void HideAdvancedMenuPreview()
+        {
+            var menu = FindAdvancedMenu();
+            if (menu == null)
+            {
+                return;
+            }
+
+            menu.SetMenuOpen(false);
+            EditorUtility.SetDirty(menu);
+        }
+
+        private static UIToolkitRadialMenuAdvanced FindAdvancedMenu()
+        {
+            var menus = Object.FindObjectsOfType<UIToolkitRadialMenuAdvanced>(true);
+            return menus != null && menus.Length > 0 ? menus[0] : null;
+        }
+
         public override void OnInspectorGUI()
         {
             serializedObject.Update();
@@ -84,7 +118,7 @@ namespace VoiceControl.UI.Editor
 
             if (GUILayout.Button("Show Preview", GUILayout.Height(30)))
             {
-                _menu.RefreshUI();
+                _menu.RefreshUI(true);
             }
 
             if (GUILayout.Button("Hide Preview", GUILayout.Height(30)))

@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using FAA.Customization;
 using UnityEngine;
 using UnityEngine.UI;
+using UnityEngine.UIElements;
 
 namespace FAA.HUDToolkit
 {
@@ -10,6 +11,9 @@ namespace FAA.HUDToolkit
     [AddComponentMenu("FAA/HUD/HUD Mode Switcher")]
     public class FaaHudModeSwitcher : MonoBehaviour
     {
+        private const float LegacyScreenHudScale = 540f;
+        private static readonly Vector2 LegacyScreenHudAnchoredPosition = new Vector2(960f, 690f);
+
         public enum HudMode
         {
             LegacyUGUI = 0,
@@ -41,7 +45,6 @@ namespace FAA.HUDToolkit
             "RadarCanvas",
             "VisualUnderstanding",
             "VC",
-            "[Indicator System]",
             "Analysis Trigger Buttons"
         };
         [SerializeField] private string[] overlayNamesToHideInToolkitMode =
@@ -103,9 +106,14 @@ namespace FAA.HUDToolkit
                 return;
             }
 
-            if (legacyHudRoot == null || !ShouldShowLegacyRoot(legacyHudRoot))
+            GameObject preferredLegacyHudRoot = FindPreferredLegacyHudRoot();
+            if (preferredLegacyHudRoot != null && legacyHudRoot != preferredLegacyHudRoot)
             {
-                legacyHudRoot = FindPreferredLegacyHudRoot();
+                legacyHudRoot = preferredLegacyHudRoot;
+            }
+            else if (legacyHudRoot == null || !ShouldShowLegacyRoot(legacyHudRoot))
+            {
+                legacyHudRoot = preferredLegacyHudRoot;
             }
 
             legacyHudRoots.Clear();
@@ -123,7 +131,14 @@ namespace FAA.HUDToolkit
                                        IsConfiguredSuppressedLegacyRootName(transform.gameObject.name);
                 if (isLegacyHudRoot && !legacyHudRoots.Contains(transform.gameObject))
                 {
-                    legacyHudRoots.Add(transform.gameObject);
+                    if (transform.gameObject.name == legacyHudName && transform.gameObject != legacyHudRoot)
+                    {
+                        SuppressLegacyOverlayRoot(transform.gameObject);
+                    }
+                    else
+                    {
+                        legacyHudRoots.Add(transform.gameObject);
+                    }
                 }
 
                 if (IsConfiguredToolkitHiddenOverlay(transform.gameObject.name) &&
@@ -218,7 +233,7 @@ namespace FAA.HUDToolkit
 
             if (uiToolkitHud != null)
             {
-                uiToolkitHud.SetVisible(!useLegacy);
+                SetUiToolkitHudActive(!useLegacy);
             }
 
             _remainingLegacyReassertFrames = useLegacy
@@ -240,11 +255,43 @@ namespace FAA.HUDToolkit
                         root.SetActive(true);
                     }
                 }
+
+                if (root != null && IsConfiguredSuppressedLegacyRootName(root.name))
+                {
+                    SuppressLegacyOverlayRoot(root);
+                }
             }
 
             if (uiToolkitHud != null)
             {
-                uiToolkitHud.SetVisible(false);
+                SetUiToolkitHudActive(false);
+            }
+        }
+
+        private void SetUiToolkitHudActive(bool active)
+        {
+            if (uiToolkitHud == null)
+            {
+                return;
+            }
+
+            if (active && !uiToolkitHud.gameObject.activeSelf)
+            {
+                uiToolkitHud.gameObject.SetActive(true);
+            }
+
+            UIDocument document = uiToolkitHud.GetComponent<UIDocument>();
+            if (document != null)
+            {
+                document.enabled = active;
+            }
+
+            uiToolkitHud.enabled = active;
+            uiToolkitHud.SetVisible(active);
+
+            if (!active && uiToolkitHud.gameObject.activeSelf)
+            {
+                uiToolkitHud.gameObject.SetActive(false);
             }
         }
 
@@ -261,7 +308,16 @@ namespace FAA.HUDToolkit
             }
             else if (root.name == legacyHudName && IsPreferredScreenLegacyHud(root.transform))
             {
-                root.transform.localScale = Vector3.one * 420f;
+                root.transform.localScale = new Vector3(LegacyScreenHudScale, LegacyScreenHudScale, 1f);
+
+                if (root.transform is RectTransform rectTransform)
+                {
+                    rectTransform.anchorMin = Vector2.zero;
+                    rectTransform.anchorMax = Vector2.zero;
+                    rectTransform.pivot = new Vector2(0.5f, 0.5f);
+                    rectTransform.anchoredPosition = LegacyScreenHudAnchoredPosition;
+                    rectTransform.sizeDelta = new Vector2(100f, 100f);
+                }
             }
 
             Canvas canvas = root.GetComponent<Canvas>();
@@ -290,7 +346,8 @@ namespace FAA.HUDToolkit
 
         private GameObject FindPreferredLegacyHudRoot()
         {
-            GameObject fallback = null;
+            GameObject best = null;
+            int bestScore = int.MinValue;
             foreach (Transform transform in FindObjectsByType<Transform>(FindObjectsInactive.Include, FindObjectsSortMode.None))
             {
                 if (transform == null || transform.gameObject.name != legacyHudName)
@@ -298,29 +355,70 @@ namespace FAA.HUDToolkit
                     continue;
                 }
 
-                fallback ??= transform.gameObject;
                 if (IsPreferredScreenLegacyHud(transform))
+                {
+                    int score = ScoreLegacyHudRoot(transform.gameObject);
+                    if (score > bestScore)
+                    {
+                        bestScore = score;
+                        best = transform.gameObject;
+                    }
+                }
+            }
+
+            if (best != null)
+            {
+                return best;
+            }
+
+            foreach (Transform transform in FindObjectsByType<Transform>(FindObjectsInactive.Include, FindObjectsSortMode.None))
+            {
+                if (transform != null && transform.gameObject.name == legacyHudName)
                 {
                     return transform.gameObject;
                 }
             }
 
-            return fallback;
+            return null;
         }
 
         private bool ShouldShowLegacyRoot(GameObject root)
         {
             if (root == null || IsConfiguredSuppressedLegacyRootName(root.name))
             {
+                SuppressLegacyOverlayRoot(root);
                 return false;
             }
 
             if (root.name == legacyHudName)
             {
-                return IsPreferredScreenLegacyHud(root.transform);
+                return root == legacyHudRoot && IsPreferredScreenLegacyHud(root.transform);
             }
 
             return true;
+        }
+
+        private static void SuppressLegacyOverlayRoot(GameObject root)
+        {
+            if (root == null)
+            {
+                return;
+            }
+
+            foreach (Canvas canvas in root.GetComponentsInChildren<Canvas>(true))
+            {
+                canvas.enabled = false;
+            }
+
+            foreach (GraphicRaycaster raycaster in root.GetComponentsInChildren<GraphicRaycaster>(true))
+            {
+                raycaster.enabled = false;
+            }
+
+            if (root.activeSelf)
+            {
+                root.SetActive(false);
+            }
         }
 
         private bool IsConfiguredLegacyCanvasName(string objectName)
@@ -382,6 +480,49 @@ namespace FAA.HUDToolkit
             string path = GetHierarchyPath(transform).ToLowerInvariant();
             return path.Contains("/faasymbologycanvas/") &&
                    !path.Contains("/faasymbologycanvasworldspace/");
+        }
+
+        private static int ScoreLegacyHudRoot(GameObject root)
+        {
+            if (root == null)
+            {
+                return int.MinValue;
+            }
+
+            int score = 0;
+            if (root.activeSelf)
+            {
+                score += 1000;
+            }
+
+            if (root.activeInHierarchy)
+            {
+                score += 500;
+            }
+
+            foreach (Behaviour behaviour in root.GetComponentsInChildren<Behaviour>(true))
+            {
+                if (behaviour == null)
+                {
+                    continue;
+                }
+
+                string typeName = behaviour.GetType().FullName ?? string.Empty;
+                if (typeName.StartsWith("HUDControl.", StringComparison.Ordinal))
+                {
+                    score += behaviour.enabled ? 60 : 20;
+                }
+            }
+
+            foreach (Graphic graphic in root.GetComponentsInChildren<Graphic>(true))
+            {
+                if (graphic != null && graphic.color.a > 0.01f)
+                {
+                    score += graphic.gameObject.activeSelf ? 2 : 1;
+                }
+            }
+
+            return score;
         }
 
         private static string GetHierarchyPath(Transform transform)

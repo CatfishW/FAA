@@ -82,6 +82,7 @@ __pycache__.meta
 /ulw_test_results/
 /[Aa]ssets/.playwright-cli/
 /[Aa]ssets/output/
+/[Aa]ssets/output.meta
 /dashboard-live.png
 /wx-live.png
 /steam-*.png

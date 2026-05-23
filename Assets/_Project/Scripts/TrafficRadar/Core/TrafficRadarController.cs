@@ -98,6 +98,31 @@ namespace TrafficRadar.Core
         public int TargetCount => _currentTargets?.Count ?? 0;
         public ThreatLevel HighestThreat => _lastHighestThreat;
         public OwnShipPosition OwnPosition => _currentOwnPosition;
+        public bool AutoRangeEnabled
+        {
+            get => autoRangeEnabled;
+            set => autoRangeEnabled = value;
+        }
+        public int MaxTargets
+        {
+            get => maxTargets;
+            set
+            {
+                int clampedValue = Mathf.Clamp(value, 1, 200);
+                if (maxTargets == clampedValue)
+                {
+                    return;
+                }
+
+                maxTargets = clampedValue;
+                if (_processor != null)
+                {
+                    _processor.MaxTargets = maxTargets;
+                }
+
+                ProcessCurrentData();
+            }
+        }
         
         #endregion
         
@@ -258,6 +283,35 @@ namespace TrafficRadar.Core
             
             RangeNM = Mathf.Max(newRange, autoRangeMinNM);
         }
+
+        public void SetAutoRangeEnabled(bool enabled)
+        {
+            autoRangeEnabled = enabled;
+            if (autoRangeEnabled)
+            {
+                AutoAdjustRange();
+            }
+        }
+
+        public void ToggleAutoRange()
+        {
+            SetAutoRangeEnabled(!autoRangeEnabled);
+        }
+
+        public void SetMaxTargets(int value)
+        {
+            MaxTargets = value;
+        }
+
+        public void IncreaseMaxTargets(int step = 5)
+        {
+            MaxTargets += Mathf.Max(1, step);
+        }
+
+        public void DecreaseMaxTargets(int step = 5)
+        {
+            MaxTargets -= Mathf.Max(1, step);
+        }
         
         #endregion
         
@@ -266,10 +320,10 @@ namespace TrafficRadar.Core
         private void AutoFindComponents()
         {
             if (dataManager == null)
-                dataManager = FindObjectOfType<TrafficRadarDataManager>();
+                dataManager = FindAnyObjectByType<TrafficRadarDataManager>();
             
             if (radarDisplay == null)
-                radarDisplay = FindObjectOfType<TrafficRadarDisplay>();
+                radarDisplay = FindAnyObjectByType<TrafficRadarDisplay>();
             
             // Log what was found
             Log($"Components found - DataManager: {dataManager != null}, Display: {radarDisplay != null}");
