@@ -13,7 +13,6 @@ GameObject:
   - component: {fileID: 3068384142733735653}
   - component: {fileID: 8224069983897349665}
   - component: {fileID: 4861312906306182502}
-  - component: {fileID: 3137309804332958171}
   m_Layer: 0
   m_Name: Segment_5
   m_TagString: Untagged
@@ -136,37 +135,6 @@ CanvasGroup:
   m_Interactable: 1
   m_BlocksRaycasts: 1
   m_IgnoreParentGroups: 0
---- !u!114 &3137309804332958171
-MonoBehaviour:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 40239408004258248}
-  m_Enabled: 1
-  m_EditorHideFlags: 0
-  m_Script: {fileID: 11500000, guid: 6a2e7e94f86e546f99e17b315bd55ef2, type: 3}
-  m_Name: 
-  m_EditorClassIdentifier: Assembly-CSharp::VoiceControl.UI.VoiceCommandSegment
-  parentWheel: {fileID: 0}
-  assignedIndex: 0
-  isActive: 0
-  backgroundImage: {fileID: 3068384142733735653}
-  button: {fileID: 8224069983897349665}
-  iconTransform: {fileID: 8676158057660698326}
-  iconImage: {fileID: 766351513290681304}
-  labelText: {fileID: 81345979578028417}
-  canvasGroup: {fileID: 4861312906306182502}
-  displayLabel: COMMAND 6
-  subLabel: SYSTEM
-  iconText: 
-  normalColor: {r: 0.22, g: 0.26, b: 0.3, a: 0.95}
-  highlightColor: {r: 0.45, g: 0.85, b: 0.55, a: 0.98}
-  dimmedColor: {r: 0.18, g: 0.2, b: 0.22, a: 0.5}
-  highlightScale: 1.05
-  angleMin: 135
-  angleMax: 180
-  angleOffset: 157.5
 --- !u!1 &64813073689537842
 GameObject:
   m_ObjectHideFlags: 0
@@ -467,7 +435,6 @@ GameObject:
   - component: {fileID: 1516812275608425938}
   - component: {fileID: 5922218233120452410}
   - component: {fileID: 3397608169240146244}
-  - component: {fileID: 3024396266010078377}
   m_Layer: 0
   m_Name: Segment_3
   m_TagString: Untagged
@@ -590,37 +557,6 @@ CanvasGroup:
   m_Interactable: 1
   m_BlocksRaycasts: 1
   m_IgnoreParentGroups: 0
---- !u!114 &3024396266010078377
-MonoBehaviour:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 523681538086525656}
-  m_Enabled: 1
-  m_EditorHideFlags: 0
-  m_Script: {fileID: 11500000, guid: 6a2e7e94f86e546f99e17b315bd55ef2, type: 3}
-  m_Name: 
-  m_EditorClassIdentifier: Assembly-CSharp::VoiceControl.UI.VoiceCommandSegment
-  parentWheel: {fileID: 0}
-  assignedIndex: 0
-  isActive: 0
-  backgroundImage: {fileID: 1516812275608425938}
-  button: {fileID: 5922218233120452410}
-  iconTransform: {fileID: 3020878875816625685}
-  iconImage: {fileID: 127004638845415560}
-  labelText: {fileID: 8642308986476336790}
-  canvasGroup: {fileID: 3397608169240146244}
-  displayLabel: COMMAND 4
-  subLabel: SYSTEM
-  iconText: 
-  normalColor: {r: 0.22, g: 0.26, b: 0.3, a: 0.95}
-  highlightColor: {r: 0.45, g: 0.85, b: 0.55, a: 0.98}
-  dimmedColor: {r: 0.18, g: 0.2, b: 0.22, a: 0.5}
-  highlightScale: 1.05
-  angleMin: 45
-  angleMax: 90
-  angleOffset: 67.5
 --- !u!1 &539163159366255279
 GameObject:
   m_ObjectHideFlags: 0
@@ -1371,7 +1307,6 @@ GameObject:
   - component: {fileID: 8417485768936373257}
   - component: {fileID: 1617561653545114867}
   - component: {fileID: 767294349748369588}
-  - component: {fileID: 3052235036741781687}
   m_Layer: 0
   m_Name: Segment_7
   m_TagString: Untagged
@@ -1494,37 +1429,6 @@ CanvasGroup:
   m_Interactable: 1
   m_BlocksRaycasts: 1
   m_IgnoreParentGroups: 0
---- !u!114 &3052235036741781687
-MonoBehaviour:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 1329197190039720611}
-  m_Enabled: 1
-  m_EditorHideFlags: 0
-  m_Script: {fileID: 11500000, guid: 6a2e7e94f86e546f99e17b315bd55ef2, type: 3}
-  m_Name: 
-  m_EditorClassIdentifier: Assembly-CSharp::VoiceControl.UI.VoiceCommandSegment
-  parentWheel: {fileID: 0}
-  assignedIndex: 0
-  isActive: 0
-  backgroundImage: {fileID: 8417485768936373257}
-  button: {fileID: 1617561653545114867}
-  iconTransform: {fileID: 2035342972117174278}
-  iconImage: {fileID: 3963100240995765642}
-  labelText: {fileID: 6549035528990461937}
-  canvasGroup: {fileID: 767294349748369588}
-  displayLabel: COMMAND 8
-  subLabel: SYSTEM
-  iconText: 
-  normalColor: {r: 0.22, g: 0.26, b: 0.3, a: 0.95}
-  highlightColor: {r: 0.45, g: 0.85, b: 0.55, a: 0.98}
-  dimmedColor: {r: 0.18, g: 0.2, b: 0.22, a: 0.5}
-  highlightScale: 1.05
-  angleMin: 225
-  angleMax: 270
-  angleOffset: 247.5
 --- !u!1 &1858481225503269175
 GameObject:
   m_ObjectHideFlags: 0
@@ -1900,7 +1804,6 @@ GameObject:
   - component: {fileID: 7002994833792387671}
   - component: {fileID: 1284044193741829737}
   - component: {fileID: 4189300001338370190}
-  - component: {fileID: 3200971639040129520}
   m_Layer: 0
   m_Name: Segment_2
   m_TagString: Untagged
@@ -2023,37 +1926,6 @@ CanvasGroup:
   m_Interactable: 1
   m_BlocksRaycasts: 1
   m_IgnoreParentGroups: 0
---- !u!114 &3200971639040129520
-MonoBehaviour:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 3112278718586006679}
-  m_Enabled: 1
-  m_EditorHideFlags: 0
-  m_Script: {fileID: 11500000, guid: 6a2e7e94f86e546f99e17b315bd55ef2, type: 3}
-  m_Name: 
-  m_EditorClassIdentifier: Assembly-CSharp::VoiceControl.UI.VoiceCommandSegment
-  parentWheel: {fileID: 0}
-  assignedIndex: 0
-  isActive: 0
-  backgroundImage: {fileID: 7002994833792387671}
-  button: {fileID: 1284044193741829737}
-  iconTransform: {fileID: 5078833929932490452}
-  iconImage: {fileID: 3783246583983853467}
-  labelText: {fileID: 4725194349435707900}
-  canvasGroup: {fileID: 4189300001338370190}
-  displayLabel: COMMAND 3
-  subLabel: SYSTEM
-  iconText: 
-  normalColor: {r: 0.22, g: 0.26, b: 0.3, a: 0.95}
-  highlightColor: {r: 0.45, g: 0.85, b: 0.55, a: 0.98}
-  dimmedColor: {r: 0.18, g: 0.2, b: 0.22, a: 0.5}
-  highlightScale: 1.05
-  angleMin: 0
-  angleMax: 45
-  angleOffset: 22.5
 --- !u!1 &3174559031252082570
 GameObject:
   m_ObjectHideFlags: 0
@@ -2280,7 +2152,6 @@ GameObject:
   - component: {fileID: 4875101873922133710}
   - component: {fileID: 3861637081911611847}
   - component: {fileID: 3333355069973374630}
-  - component: {fileID: 6411697581542022702}
   m_Layer: 0
   m_Name: Segment_1
   m_TagString: Untagged
@@ -2403,37 +2274,6 @@ CanvasGroup:
   m_Interactable: 1
   m_BlocksRaycasts: 1
   m_IgnoreParentGroups: 0
---- !u!114 &6411697581542022702
-MonoBehaviour:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 4065995533466163952}
-  m_Enabled: 1
-  m_EditorHideFlags: 0
-  m_Script: {fileID: 11500000, guid: 6a2e7e94f86e546f99e17b315bd55ef2, type: 3}
-  m_Name: 
-  m_EditorClassIdentifier: Assembly-CSharp::VoiceControl.UI.VoiceCommandSegment
-  parentWheel: {fileID: 0}
-  assignedIndex: 0
-  isActive: 0
-  backgroundImage: {fileID: 4875101873922133710}
-  button: {fileID: 3861637081911611847}
-  iconTransform: {fileID: 6889820555042575823}
-  iconImage: {fileID: 2606844793337919456}
-  labelText: {fileID: 2147455340696020729}
-  canvasGroup: {fileID: 3333355069973374630}
-  displayLabel: COMMAND 2
-  subLabel: SYSTEM
-  iconText: 
-  normalColor: {r: 0.22, g: 0.26, b: 0.3, a: 0.95}
-  highlightColor: {r: 0.45, g: 0.85, b: 0.55, a: 0.98}
-  dimmedColor: {r: 0.18, g: 0.2, b: 0.22, a: 0.5}
-  highlightScale: 1.05
-  angleMin: -45
-  angleMax: 0
-  angleOffset: -22.5
 --- !u!1 &4531223550024705709
 GameObject:
   m_ObjectHideFlags: 0
@@ -3113,7 +2953,6 @@ GameObject:
   - component: {fileID: 2004343416202038878}
   - component: {fileID: 6887073502858460901}
   - component: {fileID: 2903882569626970826}
-  - component: {fileID: 8796212530909053114}
   m_Layer: 0
   m_Name: Segment_6
   m_TagString: Untagged
@@ -3236,37 +3075,6 @@ CanvasGroup:
   m_Interactable: 1
   m_BlocksRaycasts: 1
   m_IgnoreParentGroups: 0
---- !u!114 &8796212530909053114
-MonoBehaviour:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 5478836877033986214}
-  m_Enabled: 1
-  m_EditorHideFlags: 0
-  m_Script: {fileID: 11500000, guid: 6a2e7e94f86e546f99e17b315bd55ef2, type: 3}
-  m_Name: 
-  m_EditorClassIdentifier: Assembly-CSharp::VoiceControl.UI.VoiceCommandSegment
-  parentWheel: {fileID: 0}
-  assignedIndex: 0
-  isActive: 0
-  backgroundImage: {fileID: 2004343416202038878}
-  button: {fileID: 6887073502858460901}
-  iconTransform: {fileID: 421108621712537260}
-  iconImage: {fileID: 7130507701331353309}
-  labelText: {fileID: 7103172207159082179}
-  canvasGroup: {fileID: 2903882569626970826}
-  displayLabel: COMMAND 7
-  subLabel: SYSTEM
-  iconText: 
-  normalColor: {r: 0.22, g: 0.26, b: 0.3, a: 0.95}
-  highlightColor: {r: 0.45, g: 0.85, b: 0.55, a: 0.98}
-  dimmedColor: {r: 0.18, g: 0.2, b: 0.22, a: 0.5}
-  highlightScale: 1.05
-  angleMin: 180
-  angleMax: 225
-  angleOffset: 202.5
 --- !u!1 &5546903481299636747
 GameObject:
   m_ObjectHideFlags: 0
@@ -3784,7 +3592,6 @@ GameObject:
   - component: {fileID: 444659756119865000}
   - component: {fileID: 6585372663131344753}
   - component: {fileID: 7831111821889560175}
-  - component: {fileID: 3456110811980256318}
   m_Layer: 0
   m_Name: Segment_4
   m_TagString: Untagged
@@ -3907,37 +3714,6 @@ CanvasGroup:
   m_Interactable: 1
   m_BlocksRaycasts: 1
   m_IgnoreParentGroups: 0
---- !u!114 &3456110811980256318
-MonoBehaviour:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 6982295705080379448}
-  m_Enabled: 1
-  m_EditorHideFlags: 0
-  m_Script: {fileID: 11500000, guid: 6a2e7e94f86e546f99e17b315bd55ef2, type: 3}
-  m_Name: 
-  m_EditorClassIdentifier: Assembly-CSharp::VoiceControl.UI.VoiceCommandSegment
-  parentWheel: {fileID: 0}
-  assignedIndex: 0
-  isActive: 0
-  backgroundImage: {fileID: 444659756119865000}
-  button: {fileID: 6585372663131344753}
-  iconTransform: {fileID: 7549314882117043275}
-  iconImage: {fileID: 8464396943833685141}
-  labelText: {fileID: 8825086638323857722}
-  canvasGroup: {fileID: 7831111821889560175}
-  displayLabel: COMMAND 5
-  subLabel: SYSTEM
-  iconText: 
-  normalColor: {r: 0.22, g: 0.26, b: 0.3, a: 0.95}
-  highlightColor: {r: 0.45, g: 0.85, b: 0.55, a: 0.98}
-  dimmedColor: {r: 0.18, g: 0.2, b: 0.22, a: 0.5}
-  highlightScale: 1.05
-  angleMin: 90
-  angleMax: 135
-  angleOffset: 112.5
 --- !u!1 &7182308785459135499
 GameObject:
   m_ObjectHideFlags: 0
@@ -3985,7 +3761,6 @@ GameObject:
   serializedVersion: 6
   m_Component:
   - component: {fileID: 1006798342381192943}
-  - component: {fileID: 7552580289864358685}
   m_Layer: 0
   m_Name: VoiceCommandWheel
   m_TagString: Untagged
@@ -4014,53 +3789,6 @@ RectTransform:
   m_AnchoredPosition: {x: 0, y: 0}
   m_SizeDelta: {x: 1000, y: 1000}
   m_Pivot: {x: 0.5, y: 0.5}
---- !u!114 &7552580289864358685
-MonoBehaviour:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 7470931371023834817}
-  m_Enabled: 1
-  m_EditorHideFlags: 0
-  m_Script: {fileID: 11500000, guid: 04f0d07ee854b4c33b2e97686565719c, type: 3}
-  m_Name: 
-  m_EditorClassIdentifier: Assembly-CSharp::VoiceControl.UI.VoiceCommandWheelCore
-  useTabKey: 1
-  useLazySelection: 1
-  useSelectionFollower: 1
-  selectionFollowerContainer: {fileID: 8380544879865246477}
-  globalOffset: 22.5
-  normalColor: {r: 0.22, g: 0.26, b: 0.3, a: 0.95}
-  highlightColor: {r: 0.45, g: 0.85, b: 0.55, a: 0.98}
-  dimmedColor: {r: 0.154, g: 0.182, b: 0.21000001, a: 0.6}
-  animationDuration: 0.35
-  expandedScale: 1
-  collapsedScale: 0.1
-  expandedRoot: {fileID: 7302310273825853940}
-  collapsedRoot: {fileID: 8428389358269882437}
-  expandedGroup: {fileID: 7729560324490745940}
-  collapsedGroup: {fileID: 5456557700752674772}
-  centerLabel: {fileID: 8114560597547096040}
-  centerSubLabel: {fileID: 6544683457600351492}
-  segments:
-  - {fileID: 7954316201384959278}
-  - {fileID: 6411697581542022702}
-  - {fileID: 3200971639040129520}
-  - {fileID: 3024396266010078377}
-  - {fileID: 3456110811980256318}
-  - {fileID: 3137309804332958171}
-  - {fileID: 8796212530909053114}
-  - {fileID: 3052235036741781687}
-  enableSubNodes: 1
-  subNodesPerSegment: 3
-  subNodeRadius: 380
-  subNodeSize: 60
-  subNodeAnimationDuration: 0.2
-  subNodeNormalColor: {r: 0.22, g: 0.26, b: 0.3, a: 0.95}
-  subNodeHighlightColor: {r: 0.55, g: 0.9, b: 0.65, a: 0.98}
-  currentAngle: 0
-  currentIndex: 0
 --- !u!1 &7552186489490658714
 GameObject:
   m_ObjectHideFlags: 0
@@ -4968,7 +4696,6 @@ GameObject:
   - component: {fileID: 8386158265083845860}
   - component: {fileID: 84994143981421161}
   - component: {fileID: 1850365285203326674}
-  - component: {fileID: 7954316201384959278}
   m_Layer: 0
   m_Name: Segment_0
   m_TagString: Untagged
@@ -5091,37 +4818,6 @@ CanvasGroup:
   m_Interactable: 1
   m_BlocksRaycasts: 1
   m_IgnoreParentGroups: 0
---- !u!114 &7954316201384959278
-MonoBehaviour:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 9028514599126606609}
-  m_Enabled: 1
-  m_EditorHideFlags: 0
-  m_Script: {fileID: 11500000, guid: 6a2e7e94f86e546f99e17b315bd55ef2, type: 3}
-  m_Name: 
-  m_EditorClassIdentifier: Assembly-CSharp::VoiceControl.UI.VoiceCommandSegment
-  parentWheel: {fileID: 0}
-  assignedIndex: 0
-  isActive: 0
-  backgroundImage: {fileID: 8386158265083845860}
-  button: {fileID: 84994143981421161}
-  iconTransform: {fileID: 1507504393173135868}
-  iconImage: {fileID: 1822028634918077607}
-  labelText: {fileID: 3198619185904040439}
-  canvasGroup: {fileID: 1850365285203326674}
-  displayLabel: COMMAND 1
-  subLabel: SYSTEM
-  iconText: 
-  normalColor: {r: 0.22, g: 0.26, b: 0.3, a: 0.95}
-  highlightColor: {r: 0.45, g: 0.85, b: 0.55, a: 0.98}
-  dimmedColor: {r: 0.18, g: 0.2, b: 0.22, a: 0.5}
-  highlightScale: 1.05
-  angleMin: -90
-  angleMax: -45
-  angleOffset: -67.5
 --- !u!1 &9049657437472413404
 GameObject:
   m_ObjectHideFlags: 0

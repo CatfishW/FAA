@@ -255,7 +255,7 @@ namespace VoiceControl.UI.Editor
             // Create game object
             GameObject go = new GameObject("UI Toolkit Radial Menu (Advanced)");
             go.AddComponent<UIDocument>();
-            go.AddComponent<UIToolkitRadialMenuAdvanced>();
+            go.AddComponent<UIToolkitRadialMenuAdvanced>().ApplyAviationHudPreset(false);
 
             // Register for undo
             Undo.RegisterCreatedObjectUndo(go, "Create Advanced Radial Menu");

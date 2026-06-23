@@ -114,6 +114,7 @@ namespace WeatherRadar
             if (returnDisplay != null)
             {
                 returnDisplay.texture = displayTexture;
+                returnDisplay.color = Color.white;
             }
         }
 
@@ -417,6 +418,17 @@ namespace WeatherRadar
             InitializeBuffers();
             ClearToBackground();
             ApplyBuffer();
+        }
+
+        /// <summary>
+        /// Set visibility
+        /// </summary>
+        public void SetVisible(bool visible)
+        {
+            if (returnDisplay != null)
+            {
+                returnDisplay.gameObject.SetActive(visible);
+            }
         }
 
         /// <summary>

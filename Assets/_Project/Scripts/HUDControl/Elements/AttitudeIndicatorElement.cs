@@ -103,6 +103,10 @@ namespace HUDControl.Elements
             {
                 pitchLadderBasePos = pitchLadder.anchoredPosition;
                 ladderHeight = pitchLadder.rect.height;
+                if (maskContainer == null)
+                {
+                    maskContainer = FindMaskContainerFor(pitchLadder);
+                }
                 
                 // Auto-calculate units per degree
                 // Ladder height covers ladderTotalDegrees
@@ -121,6 +125,10 @@ namespace HUDControl.Elements
             if (maskContainer != null)
             {
                 maskHeight = maskContainer.rect.height;
+            }
+            else if (pitchLadder != null && pitchLadder.parent is RectTransform parentRect)
+            {
+                maskHeight = parentRect.rect.height;
             }
             
             if (fpvMarker != null)
@@ -195,6 +203,26 @@ namespace HUDControl.Elements
             if (state.GroundSpeedKnots < 10f) return 0f;
             float vsKnots = state.VerticalSpeedFpm / 101.269f;
             return Mathf.Clamp(Mathf.Atan2(vsKnots, state.GroundSpeedKnots) * Mathf.Rad2Deg, -30f, 30f);
+        }
+
+        private RectTransform FindMaskContainerFor(RectTransform child)
+        {
+            if (child == null) return null;
+
+            Transform current = child.parent;
+            while (current != null)
+            {
+                if ((current.GetComponent<Mask>() != null || current.GetComponent<RectMask2D>() != null) &&
+                    current is RectTransform rectTransform)
+                {
+                    return rectTransform;
+                }
+
+                if (current == transform) break;
+                current = current.parent;
+            }
+
+            return null;
         }
         
         public float GetDisplayedPitch() => displayedPitch;

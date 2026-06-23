@@ -161,8 +161,8 @@ namespace IndicatorSystem.Integration
                 _convertedTargets.Add(ConvertToIndicatorTarget(target));
             }
             
-            // Update indicator system
-            indicatorController.SetTargets(_convertedTargets);
+            // Update only traffic targets so weather indicators can coexist.
+            indicatorController.SetTargetsForType(IndicatorType.Traffic, _convertedTargets);
             
             Log($"Updated {_convertedTargets.Count} traffic indicators");
         }
@@ -205,16 +205,7 @@ namespace IndicatorSystem.Integration
                 return indicatorController.Settings.GetColorForTraffic(level);
             }
             
-            // Fallback colors
-            switch (level)
-            {
-                case ThreatLevel.ResolutionAdvisory:
-                    return Color.red;
-                case ThreatLevel.TrafficAdvisory:
-                    return new Color(1f, 0.75f, 0f); // Amber
-                default:
-                    return Color.cyan;
-            }
+            return ThreatLevelConfig.GetColor(level);
         }
         
         private int GetPriorityForThreatLevel(ThreatLevel level)

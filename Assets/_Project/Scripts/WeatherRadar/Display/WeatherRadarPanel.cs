@@ -57,6 +57,7 @@ namespace WeatherRadar
         private int sweepCount = 0;
         private float sweepSpeed;
         private bool initialized = false;
+        private bool UsesOriginalXPlaneTexture => weatherProvider is XPlaneOriginalWeatherRadarProvider;
 
         /// <summary>
         /// Current configuration
@@ -127,6 +128,7 @@ namespace WeatherRadar
             {
                 sweepRenderer.OnSweepComplete += OnSweepComplete;
                 sweepRenderer.SweepSpeed = sweepSpeed;
+                sweepRenderer.SetVisible(!UsesOriginalXPlaneTexture);
             }
 
             // Apply initial visibility
@@ -232,6 +234,11 @@ namespace WeatherRadar
                 return; // Don't animate in standby
             }
 
+            if (UsesOriginalXPlaneTexture)
+            {
+                return;
+            }
+
             // Advance sweep animation
             if (sweepRenderer != null)
             {
@@ -260,22 +267,31 @@ namespace WeatherRadar
 
         private void InitializeRenderers()
         {
+            if (UsesOriginalXPlaneTexture)
+            {
+                ConfigureOriginalTextureMode();
+                return;
+            }
+
             // Initialize sweep renderer
             if (sweepRenderer != null)
             {
                 sweepRenderer.Initialize(config, panelRect);
+                sweepRenderer.SetVisible(!UsesOriginalXPlaneTexture);
             }
 
             // Initialize return renderer
             if (returnRenderer != null)
             {
                 returnRenderer.Initialize(config, dataProvider);
+                returnRenderer.SetVisible(!UsesOriginalXPlaneTexture);
             }
 
             // Initialize range rings renderer
             if (rangeRingsRenderer != null)
             {
                 rangeRingsRenderer.Initialize(config, dataProvider);
+                rangeRingsRenderer.SetVisible(!UsesOriginalXPlaneTexture);
             }
 
             // Initialize waypoint renderer
@@ -317,16 +333,165 @@ namespace WeatherRadar
             if (sweepRenderer != null)
             {
                 sweepRenderer.SetVisible(newMode != RadarMode.STBY);
+                if (UsesOriginalXPlaneTexture)
+                {
+                    sweepRenderer.SetVisible(false);
+                }
+            }
+
+            if (returnRenderer != null && UsesOriginalXPlaneTexture)
+            {
+                returnRenderer.SetVisible(false);
+            }
+
+            if (rangeRingsRenderer != null && UsesOriginalXPlaneTexture)
+            {
+                rangeRingsRenderer.SetVisible(false);
             }
         }
 
         private void OnWeatherDataReceived(Texture2D weatherTexture)
         {
-            Debug.Log($"[WeatherRadarPanel] Received weather texture: {(weatherTexture != null ? $"{weatherTexture.width}x{weatherTexture.height}" : "null")}");
-            
+            if (weatherProvider is XPlaneOriginalWeatherRadarProvider originalProvider)
+            {
+                ConfigureOriginalTextureMode();
+                ApplyOriginalTextureToVisibleImages(weatherTexture);
+
+                XPlaneOriginalWeatherRadarDisplay originalDisplay = GetComponentInChildren<XPlaneOriginalWeatherRadarDisplay>(true);
+                if (originalDisplay != null && weatherTexture != null)
+                {
+                    originalDisplay.SetProvider(originalProvider);
+                    originalDisplay.SetDataProvider(dataProvider);
+                    originalDisplay.ShowTexture(weatherTexture);
+                }
+                return;
+            }
+
             if (returnRenderer != null && weatherTexture != null)
             {
                 returnRenderer.UpdateWeatherData(weatherTexture);
+            }
+        }
+
+        private void ApplyOriginalTextureToVisibleImages(Texture2D weatherTexture)
+        {
+            if (weatherTexture == null)
+            {
+                return;
+            }
+
+            if (radarDisplay != null)
+            {
+                ConfigureOriginalTextureRect(radarDisplay.rectTransform);
+                radarDisplay.texture = weatherTexture;
+                radarDisplay.color = Color.white;
+                radarDisplay.enabled = true;
+                radarDisplay.raycastTarget = false;
+            }
+
+            foreach (RawImage rawImage in GetComponentsInChildren<RawImage>(true))
+            {
+                if (rawImage == null)
+                {
+                    continue;
+                }
+
+                string objectName = rawImage.gameObject.name;
+                if (!string.Equals(objectName, "XPlaneOriginalTexture", System.StringComparison.OrdinalIgnoreCase))
+                {
+                    continue;
+                }
+
+                ConfigureOriginalTextureRect(rawImage.rectTransform);
+                rawImage.texture = weatherTexture;
+                rawImage.color = Color.white;
+                rawImage.enabled = true;
+                rawImage.raycastTarget = false;
+            }
+        }
+
+        private void ConfigureOriginalTextureMode()
+        {
+            SetRendererObjectActive(returnRenderer, false);
+            SetRendererObjectActive(rangeRingsRenderer, false);
+            SetRendererObjectActive(sweepRenderer, false);
+            SetRendererObjectActive(waypointRenderer, false);
+
+            RectTransform textureTransform = null;
+            foreach (RawImage rawImage in GetComponentsInChildren<RawImage>(true))
+            {
+                if (rawImage == null ||
+                    !string.Equals(rawImage.gameObject.name, "XPlaneOriginalTexture", System.StringComparison.OrdinalIgnoreCase))
+                {
+                    continue;
+                }
+
+                rawImage.gameObject.SetActive(true);
+                rawImage.enabled = true;
+                rawImage.color = Color.white;
+                rawImage.raycastTarget = false;
+                ConfigureOriginalTextureRect(rawImage.rectTransform);
+                textureTransform = rawImage.rectTransform;
+            }
+
+            if (textureTransform != null)
+            {
+                textureTransform.SetSiblingIndex(1);
+                Transform overlay = textureTransform.Find("FAAReferenceOverlay");
+                if (overlay != null)
+                {
+                    overlay.gameObject.SetActive(false);
+                    XPlaneWeatherRadarOverlay referenceOverlay = overlay.GetComponent<XPlaneWeatherRadarOverlay>();
+                    if (referenceOverlay != null)
+                    {
+                        referenceOverlay.enabled = false;
+                    }
+
+                    RawImage overlayImage = overlay.GetComponent<RawImage>();
+                    if (overlayImage != null)
+                    {
+                        overlayImage.enabled = false;
+                        overlayImage.raycastTarget = false;
+                    }
+                }
+            }
+
+            BringLabelToFront(modeLabel);
+            BringLabelToFront(rangeLabel);
+            BringLabelToFront(tiltLabel);
+            BringLabelToFront(gainLabel);
+        }
+
+        private static void ConfigureOriginalTextureRect(RectTransform rectTransform)
+        {
+            if (rectTransform == null)
+            {
+                return;
+            }
+
+            rectTransform.anchorMin = new Vector2(0.5f, 0.5f);
+            rectTransform.anchorMax = new Vector2(0.5f, 0.5f);
+            rectTransform.pivot = new Vector2(0.5f, 0.5f);
+            rectTransform.anchoredPosition = new Vector2(0f, 2f);
+            rectTransform.sizeDelta = new Vector2(408f, 288.5f);
+            rectTransform.localScale = Vector3.one;
+        }
+
+        private static void SetRendererObjectActive(Component component, bool active)
+        {
+            if (component == null)
+            {
+                return;
+            }
+
+            component.gameObject.SetActive(active);
+        }
+
+        private static void BringLabelToFront(TMP_Text label)
+        {
+            if (label != null)
+            {
+                label.transform.SetAsLastSibling();
             }
         }
 

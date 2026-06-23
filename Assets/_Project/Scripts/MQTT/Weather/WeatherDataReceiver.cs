@@ -41,6 +41,9 @@ public class WeatherDataReceiver : MonoBehaviour
     [Tooltip("How often to send position data (seconds)")]
     [Range(1.0f, 60.0f)]
     public float positionDataSendInterval = 10.0f;
+
+    [Tooltip("Connect to the legacy MQTT weather feed on Start. Disabled when X-Plane 12 API bridge owns weather data.")]
+    public bool connectOnStart = false;
     #endregion
 
     #region Position and Navigation
@@ -128,13 +131,15 @@ public class WeatherDataReceiver : MonoBehaviour
     /// </summary>
     void Start()
     {
-        // Initialize UI components
         InitializeUIComponents();
-        
-        // Setup MQTT client and connection
+
+        if (!connectOnStart)
+        {
+            Debug.Log("[WeatherDataReceiver] Legacy MQTT weather auto-connect is disabled; XPlane12ApiHudBridge supplies weather data.", this);
+            return;
+        }
+
         SetupMqttClient();
-        
-        // Start coroutines for data handling
         StartCoroutine(SendPositionDataPeriodically());
         StartCoroutine(ProcessWeatherDataPeriodically());
         StartCoroutine(ProcessRadarImagePeriodically());
@@ -601,7 +606,6 @@ public class WeatherDataReceiver : MonoBehaviour
     }
     #endregion
 }
-
 
 
 

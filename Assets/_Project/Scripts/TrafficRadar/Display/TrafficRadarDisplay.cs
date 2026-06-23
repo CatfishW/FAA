@@ -1,4 +1,5 @@
 using System.Collections.Generic;
+using System;
 using UnityEngine;
 using UnityEngine.UI;
 using TMPro;
@@ -63,9 +64,30 @@ namespace TrafficRadar
 
         [Header("Visual Settings")]
         [Tooltip("Show radar background circle (disable to show only chart)")]
-        [SerializeField] private bool showRadarBackground = false;
+        [SerializeField] private bool showRadarBackground = true;
+
+        [Tooltip("Keep the traffic radar readable over bright terrain by forcing a solid panel backdrop.")]
+        [SerializeField] private bool enforceReadablePanelBackground = true;
+
+        [Tooltip("Minimum opacity for the traffic radar panel background.")]
+        [Range(0f, 1f)]
+        [SerializeField] private float minimumPanelBackgroundOpacity = 0.96f;
+
+        [Tooltip("Minimum opacity for FAA chart texture backgrounds.")]
+        [Range(0f, 1f)]
+        [SerializeField] private float minimumChartBackgroundOpacity = 0.78f;
+
+        [Header("X-Plane Traffic Texture")]
+        [Tooltip("Show the live X-Plane traffic radar PNG directly instead of reconstructing traffic symbols in Unity.")]
+        [SerializeField] private bool preferXPlaneTrafficTexture = false;
+
+        [Tooltip("Hide Unity-generated rings, chart, range labels, and compass labels while the X-Plane texture is the selected source.")]
+        [SerializeField] private bool hideGeneratedOverlaysWithXPlaneTexture = true;
+
+        [Tooltip("Fallback aspect used before the first X-Plane traffic PNG arrives.")]
+        [SerializeField] private Vector2 xPlaneTextureFallbackSize = new Vector2(420f, 480f);
         
-        [SerializeField] private Color backgroundColor = new Color(0.05f, 0.1f, 0.15f, 0.9f);
+        [SerializeField] private Color backgroundColor = new Color(0f, 0f, 0f, 0.96f);
         [SerializeField] private Color rangeRingColor = new Color(0.3f, 0.4f, 0.5f, 0.6f);
         [SerializeField] private Color compassMarkingsColor = new Color(0.6f, 0.7f, 0.8f, 0.8f);
         [SerializeField] private Color ownAircraftColor = new Color(1f, 0f, 0f, 1f);
@@ -101,17 +123,23 @@ namespace TrafficRadar
         [Header("Events")]
         [Tooltip("Fired when zoom/range changes")]
         public UnityEngine.Events.UnityEvent<float> OnZoomChanged;
+
+        [Header("Debug")]
+        [SerializeField] private bool verboseLogging = false;
         
         // Runtime-created material for radar overlay (full opacity)
         private Material radarOverlayMaterial;
 
         // Internal textures
         private Texture2D radarTexture;
+        private Texture _xPlaneTrafficTexture;
+        private Texture2D _blackPlaceholder;
         private RectTransform rectTransform;
         private List<RadarTrafficTarget> currentTargets = new List<RadarTrafficTarget>();
 
         // Symbol drawing
         private Color32[] clearPixels;
+        private Color32[] drawPixels;
         
         // Zoom animation state
         private float zoomFromRange;
@@ -124,6 +152,8 @@ namespace TrafficRadar
         private float _currentHeadingRotation;
         private float _targetHeadingRotation;
         private RectTransform[] _compassLabelRects;
+        private bool _radarTextureDirty = true;
+        private float _lastDrawnHeadingRotation = float.NaN;
 
         #region Properties
 
@@ -136,6 +166,7 @@ namespace TrafficRadar
                 if (!Mathf.Approximately(rangeNM, newRange))
                 {
                     rangeNM = newRange;
+                    MarkRadarDirty();
                     UpdateRangeLabel();
                     OnZoomChanged?.Invoke(rangeNM);
                 }
@@ -189,8 +220,20 @@ namespace TrafficRadar
         public bool ShowRadarBackground
         {
             get => showRadarBackground;
-            set => showRadarBackground = value;
+            set
+            {
+                if (showRadarBackground == value)
+                {
+                    return;
+                }
+
+                showRadarBackground = value;
+                MarkRadarDirty();
+            }
         }
+
+        public bool ChartBackgroundVisible => showChartBackground;
+        public int RangeRingCount => rangeRingCount;
         
         /// <summary>
         /// Gets or sets the radar background color.
@@ -198,7 +241,16 @@ namespace TrafficRadar
         public Color BackgroundColor
         {
             get => backgroundColor;
-            set => backgroundColor = value;
+            set
+            {
+                if (backgroundColor == value)
+                {
+                    return;
+                }
+
+                backgroundColor = value;
+                MarkRadarDirty();
+            }
         }
         
         /// <summary>
@@ -207,7 +259,16 @@ namespace TrafficRadar
         public Color RangeRingColor
         {
             get => rangeRingColor;
-            set => rangeRingColor = value;
+            set
+            {
+                if (rangeRingColor == value)
+                {
+                    return;
+                }
+
+                rangeRingColor = value;
+                MarkRadarDirty();
+            }
         }
         
         /// <summary>
@@ -216,7 +277,16 @@ namespace TrafficRadar
         public Color CompassMarkingsColor
         {
             get => compassMarkingsColor;
-            set => compassMarkingsColor = value;
+            set
+            {
+                if (compassMarkingsColor == value)
+                {
+                    return;
+                }
+
+                compassMarkingsColor = value;
+                MarkRadarDirty();
+            }
         }
         
         /// <summary>
@@ -225,8 +295,65 @@ namespace TrafficRadar
         public Color OwnAircraftColor
         {
             get => ownAircraftColor;
-            set => ownAircraftColor = value;
+            set
+            {
+                if (ownAircraftColor == value)
+                {
+                    return;
+                }
+
+                ownAircraftColor = value;
+                MarkRadarDirty();
+            }
         }
+
+        public bool TrackUpModeEnabled
+        {
+            get => enableTrackUpMode;
+            set
+            {
+                enableTrackUpMode = value;
+                if (!enableTrackUpMode)
+                {
+                    _currentHeadingRotation = 0f;
+                    _targetHeadingRotation = 0f;
+                    MarkRadarDirty();
+                    if (compassTicksContainer != null)
+                    {
+                        compassTicksContainer.localRotation = Quaternion.identity;
+                    }
+
+                    if (chartBackgroundImage != null)
+                    {
+                        RectTransform chartRect = chartBackgroundImage.GetComponent<RectTransform>();
+                        if (chartRect != null)
+                        {
+                            chartRect.localRotation = Quaternion.identity;
+                        }
+                    }
+                }
+            }
+        }
+
+        public bool PreferXPlaneTrafficTexture
+        {
+            get => preferXPlaneTrafficTexture;
+            set
+            {
+                if (preferXPlaneTrafficTexture == value)
+                {
+                    return;
+                }
+
+                preferXPlaneTrafficTexture = value;
+                SetupDisplay();
+                MarkRadarDirty();
+            }
+        }
+
+        public bool UsesXPlaneTrafficTexture => preferXPlaneTrafficTexture;
+        public Texture XPlaneTrafficTexture => _xPlaneTrafficTexture;
+        public RawImage RadarImage => radarImage;
 
         #endregion
 
@@ -235,11 +362,15 @@ namespace TrafficRadar
         private void Awake()
         {
             rectTransform = GetComponent<RectTransform>();
+            NormalizePanelReadability();
             CreateRadarTexture();
         }
 
         private void OnEnable()
         {
+            NormalizePanelReadability();
+            EnsureRuntimeDisplayReady();
+
             // Subscribe to controller
             if (radarController != null)
             {
@@ -270,10 +401,10 @@ namespace TrafficRadar
         {
             // Auto-find controller
             if (radarController == null)
-                radarController = FindObjectOfType<TrafficRadarController>();
+                radarController = FindAnyObjectByType<TrafficRadarController>();
 
             if (chartProvider == null)
-                chartProvider = FindObjectOfType<FAASectionalChartProvider>();
+                chartProvider = FindAnyObjectByType<FAASectionalChartProvider>();
 
             // Re-subscribe to controller if found in Start
             if (radarController != null)
@@ -373,6 +504,9 @@ namespace TrafficRadar
         {
             if (radarTexture != null)
                 Destroy(radarTexture);
+
+            if (_blackPlaceholder != null)
+                Destroy(_blackPlaceholder);
             
             // Clean up runtime-created materials
             if (circularMaskMaterial != null && circularMaskMaterial.name.Contains("_Runtime"))
@@ -384,6 +518,8 @@ namespace TrafficRadar
 
         private void Update()
         {
+            EnsureRuntimeDisplayReady();
+
             // Handle zoom animation
             if (isAnimatingZoom)
             {
@@ -393,11 +529,82 @@ namespace TrafficRadar
             // Handle heading rotation (track-up mode)
             if (enableTrackUpMode)
             {
-                UpdateHeadingRotation();
+                if (!preferXPlaneTrafficTexture)
+                {
+                    UpdateHeadingRotation();
+                }
             }
             
-            // Redraw radar each frame
-            DrawRadar();
+            DrawRadarIfNeeded();
+        }
+
+        private void NormalizePanelReadability()
+        {
+            if (!enforceReadablePanelBackground)
+            {
+                return;
+            }
+
+            bool changed = false;
+
+            if (!showRadarBackground)
+            {
+                showRadarBackground = true;
+                changed = true;
+            }
+
+            float minimumPanelAlpha = Mathf.Clamp01(minimumPanelBackgroundOpacity);
+            if (backgroundColor.a < minimumPanelAlpha)
+            {
+                backgroundColor.a = minimumPanelAlpha;
+                changed = true;
+            }
+
+            float minimumChartAlpha = Mathf.Clamp01(minimumChartBackgroundOpacity);
+            if (chartOpacity < minimumChartAlpha)
+            {
+                chartOpacity = minimumChartAlpha;
+                UpdateChartOpacity();
+            }
+
+            if (changed)
+            {
+                MarkRadarDirty();
+            }
+        }
+
+        private void EnsureRuntimeDisplayReady()
+        {
+            NormalizePanelReadability();
+
+            if (rectTransform == null)
+            {
+                rectTransform = GetComponent<RectTransform>();
+            }
+
+            if (radarTexture == null || clearPixels == null || clearPixels.Length != displaySize * displaySize)
+            {
+                CreateRadarTexture();
+                MarkRadarDirty();
+            }
+
+            if (radarImage == null)
+            {
+                return;
+            }
+
+            if (preferXPlaneTrafficTexture)
+            {
+                ApplyXPlaneTrafficTexture();
+                return;
+            }
+
+            if (radarImage.texture == radarTexture && radarImage.enabled && radarImage.color.a > 0.99f)
+            {
+                return;
+            }
+
+            SetupDisplay();
         }
         
         /// <summary>
@@ -446,6 +653,11 @@ namespace TrafficRadar
             // Smooth rotation using lerp
             _currentHeadingRotation = Mathf.LerpAngle(_currentHeadingRotation, _targetHeadingRotation, 
                 Time.deltaTime * headingRotationSpeed);
+            if (float.IsNaN(_lastDrawnHeadingRotation) ||
+                Mathf.Abs(Mathf.DeltaAngle(_lastDrawnHeadingRotation, _currentHeadingRotation)) > 0.2f)
+            {
+                MarkRadarDirty();
+            }
             
             // Rotate compass ticks container as a whole
             if (compassTicksContainer != null)
@@ -735,6 +947,59 @@ namespace TrafficRadar
             }
         }
 
+        public void SetTrackUpMode(bool enabled)
+        {
+            TrackUpModeEnabled = enabled;
+        }
+
+        public void ToggleTrackUpMode()
+        {
+            TrackUpModeEnabled = !TrackUpModeEnabled;
+        }
+
+        public void SetRadarBackgroundVisible(bool visible)
+        {
+            ShowRadarBackground = visible;
+        }
+
+        public void ToggleRadarBackground()
+        {
+            ShowRadarBackground = !showRadarBackground;
+        }
+
+        public void SetRangeRingCount(int count)
+        {
+            int nextCount = Mathf.Clamp(count, 1, 8);
+            if (rangeRingCount == nextCount)
+            {
+                return;
+            }
+
+            rangeRingCount = nextCount;
+            MarkRadarDirty();
+        }
+
+        public void IncreaseRangeRingCount()
+        {
+            SetRangeRingCount(rangeRingCount + 1);
+        }
+
+        public void DecreaseRangeRingCount()
+        {
+            SetRangeRingCount(rangeRingCount - 1);
+        }
+
+        public void ShowXPlaneTrafficTexture(Texture texture)
+        {
+            if (texture == null)
+            {
+                return;
+            }
+
+            _xPlaneTrafficTexture = texture;
+            ApplyXPlaneTrafficTexture();
+        }
+
         #endregion
 
         #region Private Methods
@@ -747,11 +1012,14 @@ namespace TrafficRadar
 
             // Create clear pixels array for fast clearing
             clearPixels = new Color32[displaySize * displaySize];
+            drawPixels = new Color32[displaySize * displaySize];
             Color32 clearColor = new Color32(0, 0, 0, 0);
             for (int i = 0; i < clearPixels.Length; i++)
             {
                 clearPixels[i] = clearColor;
+                drawPixels[i] = clearColor;
             }
+            MarkRadarDirty();
         }
 
         private void SetupDisplay()
@@ -770,10 +1038,14 @@ namespace TrafficRadar
             // Setup radar image with circular mask (full opacity)
             if (radarImage != null)
             {
-                radarImage.texture = radarTexture;
+                radarImage.enabled = true;
+                radarImage.color = Color.white;
+                radarImage.texture = preferXPlaneTrafficTexture
+                    ? (_xPlaneTrafficTexture != null ? _xPlaneTrafficTexture : GetBlackPlaceholder())
+                    : radarTexture;
                 
                 // Create radar overlay material with full opacity
-                if (radarOverlayMaterial == null && circularShader != null)
+                if (!preferXPlaneTrafficTexture && radarOverlayMaterial == null && circularShader != null)
                 {
                     radarOverlayMaterial = new Material(circularShader);
                     radarOverlayMaterial.name = "RadarOverlayMask_Runtime";
@@ -781,16 +1053,22 @@ namespace TrafficRadar
                     radarOverlayMaterial.SetFloat("_SoftEdge", chartEdgeSoftness);
                 }
                 
-                if (radarOverlayMaterial != null)
+                if (preferXPlaneTrafficTexture)
+                {
+                    radarImage.material = null;
+                    FitRadarImageToXPlaneAspect(radarImage.rectTransform, radarImage.texture);
+                }
+                else if (radarOverlayMaterial != null)
                 {
                     radarImage.material = radarOverlayMaterial;
+                    StretchRadarImage(radarImage.rectTransform);
                 }
             }
 
             // Setup chart background with circular mask
             if (chartBackgroundImage != null)
             {
-                chartBackgroundImage.enabled = showChartBackground;
+                chartBackgroundImage.enabled = showChartBackground && !preferXPlaneTrafficTexture;
                 
                 // Create circular mask material if needed
                 if (circularMaskMaterial == null && circularShader != null)
@@ -812,6 +1090,141 @@ namespace TrafficRadar
                     Color c = chartBackgroundImage.color;
                     c.a = chartOpacity;
                     chartBackgroundImage.color = c;
+                }
+            }
+
+            SetGeneratedOverlayVisibility(!preferXPlaneTrafficTexture || !hideGeneratedOverlaysWithXPlaneTexture);
+            SetLocalMaskEnabled(!preferXPlaneTrafficTexture);
+        }
+
+        private void ApplyXPlaneTrafficTexture()
+        {
+            if (radarImage == null)
+            {
+                return;
+            }
+
+            Texture texture = _xPlaneTrafficTexture != null ? _xPlaneTrafficTexture : GetBlackPlaceholder();
+            radarImage.enabled = true;
+            radarImage.color = Color.white;
+            radarImage.texture = texture;
+            radarImage.material = null;
+            radarImage.raycastTarget = false;
+            FitRadarImageToXPlaneAspect(radarImage.rectTransform, texture);
+
+            if (chartBackgroundImage != null)
+            {
+                chartBackgroundImage.enabled = false;
+            }
+
+            SetGeneratedOverlayVisibility(!hideGeneratedOverlaysWithXPlaneTexture);
+            SetLocalMaskEnabled(false);
+        }
+
+        private Texture2D GetBlackPlaceholder()
+        {
+            if (_blackPlaceholder == null)
+            {
+                _blackPlaceholder = new Texture2D(2, 2, TextureFormat.RGBA32, false)
+                {
+                    name = "XPlaneTrafficRadarBlackPlaceholder",
+                    wrapMode = TextureWrapMode.Clamp,
+                    filterMode = FilterMode.Point
+                };
+                _blackPlaceholder.SetPixels(new[] { Color.black, Color.black, Color.black, Color.black });
+                _blackPlaceholder.Apply(false);
+            }
+
+            return _blackPlaceholder;
+        }
+
+        private void FitRadarImageToXPlaneAspect(RectTransform imageRect, Texture texture)
+        {
+            if (imageRect == null)
+            {
+                return;
+            }
+
+            float aspect = ResolveXPlaneTextureAspect(texture);
+            float parentWidth = rectTransform != null && rectTransform.rect.width > 1f ? rectTransform.rect.width : displaySize;
+            float parentHeight = rectTransform != null && rectTransform.rect.height > 1f ? rectTransform.rect.height : displaySize;
+            float width = parentWidth;
+            float height = width / aspect;
+            if (height > parentHeight)
+            {
+                height = parentHeight;
+                width = height * aspect;
+            }
+
+            imageRect.anchorMin = new Vector2(0.5f, 0.5f);
+            imageRect.anchorMax = new Vector2(0.5f, 0.5f);
+            imageRect.pivot = new Vector2(0.5f, 0.5f);
+            imageRect.anchoredPosition = Vector2.zero;
+            imageRect.sizeDelta = new Vector2(Mathf.Max(1f, width), Mathf.Max(1f, height));
+            imageRect.localScale = Vector3.one;
+            imageRect.localRotation = Quaternion.identity;
+        }
+
+        private float ResolveXPlaneTextureAspect(Texture texture)
+        {
+            if (texture != null && texture.height > 0)
+            {
+                return texture.width / (float)texture.height;
+            }
+
+            return xPlaneTextureFallbackSize.y > 0f
+                ? Mathf.Max(0.1f, xPlaneTextureFallbackSize.x / xPlaneTextureFallbackSize.y)
+                : 420f / 480f;
+        }
+
+        private static void StretchRadarImage(RectTransform imageRect)
+        {
+            if (imageRect == null)
+            {
+                return;
+            }
+
+            imageRect.anchorMin = Vector2.zero;
+            imageRect.anchorMax = Vector2.one;
+            imageRect.pivot = new Vector2(0.5f, 0.5f);
+            imageRect.anchoredPosition = Vector2.zero;
+            imageRect.sizeDelta = Vector2.zero;
+            imageRect.localScale = Vector3.one;
+            imageRect.localRotation = Quaternion.identity;
+        }
+
+        private void SetGeneratedOverlayVisibility(bool visible)
+        {
+            if (rangeLabel != null)
+            {
+                rangeLabel.gameObject.SetActive(visible);
+            }
+
+            if (compassLabels != null)
+            {
+                foreach (TextMeshProUGUI label in compassLabels)
+                {
+                    if (label != null)
+                    {
+                        label.gameObject.SetActive(visible);
+                    }
+                }
+            }
+
+            if (compassTicksContainer != null)
+            {
+                compassTicksContainer.gameObject.SetActive(visible);
+            }
+        }
+
+        private void SetLocalMaskEnabled(bool enabled)
+        {
+            foreach (Mask mask in GetComponents<Mask>())
+            {
+                if (mask != null)
+                {
+                    mask.enabled = enabled;
+                    mask.showMaskGraphic = enabled;
                 }
             }
         }
@@ -847,6 +1260,7 @@ namespace TrafficRadar
         private void OnTrafficUpdated(List<RadarTrafficTarget> targets)
         {
             currentTargets = targets;
+            MarkRadarDirty();
         }
         
         /// <summary>
@@ -857,7 +1271,10 @@ namespace TrafficRadar
             currentTargets.Clear();
             
             if (targets == null)
+            {
+                MarkRadarDirty();
                 return;
+            }
             
             foreach (var target in targets)
             {
@@ -879,7 +1296,11 @@ namespace TrafficRadar
                 });
             }
             
-            Debug.Log($"[TrafficRadarDisplay] Received {currentTargets.Count} targets from controller");
+            if (verboseLogging)
+            {
+                Debug.Log($"[TrafficRadarDisplay] Received {currentTargets.Count} targets from controller");
+            }
+            MarkRadarDirty();
         }
 
         private void OnChartLoaded(Texture2D chartTexture)
@@ -890,10 +1311,25 @@ namespace TrafficRadar
             }
         }
 
+        private void DrawRadarIfNeeded()
+        {
+            if (preferXPlaneTrafficTexture)
+            {
+                return;
+            }
+
+            if (!_radarTextureDirty)
+            {
+                return;
+            }
+
+            DrawRadar();
+        }
+
         private void DrawRadar()
         {
             // Clear texture
-            radarTexture.SetPixels32(clearPixels);
+            Array.Copy(clearPixels, drawPixels, clearPixels.Length);
 
             int centerX = displaySize / 2;
             int centerY = displaySize / 2;
@@ -918,7 +1354,15 @@ namespace TrafficRadar
             DrawOwnAircraft(centerX, centerY);
 
             // Apply texture changes
-            radarTexture.Apply();
+            radarTexture.SetPixels32(drawPixels);
+            radarTexture.Apply(false);
+            _lastDrawnHeadingRotation = _currentHeadingRotation;
+            _radarTextureDirty = false;
+        }
+
+        private void MarkRadarDirty()
+        {
+            _radarTextureDirty = true;
         }
 
         private void DrawRangeRings(int centerX, int centerY, float radius)
@@ -1164,7 +1608,7 @@ namespace TrafficRadar
         {
             if (x >= 0 && x < displaySize && y >= 0 && y < displaySize)
             {
-                radarTexture.SetPixel(x, y, color);
+                drawPixels[(y * displaySize) + x] = color;
             }
         }
 

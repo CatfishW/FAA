@@ -21,6 +21,11 @@ namespace IndicatorSystem.Display
         [SerializeField] private TextMeshProUGUI labelText;
         [SerializeField] private TextMeshProUGUI distanceText;
         [SerializeField] private TextMeshProUGUI altitudeText;
+        [SerializeField] private GameObject typeBadgeObject;
+        [SerializeField] private GameObject labelBackgroundObject;
+        [SerializeField] private GameObject distanceBackgroundObject;
+        [SerializeField] private GameObject altitudeBackgroundObject;
+        [SerializeField] private bool hideTextBackgrounds = true;
         
         [Header("Trail")]
         [SerializeField] private RectTransform trailContainer;
@@ -52,7 +57,27 @@ namespace IndicatorSystem.Display
         private bool _isInitialized;
         private bool _hasValidPosition;
         private float _pulseTimer;
+        private bool _smoothMovement = true;
         private const float MAX_TRANSITION_DISTANCE = 300f;
+        private static readonly Color IndicatorOutlineColor = new Color(0f, 0.02f, 0f, 0.86f);
+        private const string WeatherVisualRootName = "OverlayWeatherCellVisual";
+
+        private RectTransform _weatherVisualRoot;
+        private Image _weatherShadowImage;
+        private Image _weatherHaloImage;
+        private Image _weatherBackImage;
+        private Image _weatherCoreImage;
+        private Image _weatherHighlightImage;
+        private Image _weatherRingImage;
+        private Image _weatherBoltImage;
+        private Image _weatherPointerImage;
+        private bool _weatherVisualActive;
+        private float _weatherVisualSeed;
+
+        private static Sprite _weatherDiscSprite;
+        private static Sprite _weatherRingSprite;
+        private static Sprite _weatherPointerSprite;
+        private static Sprite _weatherBoltSprite;
         
         // Trail system
         private struct TrailPoint
@@ -97,6 +122,12 @@ namespace IndicatorSystem.Display
             if (!_isInitialized || !_currentData.IsActive)
                 return;
             
+            if (!_smoothMovement)
+            {
+                SnapToTargetVisualState();
+                return;
+            }
+
             // Smooth position with adaptive speed based on distance
             float distance = Vector2.Distance(_currentPosition, _targetPosition);
             float adaptiveSpeed = smoothSpeed;
@@ -145,6 +176,11 @@ namespace IndicatorSystem.Display
             {
                 arrowImage.color = Color.Lerp(arrowImage.color, _targetColor, Time.deltaTime * smoothSpeed);
             }
+
+            if (_weatherVisualActive)
+            {
+                UpdateWeatherVisualAnimation();
+            }
         }
         
         #endregion
@@ -175,6 +211,49 @@ namespace IndicatorSystem.Display
             {
                 arrowImage.sprite = offScreenArrow;
             }
+
+            if (typeBadgeObject == null)
+            {
+                Transform typeBadge = transform.Find("TypeBadge");
+                if (typeBadge != null)
+                {
+                    typeBadgeObject = typeBadge.gameObject;
+                }
+            }
+
+            if (labelBackgroundObject == null)
+            {
+                Transform labelBackground = transform.Find("LabelBackground") ?? transform.Find("Label/LabelBackground");
+                if (labelBackground != null)
+                {
+                    labelBackgroundObject = labelBackground.gameObject;
+                }
+            }
+
+            if (distanceBackgroundObject == null)
+            {
+                Transform distanceBackground = transform.Find("DistBackground") ?? transform.Find("Distance/DistBackground");
+                if (distanceBackground != null)
+                {
+                    distanceBackgroundObject = distanceBackground.gameObject;
+                }
+            }
+
+            if (altitudeBackgroundObject == null)
+            {
+                Transform altitudeBackground = transform.Find("AltBackground");
+                if (altitudeBackground == null)
+                {
+                    altitudeBackground = transform.Find("Altitude/AltBackground");
+                }
+
+                if (altitudeBackground != null)
+                {
+                    altitudeBackgroundObject = altitudeBackground.gameObject;
+                }
+            }
+
+            ApplyNonBlockingChromeState();
             
             _isInitialized = true;
         }
@@ -193,11 +272,22 @@ namespace IndicatorSystem.Display
             }
             
             SetVisible(true);
+            _smoothMovement = settings == null || settings.smoothMovement;
+            if (settings != null)
+            {
+                smoothSpeed = settings.smoothSpeed;
+            }
             
+            // Update visibility mode (on-screen symbol vs off-screen arrow)
+            bool isWeather = data.Type == IndicatorType.Weather;
+            bool isTraffic = data.Type == IndicatorType.Traffic;
+            bool isOffScreen = data.Visibility == IndicatorVisibility.OffScreen ||
+                               data.Visibility == IndicatorVisibility.Behind;
+
             // Update target values for smooth animation
-            _targetPosition = data.ScreenPosition - new Vector2(Screen.width / 2f, Screen.height / 2f);
+            _targetPosition = ScreenToIndicatorLocalPosition(data.ScreenPosition);
             _targetRotation = data.ArrowRotation;
-            _targetColor = data.Color;
+            _targetColor = ResolveIndicatorColor(data.Color, isWeather, isTraffic, isOffScreen, data.Priority);
             
             // On first valid update, set current position immediately to avoid flying in from origin
             if (!_hasValidPosition)
@@ -227,10 +317,6 @@ namespace IndicatorSystem.Display
             // Update trail rendering
             UpdateTrail(settings);
             
-            // Update visibility mode (on-screen symbol vs off-screen arrow)
-            bool isOffScreen = data.Visibility == IndicatorVisibility.OffScreen ||
-                               data.Visibility == IndicatorVisibility.Behind;
-            
             // Calculate scale with distance-based adjustment
             float scale = settings.globalScale;
             
@@ -241,13 +327,33 @@ namespace IndicatorSystem.Display
                 float distanceScale = Mathf.Lerp(settings.closeDistanceScale, settings.farDistanceScale, distanceT);
                 scale *= distanceScale;
             }
+
+            if (isWeather)
+            {
+                scale *= isOffScreen ? 1.05f : 1.02f;
+            }
+            else if (isTraffic)
+            {
+                scale *= isOffScreen ? 0.98f : 0.94f;
+            }
             
             rectTransform.localScale = Vector3.one * scale;
+
+            if (isWeather)
+            {
+                ApplyWeatherVisualState(settings, _targetColor, isOffScreen, data.ArrowRotation, data.Priority);
+            }
+            else
+            {
+                SetWeatherVisualActive(false);
+            }
             
             if (symbolImage != null)
             {
-                symbolImage.gameObject.SetActive(!isOffScreen);
-                symbolImage.rectTransform.sizeDelta = Vector2.one * settings.indicatorSize;
+                symbolImage.gameObject.SetActive(!isWeather && !isOffScreen);
+                symbolImage.preserveAspect = true;
+                symbolImage.rectTransform.sizeDelta = Vector2.one * (isWeather ? settings.indicatorSize * 0.92f : settings.indicatorSize);
+                ConfigureContrastOutline(symbolImage, isWeather ? 1.55f : 1.15f);
                 
                 // Rotate symbol based on 3D heading projected to screen space
                 if (settings.rotateSymbolByHeading && data.Type == IndicatorType.Traffic)
@@ -275,8 +381,10 @@ namespace IndicatorSystem.Display
             
             if (arrowImage != null)
             {
-                arrowImage.gameObject.SetActive(isOffScreen);
-                arrowImage.rectTransform.sizeDelta = Vector2.one * settings.arrowSize;
+                arrowImage.gameObject.SetActive(!isWeather && isOffScreen);
+                arrowImage.preserveAspect = true;
+                arrowImage.rectTransform.sizeDelta = Vector2.one * (isWeather ? settings.arrowSize : settings.arrowSize * 0.96f);
+                ConfigureContrastOutline(arrowImage, isWeather ? 1.75f : 1.3f);
                 if (isOffScreen)
                 {
                     arrowImage.rectTransform.localRotation = Quaternion.Euler(0, 0, -data.ArrowRotation);
@@ -286,13 +394,13 @@ namespace IndicatorSystem.Display
             // Update label
             if (labelText != null)
             {
-                labelText.text = data.Label ?? "";
-                labelText.gameObject.SetActive(!string.IsNullOrEmpty(data.Label));
-                labelText.fontSize = settings.labelFontSize;
+                labelText.text = "";
+                labelText.gameObject.SetActive(false);
+                labelText.fontSize = Mathf.Min(settings.labelFontSize, 11f);
             }
             
             // Update distance with 'nm' unit
-            if (distanceText != null && settings.showDistanceLabels)
+            if (distanceText != null && settings.showDistanceLabels && !isWeather)
             {
                 distanceText.text = $"{data.DistanceNM:F1}nm";
                 distanceText.fontSize = settings.distanceFontSize;
@@ -302,9 +410,14 @@ namespace IndicatorSystem.Display
             {
                 distanceText.gameObject.SetActive(false);
             }
-            
+
+            if (typeBadgeObject != null)
+            {
+                typeBadgeObject.SetActive(false);
+            }
+
             // Update altitude as text (+1, -3, 0)
-            if (altitudeText != null && settings.showAltitudeIndicators)
+            if (altitudeText != null && settings.showAltitudeIndicators && !isWeather)
             {
                 float altFeet = data.RelativeAltitudeFeet;
                 string altStr;
@@ -355,6 +468,17 @@ namespace IndicatorSystem.Display
             
             // Update navigation lights
             UpdateNavigationLights(data, settings, isOffScreen);
+
+            ApplyNonBlockingChromeState();
+            if (isWeather)
+            {
+                ApplyWeatherChromeState();
+            }
+
+            if (!_smoothMovement)
+            {
+                SnapToTargetVisualState();
+            }
             
             // Calculate final opacity
             float finalOpacity = _opacityOverride ? _baseOpacity : settings.globalOpacity;
@@ -379,7 +503,509 @@ namespace IndicatorSystem.Display
                 canvasGroup.alpha = finalOpacity;
             }
         }
-        
+
+        private void SnapToTargetVisualState()
+        {
+            _currentPosition = _targetPosition;
+            _currentRotation = _targetRotation;
+            rectTransform.anchoredPosition = _currentPosition;
+
+            if (symbolImage != null)
+            {
+                symbolImage.color = _targetColor;
+            }
+
+            if (arrowImage != null)
+            {
+                arrowImage.color = _targetColor;
+                if (arrowImage.gameObject.activeSelf)
+                {
+                    arrowImage.rectTransform.localRotation = Quaternion.Euler(0, 0, -_currentRotation);
+                }
+            }
+
+            if (_weatherVisualActive)
+            {
+                UpdateWeatherVisualAnimation();
+            }
+        }
+
+        private Vector2 ScreenToIndicatorLocalPosition(Vector2 screenPosition)
+        {
+            RectTransform parentRect = rectTransform != null ? rectTransform.parent as RectTransform : null;
+            if (parentRect == null)
+            {
+                return screenPosition - new Vector2(Screen.width / 2f, Screen.height / 2f);
+            }
+
+            Canvas canvas = parentRect.GetComponentInParent<Canvas>();
+            Camera uiCamera = null;
+            if (canvas != null && canvas.renderMode != RenderMode.ScreenSpaceOverlay)
+            {
+                uiCamera = canvas.worldCamera != null ? canvas.worldCamera : Camera.main;
+            }
+
+            if (RectTransformUtility.ScreenPointToLocalPointInRectangle(
+                    parentRect,
+                    screenPosition,
+                    uiCamera,
+                    out Vector2 localPosition))
+            {
+                return localPosition;
+            }
+
+            return screenPosition - new Vector2(Screen.width / 2f, Screen.height / 2f);
+        }
+
+        private static Color ResolveIndicatorColor(Color source, bool isWeather, bool isTraffic, bool isOffScreen, int priority)
+        {
+            Color color = source;
+
+            if (isWeather)
+            {
+                color.a = Mathf.Clamp01(color.a <= 0.01f ? 1f : color.a);
+                return color;
+            }
+
+            if (isTraffic)
+            {
+                color.a = Mathf.Clamp01(color.a <= 0.01f ? 1f : color.a);
+                return color;
+            }
+
+            color.a = Mathf.Max(color.a, 0.92f);
+            return color;
+        }
+
+        private static void ConfigureContrastOutline(Image image, float pixelOffset)
+        {
+            if (image == null)
+            {
+                return;
+            }
+
+            Outline outline = image.GetComponent<Outline>();
+            if (outline == null)
+            {
+                outline = image.gameObject.AddComponent<Outline>();
+            }
+
+            outline.enabled = true;
+            outline.effectColor = IndicatorOutlineColor;
+            outline.effectDistance = new Vector2(pixelOffset, -pixelOffset);
+            outline.useGraphicAlpha = true;
+        }
+
+        private void EnsureWeatherVisual()
+        {
+            if (_weatherVisualRoot == null)
+            {
+                Transform existing = transform.Find(WeatherVisualRootName);
+                _weatherVisualRoot = existing as RectTransform;
+                if (_weatherVisualRoot == null)
+                {
+                    GameObject root = new GameObject(WeatherVisualRootName, typeof(RectTransform));
+                    root.transform.SetParent(transform, false);
+                    _weatherVisualRoot = root.GetComponent<RectTransform>();
+                    _weatherVisualRoot.anchorMin = new Vector2(0.5f, 0.5f);
+                    _weatherVisualRoot.anchorMax = new Vector2(0.5f, 0.5f);
+                    _weatherVisualRoot.pivot = new Vector2(0.5f, 0.5f);
+                    _weatherVisualRoot.anchoredPosition = Vector2.zero;
+                }
+
+                _weatherVisualRoot.SetAsFirstSibling();
+                _weatherVisualSeed = Random.value * Mathf.PI * 2f;
+            }
+
+            _weatherShadowImage ??= EnsureWeatherVisualLayer("DepthShadow", GetWeatherDiscSprite(), 0);
+            _weatherHaloImage ??= EnsureWeatherVisualLayer("VolumetricHalo", GetWeatherDiscSprite(), 1);
+            _weatherBackImage ??= EnsureWeatherVisualLayer("StormBackMass", GetWeatherDiscSprite(), 2);
+            _weatherCoreImage ??= EnsureWeatherVisualLayer("StormCoreMass", GetWeatherDiscSprite(), 3);
+            _weatherHighlightImage ??= EnsureWeatherVisualLayer("StormHighlight", GetWeatherDiscSprite(), 4);
+            _weatherRingImage ??= EnsureWeatherVisualLayer("StormRangeRim", GetWeatherRingSprite(), 5);
+            _weatherBoltImage ??= EnsureWeatherVisualLayer("ConvectiveBolt", GetWeatherBoltSprite(), 6);
+            _weatherPointerImage ??= EnsureWeatherVisualLayer("DirectionalNose", GetWeatherPointerSprite(), 7);
+        }
+
+        private Image EnsureWeatherVisualLayer(string layerName, Sprite sprite, int siblingIndex)
+        {
+            Transform existing = _weatherVisualRoot.Find(layerName);
+            Image image = existing != null ? existing.GetComponent<Image>() : null;
+            if (image == null)
+            {
+                GameObject layer = new GameObject(layerName, typeof(RectTransform), typeof(CanvasRenderer), typeof(Image));
+                layer.transform.SetParent(_weatherVisualRoot, false);
+                image = layer.GetComponent<Image>();
+            }
+
+            image.sprite = sprite;
+            image.preserveAspect = false;
+            image.raycastTarget = false;
+            image.maskable = true;
+            image.transform.SetSiblingIndex(Mathf.Clamp(siblingIndex, 0, _weatherVisualRoot.childCount - 1));
+            return image;
+        }
+
+        private void ApplyWeatherVisualState(
+            IndicatorSettings settings,
+            Color sourceColor,
+            bool isOffScreen,
+            float arrowRotation,
+            int priority)
+        {
+            EnsureWeatherVisual();
+            SetWeatherVisualActive(true);
+
+            float indicatorSize = settings != null ? settings.indicatorSize : 80f;
+            float arrowSize = settings != null ? settings.arrowSize : 60f;
+            float baseSize = Mathf.Max(44f, isOffScreen ? arrowSize * 1.42f : indicatorSize * 1.18f);
+            Color vivid = BoostWeatherColor(sourceColor, priority);
+            Color bright = Color.Lerp(vivid, Color.white, 0.28f);
+            Color dark = Color.Lerp(Color.black, vivid, 0.42f);
+            Color hot = Color.Lerp(vivid, new Color(1f, 0.9f, 0.18f, 1f), 0.45f);
+
+            _weatherVisualRoot.sizeDelta = new Vector2(baseSize * 1.7f, baseSize * 1.25f);
+            _weatherVisualRoot.localRotation = Quaternion.identity;
+
+            ApplyWeatherLayer(_weatherShadowImage, baseSize * 1.2f, baseSize * 0.72f, new Vector2(baseSize * 0.08f, -baseSize * 0.08f), new Color(0f, 0.03f, 0.02f, 0.58f), 0f);
+            ApplyWeatherLayer(_weatherHaloImage, baseSize * 1.58f, baseSize * 1.05f, Vector2.zero, WithAlpha(vivid, 0.28f), 0f);
+            ApplyWeatherLayer(_weatherBackImage, baseSize * 0.98f, baseSize * 0.62f, new Vector2(-baseSize * 0.12f, -baseSize * 0.02f), WithAlpha(dark, 0.9f), -10f);
+            ApplyWeatherLayer(_weatherCoreImage, baseSize * 0.82f, baseSize * 0.56f, new Vector2(baseSize * 0.1f, baseSize * 0.01f), WithAlpha(vivid, 0.98f), 8f);
+            ApplyWeatherLayer(_weatherHighlightImage, baseSize * 0.38f, baseSize * 0.16f, new Vector2(-baseSize * 0.18f, baseSize * 0.14f), WithAlpha(Color.Lerp(Color.white, bright, 0.5f), 0.6f), -16f);
+            ApplyWeatherLayer(_weatherRingImage, baseSize * 1.06f, baseSize * 0.72f, new Vector2(baseSize * 0.02f, 0f), WithAlpha(bright, 0.92f), 0f);
+            ApplyWeatherLayer(_weatherBoltImage, baseSize * 0.34f, baseSize * 0.58f, new Vector2(baseSize * 0.18f, -baseSize * 0.03f), WithAlpha(hot, 0.95f), -8f);
+
+            _weatherPointerImage.gameObject.SetActive(isOffScreen);
+            if (isOffScreen)
+            {
+                float rotationRadians = arrowRotation * Mathf.Deg2Rad;
+                Vector2 direction = new Vector2(Mathf.Sin(rotationRadians), Mathf.Cos(rotationRadians));
+                ApplyWeatherLayer(
+                    _weatherPointerImage,
+                    baseSize * 0.42f,
+                    baseSize * 0.42f,
+                    direction * (baseSize * 0.62f),
+                    WithAlpha(bright, 0.98f),
+                    -arrowRotation);
+            }
+
+            DisableRaycastTarget(_weatherVisualRoot.gameObject);
+        }
+
+        private static void ApplyWeatherLayer(Image image, float width, float height, Vector2 position, Color color, float zRotation)
+        {
+            if (image == null)
+            {
+                return;
+            }
+
+            image.gameObject.SetActive(true);
+            image.color = color;
+            image.rectTransform.sizeDelta = new Vector2(width, height);
+            image.rectTransform.anchoredPosition = position;
+            image.rectTransform.localRotation = Quaternion.Euler(0f, 0f, zRotation);
+            image.rectTransform.localScale = Vector3.one;
+        }
+
+        private void UpdateWeatherVisualAnimation()
+        {
+            if (_weatherVisualRoot == null)
+            {
+                return;
+            }
+
+            float pulse = (Mathf.Sin(Time.unscaledTime * 3.1f + _weatherVisualSeed) + 1f) * 0.5f;
+            if (_weatherHaloImage != null)
+            {
+                _weatherHaloImage.rectTransform.localScale = Vector3.one * Mathf.Lerp(0.96f, 1.1f, pulse);
+            }
+
+            if (_weatherCoreImage != null)
+            {
+                _weatherCoreImage.rectTransform.localScale = Vector3.one * Mathf.Lerp(0.98f, 1.04f, pulse);
+            }
+
+            if (_weatherHighlightImage != null)
+            {
+                Color color = _weatherHighlightImage.color;
+                color.a = Mathf.Lerp(0.42f, 0.7f, pulse);
+                _weatherHighlightImage.color = color;
+            }
+        }
+
+        private void SetWeatherVisualActive(bool active)
+        {
+            _weatherVisualActive = active;
+            if (_weatherVisualRoot != null)
+            {
+                _weatherVisualRoot.gameObject.SetActive(active);
+            }
+        }
+
+        private static Color BoostWeatherColor(Color color, int priority)
+        {
+            if (color.a <= 0.01f)
+            {
+                color.a = 1f;
+            }
+
+            Color boosted;
+            if (color.r > 0.75f && color.g > 0.65f)
+            {
+                boosted = new Color(1f, 0.93f, 0.04f, 1f);
+            }
+            else if (color.r > 0.75f)
+            {
+                boosted = new Color(1f, 0.12f, 0.04f, 1f);
+            }
+            else if (color.g >= color.r)
+            {
+                boosted = new Color(0.05f, 1f, 0.16f, 1f);
+            }
+            else
+            {
+                boosted = Color.Lerp(color, Color.white, 0.15f);
+                boosted.a = 1f;
+            }
+
+            if (priority >= 2)
+            {
+                boosted = Color.Lerp(boosted, new Color(1f, 0.32f, 0.02f, 1f), 0.3f);
+            }
+
+            return boosted;
+        }
+
+        private static Color WithAlpha(Color color, float alpha)
+        {
+            color.a = alpha;
+            return color;
+        }
+
+        private static Sprite GetWeatherDiscSprite()
+        {
+            return _weatherDiscSprite ??= CreateSoftDiscSprite(64);
+        }
+
+        private static Sprite GetWeatherRingSprite()
+        {
+            return _weatherRingSprite ??= CreateRingSprite(64);
+        }
+
+        private static Sprite GetWeatherPointerSprite()
+        {
+            return _weatherPointerSprite ??= CreatePolygonSprite(
+                64,
+                new[]
+                {
+                    new Vector2(0.5f, 0.96f),
+                    new Vector2(0.12f, 0.14f),
+                    new Vector2(0.5f, 0.34f),
+                    new Vector2(0.88f, 0.14f)
+                });
+        }
+
+        private static Sprite GetWeatherBoltSprite()
+        {
+            return _weatherBoltSprite ??= CreatePolygonSprite(
+                64,
+                new[]
+                {
+                    new Vector2(0.58f, 0.98f),
+                    new Vector2(0.24f, 0.52f),
+                    new Vector2(0.46f, 0.52f),
+                    new Vector2(0.34f, 0.02f),
+                    new Vector2(0.8f, 0.64f),
+                    new Vector2(0.55f, 0.62f)
+                });
+        }
+
+        private static Sprite CreateSoftDiscSprite(int size)
+        {
+            Texture2D texture = CreateTransparentTexture(size);
+            float center = (size - 1) * 0.5f;
+            for (int y = 0; y < size; y++)
+            {
+                for (int x = 0; x < size; x++)
+                {
+                    float dx = (x - center) / center;
+                    float dy = (y - center) / center;
+                    float radius = Mathf.Sqrt(dx * dx + dy * dy);
+                    float alpha = 1f - Mathf.SmoothStep(0.42f, 1f, radius);
+                    texture.SetPixel(x, y, new Color(1f, 1f, 1f, alpha));
+                }
+            }
+
+            return CreateRuntimeSprite(texture);
+        }
+
+        private static Sprite CreateRingSprite(int size)
+        {
+            Texture2D texture = CreateTransparentTexture(size);
+            float center = (size - 1) * 0.5f;
+            for (int y = 0; y < size; y++)
+            {
+                for (int x = 0; x < size; x++)
+                {
+                    float dx = (x - center) / center;
+                    float dy = (y - center) / center;
+                    float radius = Mathf.Sqrt(dx * dx + dy * dy);
+                    float outer = 1f - Mathf.SmoothStep(0.82f, 1f, radius);
+                    float inner = Mathf.SmoothStep(0.52f, 0.68f, radius);
+                    float alpha = Mathf.Clamp01(outer * inner);
+                    texture.SetPixel(x, y, new Color(1f, 1f, 1f, alpha));
+                }
+            }
+
+            return CreateRuntimeSprite(texture);
+        }
+
+        private static Sprite CreatePolygonSprite(int size, Vector2[] points)
+        {
+            Texture2D texture = CreateTransparentTexture(size);
+            for (int y = 0; y < size; y++)
+            {
+                for (int x = 0; x < size; x++)
+                {
+                    Vector2 point = new Vector2((x + 0.5f) / size, (y + 0.5f) / size);
+                    float alpha = IsInsidePolygon(point, points) ? 1f : 0f;
+                    texture.SetPixel(x, y, new Color(1f, 1f, 1f, alpha));
+                }
+            }
+
+            return CreateRuntimeSprite(texture);
+        }
+
+        private static Texture2D CreateTransparentTexture(int size)
+        {
+            Texture2D texture = new Texture2D(size, size, TextureFormat.RGBA32, false)
+            {
+                hideFlags = HideFlags.HideAndDontSave,
+                filterMode = FilterMode.Bilinear,
+                wrapMode = TextureWrapMode.Clamp
+            };
+            return texture;
+        }
+
+        private static Sprite CreateRuntimeSprite(Texture2D texture)
+        {
+            texture.Apply(false, true);
+            Sprite sprite = Sprite.Create(
+                texture,
+                new Rect(0f, 0f, texture.width, texture.height),
+                new Vector2(0.5f, 0.5f),
+                100f);
+            sprite.hideFlags = HideFlags.HideAndDontSave;
+            return sprite;
+        }
+
+        private static bool IsInsidePolygon(Vector2 point, Vector2[] polygon)
+        {
+            bool inside = false;
+            for (int i = 0, j = polygon.Length - 1; i < polygon.Length; j = i++)
+            {
+                bool crosses = polygon[i].y > point.y != polygon[j].y > point.y;
+                if (crosses)
+                {
+                    float xAtY = (polygon[j].x - polygon[i].x) * (point.y - polygon[i].y) /
+                        (polygon[j].y - polygon[i].y) + polygon[i].x;
+                    if (point.x < xAtY)
+                    {
+                        inside = !inside;
+                    }
+                }
+            }
+
+            return inside;
+        }
+
+        private void ApplyNonBlockingChromeState()
+        {
+            if (hideTextBackgrounds)
+            {
+                if (labelBackgroundObject != null)
+                {
+                    labelBackgroundObject.SetActive(false);
+                }
+
+                if (distanceBackgroundObject != null)
+                {
+                    distanceBackgroundObject.SetActive(false);
+                }
+
+                if (altitudeBackgroundObject != null)
+                {
+                    altitudeBackgroundObject.SetActive(false);
+                }
+            }
+
+            DisableRaycastTarget(symbolImage);
+            DisableRaycastTarget(arrowImage);
+            DisableRaycastTarget(labelText);
+            DisableRaycastTarget(distanceText);
+            DisableRaycastTarget(altitudeText);
+            DisableRaycastTarget(typeBadgeObject);
+            DisableRaycastTarget(labelBackgroundObject);
+            DisableRaycastTarget(distanceBackgroundObject);
+            DisableRaycastTarget(altitudeBackgroundObject);
+        }
+
+        private static void DisableRaycastTarget(Graphic graphic)
+        {
+            if (graphic != null)
+            {
+                graphic.raycastTarget = false;
+            }
+        }
+
+        private static void DisableRaycastTarget(GameObject target)
+        {
+            if (target == null)
+            {
+                return;
+            }
+
+            foreach (Graphic graphic in target.GetComponentsInChildren<Graphic>(true))
+            {
+                DisableRaycastTarget(graphic);
+            }
+        }
+
+        private void ApplyWeatherChromeState()
+        {
+            DisableSiblingIfAssigned(labelText);
+            DisableSiblingIfAssigned(distanceText);
+            DisableSiblingIfAssigned(altitudeText);
+
+            SetNavLightsVisible(false);
+
+            foreach (Graphic graphic in GetComponentsInChildren<Graphic>(true))
+            {
+                if (graphic == null ||
+                    graphic == symbolImage ||
+                    graphic == arrowImage ||
+                    IsWeatherVisualGraphic(graphic))
+                {
+                    continue;
+                }
+
+                graphic.gameObject.SetActive(false);
+            }
+        }
+
+        private bool IsWeatherVisualGraphic(Graphic graphic)
+        {
+            return _weatherVisualRoot != null && graphic.transform.IsChildOf(_weatherVisualRoot);
+        }
+
+        private static void DisableSiblingIfAssigned(Component component)
+        {
+            if (component != null)
+            {
+                component.gameObject.SetActive(false);
+            }
+        }
+
         /// <summary>
         /// Set the indicator visibility.
         /// </summary>
@@ -427,6 +1053,8 @@ namespace IndicatorSystem.Display
             _pulseTimer = 0f;
             _baseOpacity = 1f;
             _opacityOverride = false;
+
+            SetWeatherVisualActive(false);
             
             ClearTrail();
             

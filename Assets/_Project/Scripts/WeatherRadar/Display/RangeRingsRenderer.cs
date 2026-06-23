@@ -85,6 +85,7 @@ namespace WeatherRadar
             if (ringsDisplay != null)
             {
                 ringsDisplay.texture = ringsTexture;
+                ringsDisplay.color = Color.white;
             }
         }
 

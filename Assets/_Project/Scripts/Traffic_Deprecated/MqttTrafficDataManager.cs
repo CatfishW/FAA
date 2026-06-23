@@ -21,6 +21,8 @@ public class MqttTrafficDataManager : TrafficDataManager
 
     [Header("Data Source Configuration")]
     [SerializeField] private DataSourceMode dataSource = DataSourceMode.MQTT;
+    [Tooltip("Connect to the deprecated MQTT traffic feed on enable. XPlane12ApiHudBridge supplies traffic when this is false.")]
+    [SerializeField] private bool connectOnEnable = false;
     
     [Header("MQTT Connection Settings")]
     [SerializeField] private string brokerAddress = "localhost";
@@ -35,7 +37,7 @@ public class MqttTrafficDataManager : TrafficDataManager
     
     [Header("MQTT Settings")]
     [SerializeField] private bool autoReconnect = true;
-    [SerializeField] private float updateInterval = 0.2f;
+    [SerializeField] private float mqttPublishInterval = 0.2f;
     [Tooltip("If true, Unity will periodically request updates from the Python bridge.")]
     [SerializeField] private bool requestUpdatesPeriodically = true;
     [Tooltip("Seconds between periodic update requests to the MQTT bridge")]
@@ -55,7 +57,7 @@ public class MqttTrafficDataManager : TrafficDataManager
     #region Unity Lifecycle Methods
     protected override void OnEnable()
     {
-        if (dataSource == DataSourceMode.MQTT)
+        if (dataSource == DataSourceMode.MQTT && connectOnEnable)
         {
             bool originalAutoStart = autoStartFetching;
             autoStartFetching = false;
@@ -64,7 +66,7 @@ public class MqttTrafficDataManager : TrafficDataManager
             
             InitializeMqttClient();
         }
-        else
+        else if (dataSource == DataSourceMode.API)
         {
             base.OnEnable();
         }
@@ -83,7 +85,7 @@ public class MqttTrafficDataManager : TrafficDataManager
     private void Update()
     {
         if (dataSource == DataSourceMode.MQTT && 
-            Time.time - lastUpdateTime >= updateInterval && 
+            Time.time - lastUpdateTime >= mqttPublishInterval &&
             aircraftList != null)
         {
             lastUpdateTime = Time.time;
@@ -107,6 +109,7 @@ public class MqttTrafficDataManager : TrafficDataManager
         }
         else if (dataSource == DataSourceMode.MQTT && !isConnected)
         {
+            connectOnEnable = true;
             InitializeMqttClient();
         }
     }
@@ -182,9 +185,12 @@ public class MqttTrafficDataManager : TrafficDataManager
             mqttClient.UseDisconnectedHandler(async e =>
             {
                 isConnected = false;
-                Debug.LogWarning($"[MQTT] Disconnected from broker: {e.Exception?.Message}");
+                if (connectOnEnable)
+                {
+                    Debug.LogWarning($"[MQTT] Disconnected from broker: {e.Exception?.Message}");
+                }
                 
-                if (autoReconnect)
+                if (autoReconnect && connectOnEnable)
                 {
                     await mqttClient.ReconnectAsync();
                 }
@@ -324,7 +330,10 @@ public class MqttTrafficDataManager : TrafficDataManager
     {
         if (!isConnected || mqttClient == null)
         {
-            Debug.LogWarning("[MQTT] Cannot request data: not connected to broker");
+            if (connectOnEnable)
+            {
+                Debug.LogWarning("[MQTT] Cannot request data: not connected to broker");
+            }
             return;
         }
 

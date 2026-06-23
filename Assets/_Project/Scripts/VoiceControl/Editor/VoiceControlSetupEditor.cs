@@ -628,7 +628,8 @@ namespace VoiceControl.Editor
             }
 
             // Add the radial menu component
-            menuObj.AddComponent<UIToolkitRadialMenuAdvanced>();
+            var radialMenu = menuObj.AddComponent<UIToolkitRadialMenuAdvanced>();
+            radialMenu.ApplyAviationHudPreset(false);
 
             Undo.RegisterCreatedObjectUndo(menuObj, "Create UI Toolkit Radial Menu");
             Debug.Log("[VoiceControlSetup] Created UI Toolkit Radial Menu (Advanced)");

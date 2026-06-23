@@ -788,10 +788,11 @@ namespace HUDControl.Editor
             {
                 // Attitude Indicator
                 { "rollPivot", new[] { "Scale", "RollPivot", "AttitudePivot", "Pivot", "Attitude Scale" } },
-                { "pitchLadder", new[] { "PitchLadder", "Ladder", "Horizon", "HorizonImage", "Pitch Scale" } },
+                { "pitchLadder", new[] { "ScaleIteration2", "PitchLadder", "Ladder", "Horizon", "HorizonImage", "Pitch Scale" } },
                 { "miniatureAircraft", new[] { "MiniatureAircraft", "Miniature Aircraft", "AircraftSymbol", "Aircraft", "Center Symbol" } },
                 { "fpvMarker", new[] { "FPV", "FlightPathVector", "FPVMarker", "Flight Path Vector" } },
                 { "scaleTransform", new[] { "Scale", "Attitude Scale" } },
+                { "maskContainer", new[] { "ScaleMasker", "Masker", "Mask", "Viewport", "Window" } },
                 
                 // Airspeed Indicator  
                 { "airspeedReadout", new[] { "Airspeed Readout", "AirspeedReadout", "Readout", "Text", "IAS" } },

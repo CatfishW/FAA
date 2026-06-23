@@ -35,11 +35,11 @@ namespace IndicatorSystem.Integration
         [Header("Weather Cell Detection")]
         [Tooltip("Minimum intensity (0-1) to show indicator")]
         [Range(0f, 1f)]
-        [SerializeField] private float minIntensityThreshold = 0.3f;
+        [SerializeField] private float minIntensityThreshold = 0.18f;
         
         [Tooltip("Sample grid resolution for cell detection")]
         [Range(4, 32)]
-        [SerializeField] private int sampleGridSize = 16;
+        [SerializeField] private int sampleGridSize = 24;
         
         [Tooltip("Maximum weather indicators to show")]
         [Range(1, 20)]
@@ -47,8 +47,29 @@ namespace IndicatorSystem.Integration
         
         [Header("Update Settings")]
         [Tooltip("How often to scan for weather cells (seconds)")]
-        [Range(1f, 30f)]
-        [SerializeField] private float updateInterval = 5f;
+        [Range(0.25f, 30f)]
+        [SerializeField] private float updateInterval = 1.5f;
+
+        [Tooltip("Remove weather indicators when the X-Plane EFIS weather radar is off.")]
+        [SerializeField] private bool requirePoweredRadar = true;
+
+        [Tooltip("Create a stable X-Plane weather indicator from EFIS weather state when no precipitation return pixels are present.")]
+        [SerializeField] private bool showPoweredRadarFallback = false;
+
+        [Tooltip("Fallback indicator distance in nautical miles when EFIS weather is on but the source texture has no active cells.")]
+        [Range(2f, 80f)]
+        [SerializeField] private float poweredRadarFallbackDistanceNM = 12f;
+
+        [Tooltip("Fallback indicator bearing relative to aircraft heading. Positive values place it to the right.")]
+        [Range(-180f, 180f)]
+        [SerializeField] private float poweredRadarFallbackRelativeBearing = 35f;
+
+        [Tooltip("Raise weather indicators above the camera horizon so the on/off-screen icon is visible while flying above terrain.")]
+        [Range(-20f, 20f)]
+        [SerializeField] private float indicatorVerticalOffsetMeters = 6f;
+
+        [Tooltip("World reference transform. If omitted, the bridge uses the main camera, then its own transform.")]
+        [SerializeField] private Transform positionReference;
         
         [Header("Debug")]
         [SerializeField] private bool verboseLogging = false;
@@ -59,9 +80,9 @@ namespace IndicatorSystem.Integration
         
         private readonly List<WeatherIndicatorTarget> _weatherTargets = new List<WeatherIndicatorTarget>();
         private float _nextUpdateTime;
-        private int _targetIdCounter;
         private bool _isConnected;
         private Texture2D _lastRadarTexture;
+        private XPlaneOriginalWeatherRadarDisplay _originalDisplay;
         
         #endregion
         
@@ -74,6 +95,7 @@ namespace IndicatorSystem.Integration
         
         private void OnEnable()
         {
+            AutoFindComponents();
             Connect();
         }
         
@@ -84,8 +106,19 @@ namespace IndicatorSystem.Integration
         
         private void Update()
         {
-            if (!_isConnected || weatherProvider == null)
+            if (weatherProvider == null || indicatorController == null)
+            {
+                AutoFindComponents();
+                Connect();
+            }
+
+            if (weatherProvider == null || indicatorController == null)
                 return;
+
+            if (!_isConnected)
+            {
+                Connect();
+            }
             
             // Periodic update
             if (Time.time >= _nextUpdateTime)
@@ -135,12 +168,22 @@ namespace IndicatorSystem.Integration
         {
             if (weatherProvider == null)
             {
-                weatherProvider = FindObjectOfType<WeatherRadarProviderBase>();
+                weatherProvider = FindAnyObjectByType<WeatherRadarProviderBase>();
+            }
+
+            if (_originalDisplay == null)
+            {
+                _originalDisplay = FindAnyObjectByType<XPlaneOriginalWeatherRadarDisplay>();
+            }
+
+            if (positionReference == null && Camera.main != null)
+            {
+                positionReference = Camera.main.transform;
             }
             
             if (indicatorController == null)
             {
-                indicatorController = FindObjectOfType<IndicatorSystemController>();
+                indicatorController = FindAnyObjectByType<IndicatorSystemController>();
             }
             
             Log($"Found WeatherProvider: {weatherProvider != null}, IndicatorController: {indicatorController != null}");
@@ -182,6 +225,23 @@ namespace IndicatorSystem.Integration
         {
             if (indicatorController == null || weatherProvider == null)
                 return;
+
+            if (_lastRadarTexture == null && _originalDisplay != null)
+            {
+                _lastRadarTexture = _originalDisplay.CurrentTexture as Texture2D;
+            }
+
+            bool hasFreshOriginalTexture = _originalDisplay != null && _originalDisplay.HasUsableTexture;
+            bool hasPoweredRadarState = _originalDisplay != null && _originalDisplay.HasRadarPowerState;
+            bool isPoweredRadarOn = hasPoweredRadarState
+                ? _originalDisplay.IsRadarPowered || hasFreshOriginalTexture
+                : weatherProvider.Status != ProviderStatus.Inactive;
+
+            if (requirePoweredRadar && !isPoweredRadarOn)
+            {
+                ClearWeatherIndicators();
+                return;
+            }
             
             // Get reference position from weather provider
             referenceLatitude = weatherProvider.Latitude;
@@ -194,6 +254,16 @@ namespace IndicatorSystem.Integration
             // Use the cached radar texture
             if (_lastRadarTexture == null)
             {
+                if (showPoweredRadarFallback && isPoweredRadarOn)
+                {
+                    _weatherTargets.Add(CreatePoweredRadarFallbackTarget(weatherProvider.RangeNM));
+                    indicatorController.SetTargetsForType(IndicatorType.Weather, _weatherTargets);
+                }
+                else
+                {
+                    ClearWeatherIndicators();
+                }
+
                 Log("No radar texture available");
                 return;
             }
@@ -201,12 +271,14 @@ namespace IndicatorSystem.Integration
             // Sample the radar texture for weather cells
             float rangeNM = weatherProvider.RangeNM;
             DetectWeatherCells(_lastRadarTexture, rangeNM);
-            
-            // Update indicator system
-            foreach (var target in _weatherTargets)
+
+            if (_weatherTargets.Count == 0 && showPoweredRadarFallback && isPoweredRadarOn)
             {
-                indicatorController.AddOrUpdateTarget(target);
+                _weatherTargets.Add(CreatePoweredRadarFallbackTarget(rangeNM));
             }
+            
+            // Replace only weather targets; traffic indicators are managed by their own bridge.
+            indicatorController.SetTargetsForType(IndicatorType.Weather, _weatherTargets);
             
             Log($"Updated {_weatherTargets.Count} weather indicators");
         }
@@ -229,6 +301,11 @@ namespace IndicatorSystem.Integration
                     int py = (int)(gy * cellSizeY + cellSizeY / 2);
                     
                     Color pixel = texture.GetPixel(px, py);
+                    if (!IsInsideRadarScope(px, py, width, height))
+                    {
+                        continue;
+                    }
+
                     float intensity = GetWeatherIntensity(pixel);
                     
                     if (intensity >= minIntensityThreshold)
@@ -257,29 +334,44 @@ namespace IndicatorSystem.Integration
         
         private float GetWeatherIntensity(Color pixel)
         {
-            // Simple intensity based on red channel (typical weather color scale)
-            // Adjust based on actual weather radar color mapping
             float r = pixel.r;
             float g = pixel.g;
+            float b = pixel.b;
+            float max = Mathf.Max(r, g, b);
+            float min = Mathf.Min(r, g, b);
+            float saturation = max - min;
+
+            if (pixel.a <= 0.08f || max <= 0.16f || saturation <= 0.08f)
+            {
+                return 0f;
+            }
             
             // Higher intensity for red/yellow returns
-            if (r > 0.7f && g < 0.3f)
+            if (r > 0.7f && g < 0.35f && b < 0.45f)
                 return 1.0f; // Red - severe
-            else if (r > 0.5f)
+            else if (r > 0.58f && g > 0.35f && b < 0.45f)
                 return 0.7f; // Yellow/orange - moderate
-            else if (g > 0.5f)
+            else if (g > 0.48f && r < 0.55f)
                 return 0.4f; // Green - light
-            else if (pixel.a > 0.1f && (r > 0.1f || g > 0.1f))
-                return 0.3f; // Faint return
             
             return 0f;
+        }
+
+        private bool IsInsideRadarScope(int px, int py, int width, int height)
+        {
+            float centerX = (width - 1) * 0.5f;
+            float centerY = (height - 1) * 0.5f;
+            float radius = Mathf.Min(width, height) * 0.48f;
+            float dx = px - centerX;
+            float dy = py - centerY;
+            return dx * dx + dy * dy <= radius * radius;
         }
         
         private WeatherIndicatorTarget CreateWeatherTarget(WeatherCell cell, float rangeNM)
         {
             // Convert grid position to geographic offset
-            float normalizedX = (cell.gridX / (float)sampleGridSize) * 2f - 1f; // -1 to 1
-            float normalizedY = (cell.gridY / (float)sampleGridSize) * 2f - 1f; // -1 to 1
+            float normalizedX = ((cell.gridX + 0.5f) / sampleGridSize) * 2f - 1f; // -1 to 1
+            float normalizedY = ((cell.gridY + 0.5f) / sampleGridSize) * 2f - 1f; // -1 to 1
             
             // Calculate distance and bearing
             float distance = Mathf.Sqrt(normalizedX * normalizedX + normalizedY * normalizedY) * rangeNM;
@@ -288,22 +380,14 @@ namespace IndicatorSystem.Integration
             
             // Convert to world position (simplified - assumes flat earth for short distances)
             float distanceMeters = distance * 1852f; // NM to meters
-            float bearingRad = bearing * Mathf.Deg2Rad;
-            
-            Vector3 worldPos = new Vector3(
-                distanceMeters * Mathf.Sin(bearingRad),
-                0, // Weather at same altitude
-                distanceMeters * Mathf.Cos(bearingRad)
-            );
+            Vector3 worldPos = BuildWorldPosition(bearing, distanceMeters);
             
             // Get color based on intensity
             Color color = GetColorForIntensity(cell.intensity);
             
-            _targetIdCounter++;
-            
             return new WeatherIndicatorTarget
             {
-                id = $"WX_{_targetIdCounter}",
+                id = $"WX_{cell.gridX:00}_{cell.gridY:00}",
                 worldPosition = worldPos,
                 displayColor = color,
                 priority = cell.intensity > 0.7f ? 2 : 1,
@@ -312,6 +396,74 @@ namespace IndicatorSystem.Integration
                 relativeAltitudeFeet = 0,
                 intensity = cell.intensity
             };
+        }
+
+        private WeatherIndicatorTarget CreatePoweredRadarFallbackTarget(float rangeNM)
+        {
+            float distanceNM = Mathf.Clamp(poweredRadarFallbackDistanceNM, 2f, Mathf.Max(2f, rangeNM));
+            float bearing = Mathf.Repeat(GetReferenceHeading() + poweredRadarFallbackRelativeBearing, 360f);
+            float distanceMeters = distanceNM * 1852f;
+            float intensity = 0.36f;
+
+            return new WeatherIndicatorTarget
+            {
+                id = "WX_POWERED_RADAR",
+                worldPosition = BuildWorldPosition(bearing, distanceMeters),
+                displayColor = GetColorForIntensity(intensity),
+                priority = 1,
+                label = _originalDisplay != null && _originalDisplay.RadarMode >= 0
+                    ? $"WX M{_originalDisplay.RadarMode}"
+                    : "WX ON",
+                distanceNM = distanceNM,
+                relativeAltitudeFeet = 0,
+                intensity = intensity
+            };
+        }
+
+        private Vector3 BuildWorldPosition(float bearingDegrees, float distanceMeters)
+        {
+            Transform reference = GetPositionReference();
+            float bearingRad = bearingDegrees * Mathf.Deg2Rad;
+            Vector3 offset = new Vector3(
+                distanceMeters * Mathf.Sin(bearingRad),
+                indicatorVerticalOffsetMeters,
+                distanceMeters * Mathf.Cos(bearingRad)
+            );
+
+            if (reference != null)
+            {
+                return reference.position + offset;
+            }
+
+            return offset;
+        }
+
+        private float GetReferenceHeading()
+        {
+            Transform reference = GetPositionReference();
+            if (reference != null)
+            {
+                return reference.eulerAngles.y;
+            }
+
+            return weatherProvider != null ? weatherProvider.Heading : 0f;
+        }
+
+        private Transform GetPositionReference()
+        {
+            if (positionReference != null)
+            {
+                return positionReference;
+            }
+
+            Camera camera = Camera.main ?? FindAnyObjectByType<Camera>();
+            if (camera != null)
+            {
+                positionReference = camera.transform;
+                return positionReference;
+            }
+
+            return transform;
         }
         
         private Color GetColorForIntensity(float intensity)
@@ -344,6 +496,12 @@ namespace IndicatorSystem.Integration
                 return "MOD";
             else
                 return "LGT";
+        }
+
+        private void ClearWeatherIndicators()
+        {
+            _weatherTargets.Clear();
+            indicatorController?.SetTargetsForType(IndicatorType.Weather, _weatherTargets);
         }
         
         private void Log(string message)
@@ -396,4 +554,3 @@ namespace IndicatorSystem.Integration
         public float Heading => 0f; // Weather doesn't have heading
     }
 }
-

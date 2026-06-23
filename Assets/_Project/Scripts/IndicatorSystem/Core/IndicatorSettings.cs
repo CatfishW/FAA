@@ -185,7 +185,7 @@ namespace IndicatorSystem.Core
 
         [Header("Traffic Indicator Colors")]
         [Tooltip("Color for normal traffic (OtherTraffic/Proximate)")]
-        public Color trafficNormalColor = new Color(0f, 1f, 1f, 1f); // Cyan
+        public Color trafficNormalColor = new Color(0f, 1f, 1f, 0.8f); // Cyan
         
         [Tooltip("Color for Traffic Advisory")]
         public Color trafficAdvisoryColor = new Color(1f, 0.75f, 0f, 1f); // Amber
@@ -212,7 +212,7 @@ namespace IndicatorSystem.Core
         public bool showTrafficIndicators = true;
         
         [Tooltip("Show weather indicators")]
-        public bool showWeatherIndicators = true;
+        public bool showWeatherIndicators = false;
         
         [Tooltip("Show waypoint indicators")]
         public bool showWaypointIndicators = true;
@@ -321,4 +321,3 @@ namespace IndicatorSystem.Core
         }
     }
 }
-

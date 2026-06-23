@@ -1,0 +1,16 @@
+[submodule "native~/extern/cesium-native"]
+	path = native~/extern/cesium-native
+	url = ../cesium-native.git
+[submodule "native~/extern/tidy-html5"]
+	path = native~/extern/tidy-html5
+	url = https://github.com/htacg/tidy-html5.git
+[submodule "native~/extern/enum-flags"]
+	path = native~/extern/enum-flags
+	url = https://github.com/kring/enum-flags.git
+[submodule "native~/extern/swl-variant"]
+	path = native~/extern/swl-variant
+	url = https://github.com/kring/swl-variant.git
+	branch = exception-public-inheritance
+[submodule "Documentation~/doxygen-awesome-css"]
+	path = Documentation~/doxygen-awesome-css
+	url = https://github.com/jothepro/doxygen-awesome-css.git

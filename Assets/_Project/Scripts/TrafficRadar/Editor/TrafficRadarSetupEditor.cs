@@ -349,6 +349,9 @@ public class TrafficRadarSetupEditor : EditorWindow
             displaySO.FindProperty("chartBackgroundImage").objectReferenceValue = chartImage;
             displaySO.FindProperty("rangeLabel").objectReferenceValue = rangeLabel;
             displaySO.FindProperty("radarController").objectReferenceValue = controller;
+            displaySO.FindProperty("showRadarBackground").boolValue = true;
+            displaySO.FindProperty("chartOpacity").floatValue = 0.78f;
+            displaySO.FindProperty("backgroundColor").colorValue = new Color(0f, 0f, 0f, 0.96f);
             displaySO.ApplyModifiedProperties();
             
             // Create chart provider

@@ -13,11 +13,11 @@ MonoBehaviour:
   m_Name: IndicatorSettings
   m_EditorClassIdentifier: Assembly-CSharp::IndicatorSystem.Core.IndicatorSettings
   enabled: 1
-  maxIndicators: 100
-  edgePadding: 80
-  globalScale: 1.5
-  indicatorSize: 40
-  arrowSize: 40
+  maxIndicators: 10
+  edgePadding: 64
+  globalScale: 1.08
+  indicatorSize: 36
+  arrowSize: 39
   rotateSymbolByHeading: 1
   rotationOffset: 0
   limitRotationAngles: 0
@@ -25,27 +25,27 @@ MonoBehaviour:
   enable3DRotation: 1
   maxPerspectiveTiltX: 60
   maxPerspectiveTiltY: 60
-  labelFontSize: 48
-  distanceFontSize: 12
+  labelFontSize: 11
+  distanceFontSize: 10
   altitudeFontSize: 11
-  showDistanceLabels: 1
-  maxDisplayDistance: 500
+  showDistanceLabels: 0
+  maxDisplayDistance: 80
   minDisplayDistance: 0
   enableDistanceScaling: 1
-  closeDistanceNM: 0
-  farDistanceNM: 10
-  closeDistanceScale: 3
-  farDistanceScale: 0.2
+  closeDistanceNM: 3
+  farDistanceNM: 40
+  closeDistanceScale: 1.15
+  farDistanceScale: 0.78
   showTrails: 0
   trailPointCount: 9
   trailSampleInterval: 0.5
   trailFadeDuration: 10
   trailWidth: 10
   trailColor: {r: 0, g: 1, b: 1, a: 0.6}
-  showAltitudeIndicators: 1
+  showAltitudeIndicators: 0
   altitudeInThousands: 1
   altitudeThreshold: 500
-  showNavigationLights: 1
+  showNavigationLights: 0
   navLightSize: 8
   portLightColor: {r: 1, g: 0, b: 0, a: 1}
   starboardLightColor: {r: 0, g: 1, b: 0, a: 1}
@@ -54,19 +54,23 @@ MonoBehaviour:
   blinkNavLights: 1
   navLightBlinkRate: 1
   smoothMovement: 0
-  smoothSpeed: 3.98
+  smoothSpeed: 18
   pulseHighPriority: 1
   pulseFrequency: 1.54
-  trafficNormalColor: {r: 0, g: 1, b: 1, a: 0.5882353}
-  trafficAdvisoryColor: {r: 1, g: 0.75, b: 0, a: 0.5882353}
-  trafficResolutionColor: {r: 1, g: 0, b: 0, a: 0.5882353}
-  weatherLightColor: {r: 0, g: 0.8, b: 0, a: 1}
-  weatherModerateColor: {r: 1, g: 1, b: 0, a: 1}
-  weatherHeavyColor: {r: 1, g: 0, b: 0, a: 1}
+  trafficNormalColor: {r: 0.08, g: 1, b: 1, a: 0.9}
+  trafficAdvisoryColor: {r: 1, g: 0.82, b: 0.08, a: 0.96}
+  trafficResolutionColor: {r: 1, g: 0.1, b: 0.08, a: 1}
+  weatherLightColor: {r: 0.18, g: 1, b: 0.28, a: 1}
+  weatherModerateColor: {r: 1, g: 0.9, b: 0.12, a: 1}
+  weatherHeavyColor: {r: 1, g: 0.12, b: 0.08, a: 1}
   waypointColor: {r: 1, g: 0, b: 1, a: 1}
   showTrafficIndicators: 1
-  showWeatherIndicators: 0
-  showWaypointIndicators: 0
+  showWeatherIndicators: 1
+  showWaypointIndicators: 1
+  globalOpacity: 1
+  nearbyOpacity: 1
+  nearbyDistanceThresholdNM: 10
+  useProximityOpacity: 0
   useCustomPrefabs: 1
   defaultIndicatorPrefab: {fileID: 5592259921768212743, guid: 3ff6a7fe393007d45a43914daaf9e0ad, type: 3}
   commercialPrefab: {fileID: 5592259921768212743, guid: 3ff6a7fe393007d45a43914daaf9e0ad, type: 3}

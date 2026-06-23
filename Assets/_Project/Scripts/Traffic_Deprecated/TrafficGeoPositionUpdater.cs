@@ -1,12 +1,10 @@
-using System.Collections;
-using System.Collections.Generic;
 using UnityEngine;
 using UnityEngine.Events;
 using FAA.Geo;
 
 
 [System.Serializable]
-public class GeoPositionUpdateEvent : UnityEvent<double, double,double> { }
+public class GeoPositionUpdateEvent : UnityEvent<double, double, double> { }
 
 /// <summary>
 /// Updates TrafficDataManager's geographic filter based on player aircraft position.
@@ -51,22 +49,22 @@ public class TrafficGeoPositionUpdater : MonoBehaviour
     private Vector3 lastPosition;
     private double currentLatitude;
     private double currentLongitude;
-    private double currentAltitude; 
+    private double currentAltitude;
+    private bool warnedMissingProjection;
+
     private void Start()
     {
-        // Find TrafficDataManager if not assigned
         if (trafficDataManager == null)
         {
             trafficDataManager = FindObjectOfType<TrafficDataManager>();
             if (trafficDataManager == null)
             {
-                Debug.LogError("[TrafficGeoPositionUpdater] No TrafficDataManager found in the scene.");
+                Debug.LogWarning("[TrafficGeoPositionUpdater] No TrafficDataManager found in the scene. Geographic traffic filtering is disabled.", this);
                 enabled = false;
                 return;
             }
         }
 
-        // Initialize with current position
         lastPosition = transform.position;
         UpdateGeographicPosition();
     }
@@ -89,15 +87,29 @@ public class TrafficGeoPositionUpdater : MonoBehaviour
     public void UpdateGeographicPosition()
     {
         lastPosition = transform.position;
-        
-        // Convert current Unity position to geographic coordinates
-        var geoCoordinates = GeoPosUnityPosProjectManager.Instance.UnityPositionToGeo(transform.position);
-        currentLatitude = geoCoordinates.latitude;
-        currentLongitude = geoCoordinates.longitude;
-        currentAltitude = geoCoordinates.altitude; // Updated to use the proper altitude from geo coordinates
-        
-        // Update the traffic data manager's geographic filter
-        trafficDataManager.SetGeographicFilter((float)currentLatitude, (float)currentLongitude, geographicFilterRadius);
+
+        GeoPosUnityPosProjectManager projection = GeoPosUnityPosProjectManager.Instance;
+        if (projection != null)
+        {
+            var geoCoordinates = projection.UnityPositionToGeo(transform.position);
+            currentLatitude = geoCoordinates.latitude;
+            currentLongitude = geoCoordinates.longitude;
+            currentAltitude = geoCoordinates.altitude;
+        }
+        else
+        {
+            currentAltitude = transform.position.y;
+            if (!warnedMissingProjection)
+            {
+                warnedMissingProjection = true;
+                Debug.LogWarning("[TrafficGeoPositionUpdater] Geo projection manager is missing. Keeping the last known geographic coordinates.", this);
+            }
+        }
+
+        if (trafficDataManager != null)
+        {
+            trafficDataManager.SetGeographicFilter((float)currentLatitude, (float)currentLongitude, geographicFilterRadius);
+        }
         
         if (showDebugInfo)
         {
@@ -105,10 +117,10 @@ public class TrafficGeoPositionUpdater : MonoBehaviour
         }
         
         // Trigger the position update event
-        onPositionUpdated.Invoke(currentLatitude, currentLongitude,currentAltitude);
+        onPositionUpdated.Invoke(currentLatitude, currentLongitude, currentAltitude);
         
         // Optionally fetch data immediately
-        if (fetchDataOnUpdate)
+        if (fetchDataOnUpdate && trafficDataManager != null)
         {
             trafficDataManager.FetchDataNow();
         }
@@ -143,13 +155,16 @@ public class TrafficGeoPositionUpdater : MonoBehaviour
     private void OnDrawGizmos()
     {
         if (!visualizeRadius || !Application.isPlaying) return;
+
+        GeoPosUnityPosProjectManager projection = GeoPosUnityPosProjectManager.Instance;
+        if (projection == null) return;
         
         // Draw a circle representing the filter radius
         Vector3 position = transform.position;
         position.y = 0; // Draw at ground level
         
         // Approximate the radius in Unity units (this is an approximation)
-        float radiusUnity = geographicFilterRadius * 1000 * GeoPosUnityPosProjectManager.Instance.GeoToUnityPosition(0.001, 0, 0).magnitude / 111.0f;
+        float radiusUnity = geographicFilterRadius * 1000 * projection.GeoToUnityPosition(0.001, 0, 0).magnitude / 111.0f;
         
         // Draw circle
         Gizmos.color = visualizationColor;
