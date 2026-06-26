@@ -473,7 +473,7 @@ namespace WeatherRadar
             rectTransform.anchorMax = new Vector2(0.5f, 0.5f);
             rectTransform.pivot = new Vector2(0.5f, 0.5f);
             rectTransform.anchoredPosition = new Vector2(0f, 2f);
-            rectTransform.sizeDelta = new Vector2(408f, 288.5f);
+            rectTransform.sizeDelta = new Vector2(352f, 352f);
             rectTransform.localScale = Vector3.one;
         }
 

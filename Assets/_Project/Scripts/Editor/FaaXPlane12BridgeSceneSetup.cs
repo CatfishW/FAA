@@ -34,19 +34,28 @@ namespace FAA.Editor
         private const string RadarControlsObjectName = "X-Plane Radar Controls";
         private const string IndicatorSystemObjectName = "[Indicator System]";
         private const string IndicatorCanvasObjectName = "XPlaneWeatherIndicatorCanvas";
+        private const string LocalXPlane12ApiBaseUrl = "http://127.0.0.1:12678";
         private const string OwnshipObjectName = "X-Plane Ownship";
         private const string ManagersObjectName = "[MANAGERS]";
         private const string UiRootObjectName = "_UI";
         private const string UiToolkitHudObjectName = "FAA UI Toolkit HUD";
         private const string HudModeSwitcherObjectName = "FAA HUD Mode Switcher";
         private const string HudRuntimeSanitizerObjectName = "FAA HUD Runtime Sanitizer";
+        private const string HeadingTapeCanvasName = "FAAHeadingTapeCanvas";
+        private const string HeadingTapeOverlayName = "FAA Heading Tape Overlay";
         private const string PanelSettingsPath = "Assets/_Project/UI/FaaHudPanelSettings.asset";
         private const string ExistingPanelSettingsPath = "Assets/_Project/New Panel Settings.asset";
         private const string XPlaneWeatherRadarConfigPath = "Assets/_Project/ScriptableObjects/XPlaneWeatherRadarConfig.asset";
         private const string XPlaneWeatherRadarPreviewPath = "Assets/_Project/Textures/XPlaneWeatherRadarPreview.png";
         private const float ScreenFlightHudScale = 540f;
-        private static readonly Vector2 TrafficRadarSize = new Vector2(560f, 560f);
+        private const float WeatherRadarDefaultRangeNM = 160f;
+        private static readonly Vector2 WeatherRadarSize = new Vector2(372f, 372f);
+        private static readonly Vector2 TrafficRadarSize = new Vector2(420f, 420f);
         private static readonly Vector2 ScreenFlightHudAnchoredPosition = new Vector2(960f, 690f);
+        private static readonly Vector2 HeadingTapeAnchoredPosition = new Vector2(-610f, 430f);
+        private static readonly Vector2 HeadingTapeSize = new Vector2(600f, 38f);
+        private static readonly Color HudGreen = new Color(0.2f, 1f, 0.2f, 1f);
+        private static readonly Color HudGreenDim = new Color(0.2f, 1f, 0.2f, 0.74f);
         private const int ScreenFlightHudSortingOrder = 5000;
 
         [MenuItem("FAA/X-Plane 12/Configure API HUD Bridge In Experiment Scene")]
@@ -89,6 +98,7 @@ namespace FAA.Editor
             DisableLegacyRadarAndAnalysisOverlays();
             RemoveGeneratedNavigationRepairArtifacts();
             NormalizeLegacyHudOverlays();
+            EnsureHeadingTapeOverlay(provider, ownship);
             FaaHudRuntimeSanitizer sanitizer = EnsureHudRuntimeSanitizer(managers.transform);
             ConfigureHudControlStack(ownship);
             DisableOwnAircraftRadarBridge();
@@ -138,6 +148,7 @@ namespace FAA.Editor
             DisableLegacyRadarAndAnalysisOverlays();
             RemoveGeneratedNavigationRepairArtifacts();
             NormalizeLegacyHudOverlays();
+            EnsureHeadingTapeOverlay(provider, ownship);
             FaaHudRuntimeSanitizer sanitizer = EnsureHudRuntimeSanitizer(managers.transform);
             ConfigureHudControlStack(ownship);
             DisableOwnAircraftRadarBridge();
@@ -175,6 +186,7 @@ namespace FAA.Editor
             AircraftController ownship = EnsureOwnship(managers.transform);
             FaaHudRuntimeSanitizer sanitizer = EnsureHudRuntimeSanitizer(managers.transform);
             ConfigureHudControlStack(ownship);
+            EnsureHeadingTapeOverlay(provider, ownship);
             EnsureUiToolkitHud(provider, ownship, sanitizer, false);
 
             bridge.FindDependencies();
@@ -239,7 +251,7 @@ namespace FAA.Editor
         private static void ConfigureBridge(XPlane12ApiHudBridge bridge)
         {
             SerializedObject serializedBridge = new SerializedObject(bridge);
-            SetString(serializedBridge, "baseUrl", "https://faa.agaii.org/xplane12");
+            SetString(serializedBridge, "baseUrl", LocalXPlane12ApiBaseUrl);
             SetBool(serializedBridge, "autoStartOnPlay", true);
             SetFloat(serializedBridge, "pollIntervalSeconds", 0.1f);
             SetFloat(serializedBridge, "requestTimeoutSeconds", 2f);
@@ -248,7 +260,10 @@ namespace FAA.Editor
             SetBool(serializedBridge, "pollSystems", true);
             SetBool(serializedBridge, "pollTraffic", true);
             SetBool(serializedBridge, "pollRenderAssets", true);
-            SetFloat(serializedBridge, "renderAssetPollIntervalSeconds", 1.5f);
+            SetFloat(serializedBridge, "renderAssetPollIntervalSeconds", 1f);
+            SetBool(serializedBridge, "publishWeatherDatarefTextureFromStream", true);
+            SetFloat(serializedBridge, "streamWeatherTextureIntervalSeconds", 1f);
+            SetInt(serializedBridge, "streamWeatherTextureSize", 512);
             SetObject(serializedBridge, "hudController", FindFirstSceneObject(FindType("HUDControl.Core.HUDController")));
             SetBool(serializedBridge, "applyToAviationHud", true);
             SetBool(serializedBridge, "applyToLegacyHud", true);
@@ -265,8 +280,8 @@ namespace FAA.Editor
             SetString(serializedBridge, "webSocketUrl", "ws://127.0.0.1:37212/v1/stream/ws");
             SetFloat(serializedBridge, "webSocketReconnectDelaySeconds", 0.5f);
             SetInt(serializedBridge, "webSocketReceiveBufferBytes", 262144);
-            SetBool(serializedBridge, "webSocketUseMqttFallback", true);
-            SetBool(serializedBridge, "webSocketUseHttpFallback", true);
+            SetBool(serializedBridge, "webSocketUseMqttFallback", false);
+            SetBool(serializedBridge, "webSocketUseHttpFallback", false);
             SetFloat(serializedBridge, "webSocketFallbackAfterSeconds", 1.25f);
             SetString(serializedBridge, "mqttBrokerHost", "127.0.0.1");
             SetInt(serializedBridge, "mqttBrokerPort", 18883);
@@ -330,12 +345,31 @@ namespace FAA.Editor
             if (projection != null)
             {
                 projection.transform.SetParent(null, true);
+                ConfigureGeoProjection(projection);
                 return projection;
             }
 
             GameObject projectionObject = new GameObject("Geo Projection Manager");
             projection = projectionObject.AddComponent<GeoPosUnityPosProjectManager>();
+            ConfigureGeoProjection(projection);
             return projection;
+        }
+
+        private static void ConfigureGeoProjection(GeoPosUnityPosProjectManager projection)
+        {
+            if (projection == null)
+            {
+                return;
+            }
+
+            SerializedObject projectionSo = new SerializedObject(projection);
+            SetFloat(projectionSo, "scaleFactor", 111000f);
+            SetFloat(projectionSo, "unitsPerMeter", 1f);
+            SetFloat(projectionSo, "altitudeExaggeration", 1f);
+            SetInt(projectionSo, "altitudeReference", 0);
+            SetInt(projectionSo, "projectionType", 0);
+            projectionSo.ApplyModifiedPropertiesWithoutUndo();
+            EditorUtility.SetDirty(projection);
         }
 
         private static void AssignCameraTargets(Transform target)
@@ -376,7 +410,40 @@ namespace FAA.Editor
                 }
 
                 serializedUniStorm.ApplyModifiedPropertiesWithoutUndo();
+                uniStorm.enabled = false;
+                uniStorm.gameObject.SetActive(false);
                 EditorUtility.SetDirty(uniStorm);
+                EditorUtility.SetDirty(uniStorm.gameObject);
+            }
+
+            SuppressUniStormCloudVisuals();
+        }
+
+        private static void SuppressUniStormCloudVisuals()
+        {
+            foreach (Transform transform in UnityEngine.Object.FindObjectsByType<Transform>(FindObjectsInactive.Include, FindObjectsSortMode.None))
+            {
+                if (transform == null)
+                {
+                    continue;
+                }
+
+                string objectName = transform.gameObject.name;
+                if (!string.Equals(objectName, "UniStorm Clouds", System.StringComparison.OrdinalIgnoreCase) &&
+                    !string.Equals(objectName, "UniStorm Clouds (Lightning)", System.StringComparison.OrdinalIgnoreCase))
+                {
+                    continue;
+                }
+
+                transform.gameObject.SetActive(false);
+
+                if (transform.TryGetComponent<MeshRenderer>(out MeshRenderer renderer))
+                {
+                    renderer.enabled = false;
+                    EditorUtility.SetDirty(renderer);
+                }
+
+                EditorUtility.SetDirty(transform.gameObject);
             }
         }
 
@@ -396,19 +463,22 @@ namespace FAA.Editor
             rootRect.anchorMax = new Vector2(0f, 0f);
             rootRect.pivot = new Vector2(0f, 0f);
             rootRect.anchoredPosition = new Vector2(28f, 28f);
-            rootRect.sizeDelta = new Vector2(430f, 326f);
+            rootRect.sizeDelta = WeatherRadarSize;
 
             WeatherRadarDataProvider dataProvider = root.GetComponent<WeatherRadarDataProvider>() ?? root.AddComponent<WeatherRadarDataProvider>();
             XPlaneOriginalWeatherRadarProvider provider = root.GetComponent<XPlaneOriginalWeatherRadarProvider>() ?? root.AddComponent<XPlaneOriginalWeatherRadarProvider>();
+            dataProvider.SetRange(WeatherRadarDefaultRangeNM);
 
             SerializedObject providerSo = new SerializedObject(provider);
-            SetString(providerSo, "radarTextureUrl", "https://faa.agaii.org/xplane12/v1/render/weather.png");
+            SetString(providerSo, "radarTextureUrl", LocalXPlane12ApiBaseUrl + "/v1/render/weather.png");
+            SetBool(providerSo, "allowHttpTexturePolling", true);
+            SetFloat(providerSo, "rangeNM", WeatherRadarDefaultRangeNM);
             SetFloat(providerSo, "requestTimeoutSeconds", 2f);
             SetBool(providerSo, "cacheBustRequests", true);
             SetBool(providerSo, "acceptAllCertificates", true);
             SetBool(providerSo, "keepLastTextureOnError", true);
             SetBool(providerSo, "autoUpdate", false);
-            SetFloat(providerSo, "updateInterval", 1.5f);
+            SetFloat(providerSo, "updateInterval", 5f);
             providerSo.ApplyModifiedPropertiesWithoutUndo();
 
             WeatherRadarPanel panel = EnsureRadarPanel(root.transform, config, dataProvider, provider, out XPlaneOriginalWeatherRadarDisplay originalDisplay);
@@ -419,7 +489,7 @@ namespace FAA.Editor
             SetObject(bridgeSo, "xPlaneWeatherRadarDisplay", originalDisplay);
             SetObject(bridgeSo, "weatherImageTarget", originalDisplay != null ? originalDisplay.TargetImage : null);
             SetBool(bridgeSo, "pollRenderAssets", true);
-            SetFloat(bridgeSo, "renderAssetPollIntervalSeconds", 1.5f);
+            SetFloat(bridgeSo, "renderAssetPollIntervalSeconds", 1f);
             SetBool(bridgeSo, "refreshWeatherRadarTexture", false);
             bridgeSo.ApplyModifiedPropertiesWithoutUndo();
 
@@ -489,6 +559,7 @@ namespace FAA.Editor
             {
                 SerializedObject managerSo = new SerializedObject(dataManager);
                 SetBool(managerSo, "autoStartFetching", false);
+                SetBool(managerSo, "suppressAutoStartDisabledWarning", true);
                 SetFloat(managerSo, "radiusFilterKm", 80f);
                 managerSo.ApplyModifiedPropertiesWithoutUndo();
                 EditorUtility.SetDirty(dataManager);
@@ -1112,22 +1183,18 @@ namespace FAA.Editor
             AspectRatioFitter aspect = textureObject.GetComponent<AspectRatioFitter>() ?? textureObject.AddComponent<AspectRatioFitter>();
             aspect.enabled = false;
             aspect.aspectMode = AspectRatioFitter.AspectMode.None;
-            aspect.aspectRatio = 724f / 512f;
+            aspect.aspectRatio = 1f;
 
             textureRect.anchorMin = new Vector2(0.5f, 0.5f);
             textureRect.anchorMax = new Vector2(0.5f, 0.5f);
             textureRect.pivot = new Vector2(0.5f, 0.5f);
             textureRect.anchoredPosition = new Vector2(0f, 2f);
-            textureRect.sizeDelta = new Vector2(408f, 288.5f);
+            textureRect.sizeDelta = new Vector2(352f, 352f);
             textureRect.localScale = Vector3.one;
 
             RawImage textureImage = textureObject.GetComponent<RawImage>() ?? textureObject.AddComponent<RawImage>();
-            textureImage.color = Color.white;
-            Texture2D previewTexture = EnsureXPlaneWeatherRadarPreviewTexture();
-            if (previewTexture != null && textureImage.texture == null)
-            {
-                textureImage.texture = previewTexture;
-            }
+            textureImage.texture = null;
+            textureImage.color = new Color(0f, 0f, 0f, 0.96f);
             textureImage.raycastTarget = false;
 
             originalDisplay = textureObject.GetComponent<XPlaneOriginalWeatherRadarDisplay>() ?? textureObject.AddComponent<XPlaneOriginalWeatherRadarDisplay>();
@@ -1142,7 +1209,7 @@ namespace FAA.Editor
             SerializedObject originalOverlaySo = new SerializedObject(originalOverlay);
             SetObject(originalOverlaySo, "overlayImage", originalOverlayImage);
             SetObject(originalOverlaySo, "dataProvider", dataProvider);
-            SetInt(originalOverlaySo, "textureWidth", 724);
+            SetInt(originalOverlaySo, "textureWidth", 512);
             SetInt(originalOverlaySo, "textureHeight", 512);
             SetInt(originalOverlaySo, "rangeRingCount", 4);
             SetFloat(originalOverlaySo, "sectorHalfAngleDegrees", 64f);
@@ -1197,7 +1264,7 @@ namespace FAA.Editor
             waypointSo.ApplyModifiedPropertiesWithoutUndo();
 
             TMP_Text modeLabel = EnsureLabel(panelObject.transform, "ModeLabel", "WX", new Vector2(0f, 165f), TextAlignmentOptions.Center, 15f, new Color(0.75f, 1f, 0.75f, 1f), 110f);
-            TMP_Text rangeLabel = EnsureLabel(panelObject.transform, "RangeLabel", "40nm", new Vector2(0f, -164f), TextAlignmentOptions.Center, 13f, new Color(0.72f, 0.95f, 0.72f, 1f), 110f);
+            TMP_Text rangeLabel = EnsureLabel(panelObject.transform, "RangeLabel", "160nm", new Vector2(0f, -164f), TextAlignmentOptions.Center, 13f, new Color(0.72f, 0.95f, 0.72f, 1f), 110f);
             TMP_Text tiltLabel = EnsureLabel(panelObject.transform, "TiltLabel", "TLT +0.0", new Vector2(144f, -126f), TextAlignmentOptions.Right, 12f, new Color(0.72f, 0.95f, 0.72f, 1f), 120f);
             TMP_Text statusLabel = EnsureLabel(panelObject.transform, "TextureStatusLabel", "---", new Vector2(-142f, -126f), TextAlignmentOptions.Left, 11f, new Color(0.62f, 0.88f, 0.62f, 1f), 130f);
             TMP_Text sourceLabel = EnsureLabel(panelObject.transform, "SourceLabel", "X-PLANE WX", new Vector2(-134f, 142f), TextAlignmentOptions.Left, 12f, new Color(0.62f, 0.92f, 0.62f, 1f), 150f);
@@ -1232,7 +1299,7 @@ namespace FAA.Editor
             SetFloat(displaySo, "emptyRefreshDelaySeconds", 0.75f);
             SetFloat(displaySo, "staleRefreshDelaySeconds", 3f);
             SetBool(displaySo, "keepTextureVisibleWhenRadarOff", true);
-            SetVector2(displaySo, "minimumDisplaySize", new Vector2(408f, 288.5f));
+            SetVector2(displaySo, "minimumDisplaySize", new Vector2(352f, 352f));
             SetBool(displaySo, "showReferenceOverlay", false);
             displaySo.ApplyModifiedPropertiesWithoutUndo();
 
@@ -1340,16 +1407,13 @@ namespace FAA.Editor
                 "vc",
                 "minimap",
                 "compassnavigatorpro",
-                "panel",
                 "button",
                 "toggle",
                 "header",
                 "background",
-                "masker",
                 "radarreturns",
                 "rangerings",
-                "sweepline",
-                "readoutimage"
+                "sweepline"
             };
 
             foreach (SymbologyColorManager manager in FindSceneObjects<SymbologyColorManager>())
@@ -1395,8 +1459,8 @@ namespace FAA.Editor
             SetBool(serializedSync, "anchorOnStart", true);
             SetBool(serializedSync, "syncGeoProjectionOrigin", true);
             SetBool(serializedSync, "setDefaultPositionToAircraft", true);
-            SetBool(serializedSync, "syncCesiumGeoreference", true);
-            SetBool(serializedSync, "useAircraftAltitudeForCesium", true);
+            SetBool(serializedSync, "syncCesiumGeoreference", false);
+            SetBool(serializedSync, "useAircraftAltitudeForCesium", false);
             SetFloat(serializedSync, "cesiumReferenceHeightMeters", 0f);
             SetFloat(serializedSync, "cesiumHeightOffsetMeters", 0f);
             SetBool(serializedSync, "keepOriginNearGround", false);
@@ -1694,17 +1758,17 @@ namespace FAA.Editor
             SetFloat(serializedSanitizer, "screenFlightHudScale", ScreenFlightHudScale);
             SetInt(serializedSanitizer, "screenFlightHudSortingOrder", ScreenFlightHudSortingOrder);
             SetBool(serializedSanitizer, "hideLegacyOverlayGroups", true);
+            SetBool(serializedSanitizer, "suppressLegacyCompassStrips", true);
             SetBool(serializedSanitizer, "enforceRadarPairLayout", true);
             SetString(serializedSanitizer, "weatherRadarCanvasName", XPlaneWeatherRadarCanvasName);
             SetString(serializedSanitizer, "weatherRadarRootName", XPlaneWeatherRadarRootName);
             SetString(serializedSanitizer, "trafficRadarCanvasName", XPlaneTrafficRadarCanvasName);
             SetString(serializedSanitizer, "trafficRadarRootName", TrafficRadarRootName);
-            SetVector2(serializedSanitizer, "weatherRadarSize", new Vector2(430f, 326f));
+            SetVector2(serializedSanitizer, "weatherRadarSize", WeatherRadarSize);
             SetVector2(serializedSanitizer, "trafficRadarSize", TrafficRadarSize);
             SetVector2(serializedSanitizer, "radarInset", new Vector2(28f, 28f));
             SetBool(serializedSanitizer, "createRadarControlStrips", true);
             SetString(serializedSanitizer, "radarControlsObjectName", "X-Plane Radar Controls");
-            SetBool(serializedSanitizer, "hideGeneratedNavigationRepairArtifacts", true);
             SetInt(serializedSanitizer, "initialFrameScans", 240);
             SetFloat(serializedSanitizer, "rescanIntervalSeconds", 0.5f);
             serializedSanitizer.ApplyModifiedPropertiesWithoutUndo();
@@ -1712,6 +1776,113 @@ namespace FAA.Editor
             EditorUtility.SetDirty(sanitizer);
             EditorUtility.SetDirty(sanitizer.gameObject);
             return sanitizer;
+        }
+
+        private static void EnsureHeadingTapeOverlay(AviationFlightDataProvider provider, AircraftController ownship)
+        {
+            Canvas headingCanvas = EnsureHeadingTapeCanvas();
+            Transform canvas = headingCanvas != null ? headingCanvas.transform : null;
+            if (canvas == null)
+            {
+                return;
+            }
+
+            Transform existing = FindNamedSceneTransform(HeadingTapeOverlayName);
+            GameObject overlayObject = existing != null
+                ? existing.gameObject
+                : new GameObject(HeadingTapeOverlayName, typeof(RectTransform));
+
+            overlayObject.name = HeadingTapeOverlayName;
+            overlayObject.transform.SetParent(canvas, false);
+            overlayObject.transform.SetAsLastSibling();
+            overlayObject.SetActive(true);
+            RemoveDuplicateHeadingTapeOverlays(overlayObject);
+
+            FaaHeadingTapeOverlay overlay = overlayObject.GetComponent<FaaHeadingTapeOverlay>() ??
+                                           overlayObject.AddComponent<FaaHeadingTapeOverlay>();
+            overlay.enabled = true;
+            overlay.Configure(HeadingTapeAnchoredPosition, HeadingTapeSize, HudGreen, HudGreenDim);
+            overlay.SetDataSources(provider, ownship, Camera.main != null ? Camera.main.transform : null);
+
+            EditorUtility.SetDirty(overlay);
+            EditorUtility.SetDirty(overlayObject);
+        }
+
+        private static Canvas EnsureHeadingTapeCanvas()
+        {
+            Transform existing = FindNamedSceneTransform(HeadingTapeCanvasName);
+            GameObject canvasObject = existing != null ? existing.gameObject : null;
+            Canvas canvas = canvasObject != null ? canvasObject.GetComponent<Canvas>() : null;
+            if (canvas == null)
+            {
+                canvasObject = new GameObject(HeadingTapeCanvasName, typeof(RectTransform), typeof(Canvas), typeof(UnityEngine.UI.CanvasScaler), typeof(GraphicRaycaster));
+                canvas = canvasObject.GetComponent<Canvas>();
+            }
+
+            RemoveDuplicateHeadingTapeCanvases(canvasObject);
+
+            canvasObject.name = HeadingTapeCanvasName;
+            canvasObject.transform.SetParent(null, false);
+            canvasObject.SetActive(true);
+            canvas.enabled = true;
+            canvas.renderMode = RenderMode.ScreenSpaceOverlay;
+            canvas.overrideSorting = true;
+            canvas.sortingOrder = ScreenFlightHudSortingOrder + 200;
+            SerializedObject serializedCanvas = new SerializedObject(canvas);
+            SetBool(serializedCanvas, "m_OverrideSorting", true);
+            SetInt(serializedCanvas, "m_SortingOrder", ScreenFlightHudSortingOrder + 200);
+            serializedCanvas.ApplyModifiedPropertiesWithoutUndo();
+
+            RectTransform rectTransform = canvasObject.GetComponent<RectTransform>() ?? canvasObject.AddComponent<RectTransform>();
+            rectTransform.anchorMin = Vector2.zero;
+            rectTransform.anchorMax = Vector2.one;
+            rectTransform.pivot = new Vector2(0.5f, 0.5f);
+            rectTransform.anchoredPosition = Vector2.zero;
+            rectTransform.sizeDelta = Vector2.zero;
+            rectTransform.localScale = Vector3.one;
+            rectTransform.localRotation = Quaternion.identity;
+
+            UnityEngine.UI.CanvasScaler scaler = canvasObject.GetComponent<UnityEngine.UI.CanvasScaler>() ??
+                                                 canvasObject.AddComponent<UnityEngine.UI.CanvasScaler>();
+            scaler.uiScaleMode = UnityEngine.UI.CanvasScaler.ScaleMode.ScaleWithScreenSize;
+            scaler.referenceResolution = new Vector2(1920f, 1080f);
+            scaler.matchWidthOrHeight = 0.5f;
+
+            GraphicRaycaster raycaster = canvasObject.GetComponent<GraphicRaycaster>() ??
+                                         canvasObject.AddComponent<GraphicRaycaster>();
+            raycaster.enabled = false;
+
+            EditorUtility.SetDirty(canvasObject);
+            EditorUtility.SetDirty(canvas);
+            EditorUtility.SetDirty(scaler);
+            EditorUtility.SetDirty(raycaster);
+            return canvas;
+        }
+
+        private static void RemoveDuplicateHeadingTapeCanvases(GameObject keep)
+        {
+            foreach (Transform transform in FindSceneObjects<Transform>())
+            {
+                if (transform == null || transform.gameObject == keep || transform.gameObject.name != HeadingTapeCanvasName)
+                {
+                    continue;
+                }
+
+                UnityEngine.Object.DestroyImmediate(transform.gameObject);
+            }
+        }
+
+        private static void RemoveDuplicateHeadingTapeOverlays(GameObject keep)
+        {
+            foreach (Transform transform in FindSceneObjects<Transform>())
+            {
+                if (transform == null || transform.gameObject == keep || transform.gameObject.name != HeadingTapeOverlayName)
+                {
+                    continue;
+                }
+
+                UnityEngine.Object.DestroyImmediate(transform.gameObject);
+            }
         }
 
         private static void EnsureRadarControlsOverlay()
@@ -2143,6 +2314,9 @@ namespace FAA.Editor
             {
                 "FAASymbologyCanvasWorldSpace",
                 "MaskCanvas",
+                "CompassNavigatorPro",
+                "Compass Bar Generated",
+                "FAA_CompassTape",
                 "RadarCanvas",
                 "VisualUnderstanding",
                 "VC",
@@ -2318,6 +2492,7 @@ namespace FAA.Editor
         {
             return lowerPath.Contains("/_ui/faasymbologycanvas/maskcanvas") ||
                    lowerPath.Contains("_ui/faasymbologycanvas/maskcanvas") ||
+                   lowerPath.Contains("_ui/faasymbologycanvas/compassnavigatorpro") ||
                    lowerPath.Contains("_ui/faasymbologycanvas/visualunderstanding") ||
                    lowerPath.Contains("_ui/faasymbologycanvas/vc") ||
                    lowerPath.Contains("_ui/faasymbologycanvas/radarcanvas") ||
@@ -2333,6 +2508,9 @@ namespace FAA.Editor
         private static bool ShouldHideLegacyOverlayRoot(string objectName)
         {
             return string.Equals(objectName, "MaskCanvas", StringComparison.OrdinalIgnoreCase) ||
+                   string.Equals(objectName, "CompassNavigatorPro", StringComparison.OrdinalIgnoreCase) ||
+                   string.Equals(objectName, "FAA_CompassTape", StringComparison.OrdinalIgnoreCase) ||
+                   string.Equals(objectName, "CompassBarSystem", StringComparison.OrdinalIgnoreCase) ||
                    string.Equals(objectName, "RadarCanvas", StringComparison.OrdinalIgnoreCase) ||
                    string.Equals(objectName, "VisualUnderstanding", StringComparison.OrdinalIgnoreCase) ||
                    string.Equals(objectName, "VC", StringComparison.OrdinalIgnoreCase) ||
@@ -2455,6 +2633,7 @@ namespace FAA.Editor
 
                 SerializedObject serializedManager = new SerializedObject(manager);
                 SetBool(serializedManager, "autoStartFetching", false);
+                SetBool(serializedManager, "suppressAutoStartDisabledWarning", true);
                 manager.enabled = false;
                 serializedManager.ApplyModifiedPropertiesWithoutUndo();
                 EditorUtility.SetDirty(manager);

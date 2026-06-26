@@ -42,6 +42,9 @@ namespace FAA.HUDToolkit
         {
             "FAASymbologyCanvasWorldSpace",
             "MaskCanvas",
+            "CompassNavigatorPro",
+            "Compass Bar Generated",
+            "FAA_CompassTape",
             "RadarCanvas",
             "VisualUnderstanding",
             "VC",
@@ -125,10 +128,16 @@ namespace FAA.HUDToolkit
                     continue;
                 }
 
+                bool isSuppressedLegacyRoot = IsConfiguredSuppressedLegacyRoot(transform.gameObject);
+                if (isSuppressedLegacyRoot)
+                {
+                    SuppressLegacyOverlayRoot(transform.gameObject);
+                    continue;
+                }
+
                 bool isLegacyHudRoot = transform.gameObject.name == legacyHudName ||
                                        transform.gameObject.name == legacyCanvasName ||
-                                       IsConfiguredLegacyCanvasName(transform.gameObject.name) ||
-                                       IsConfiguredSuppressedLegacyRootName(transform.gameObject.name);
+                                       IsConfiguredLegacyCanvasName(transform.gameObject.name);
                 if (isLegacyHudRoot && !legacyHudRoots.Contains(transform.gameObject))
                 {
                     if (transform.gameObject.name == legacyHudName && transform.gameObject != legacyHudRoot)
@@ -256,7 +265,7 @@ namespace FAA.HUDToolkit
                     }
                 }
 
-                if (root != null && IsConfiguredSuppressedLegacyRootName(root.name))
+                if (root != null && IsConfiguredSuppressedLegacyRoot(root))
                 {
                     SuppressLegacyOverlayRoot(root);
                 }
@@ -384,7 +393,7 @@ namespace FAA.HUDToolkit
 
         private bool ShouldShowLegacyRoot(GameObject root)
         {
-            if (root == null || IsConfiguredSuppressedLegacyRootName(root.name))
+            if (root == null || IsConfiguredSuppressedLegacyRoot(root))
             {
                 SuppressLegacyOverlayRoot(root);
                 return false;
@@ -455,6 +464,26 @@ namespace FAA.HUDToolkit
             }
 
             return false;
+        }
+
+        private bool IsConfiguredSuppressedLegacyRoot(GameObject root)
+        {
+            if (root == null)
+            {
+                return false;
+            }
+
+            if (IsConfiguredSuppressedLegacyRootName(root.name))
+            {
+                return true;
+            }
+
+            string path = GetHierarchyPath(root.transform).ToLowerInvariant();
+            return path.Contains("/heading panel/compass bar generated") ||
+                   path.Contains("/faa_compasstape") ||
+                   path.Contains("/maskcanvas/") ||
+                   path.Contains("/masker/compassnavigatorpro") ||
+                   path.Contains("/compassnavigatorpro/");
         }
 
         private bool IsConfiguredToolkitHiddenOverlay(string objectName)

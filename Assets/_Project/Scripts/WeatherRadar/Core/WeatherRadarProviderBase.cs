@@ -53,7 +53,7 @@ namespace WeatherRadar
 
         [Header("Radar Settings")]
         [SerializeField] protected int textureSize = 512;
-        [SerializeField] protected float rangeNM = 40f;
+        [SerializeField] protected float rangeNM = 160f;
         [SerializeField] protected float tiltDegrees = 0f;
         [SerializeField] protected float gainDB = 0f;
 

@@ -364,6 +364,7 @@ namespace TrafficRadar
             rectTransform = GetComponent<RectTransform>();
             NormalizePanelReadability();
             CreateRadarTexture();
+            EnsureRadarImageReference();
         }
 
         private void OnEnable()
@@ -588,6 +589,7 @@ namespace TrafficRadar
                 MarkRadarDirty();
             }
 
+            EnsureRadarImageReference();
             if (radarImage == null)
             {
                 return;
@@ -1024,6 +1026,13 @@ namespace TrafficRadar
 
         private void SetupDisplay()
         {
+            EnsureRadarImageReference();
+            if (!preferXPlaneTrafficTexture &&
+                (radarTexture == null || clearPixels == null || clearPixels.Length != displaySize * displaySize))
+            {
+                CreateRadarTexture();
+            }
+
             // Find or create the circular mask shader
             Shader circularShader = null;
             if (circularMaskMaterial == null || radarOverlayMaterial == null)
@@ -1063,6 +1072,12 @@ namespace TrafficRadar
                     radarImage.material = radarOverlayMaterial;
                     StretchRadarImage(radarImage.rectTransform);
                 }
+
+                if (!preferXPlaneTrafficTexture)
+                {
+                    MarkRadarDirty();
+                    DrawRadarIfNeeded();
+                }
             }
 
             // Setup chart background with circular mask
@@ -1095,6 +1110,55 @@ namespace TrafficRadar
 
             SetGeneratedOverlayVisibility(!preferXPlaneTrafficTexture || !hideGeneratedOverlaysWithXPlaneTexture);
             SetLocalMaskEnabled(!preferXPlaneTrafficTexture);
+        }
+
+        private void EnsureRadarImageReference()
+        {
+            if (radarImage == null)
+            {
+                foreach (RawImage image in GetComponentsInChildren<RawImage>(true))
+                {
+                    if (image == null || image == chartBackgroundImage)
+                    {
+                        continue;
+                    }
+
+                    string imageName = image.gameObject.name;
+                    if (imageName.IndexOf("radar", StringComparison.OrdinalIgnoreCase) >= 0 ||
+                        imageName.IndexOf("map", StringComparison.OrdinalIgnoreCase) >= 0)
+                    {
+                        radarImage = image;
+                        break;
+                    }
+                }
+            }
+
+            if (radarImage == null)
+            {
+                foreach (RawImage image in GetComponentsInChildren<RawImage>(true))
+                {
+                    if (image != null && image != chartBackgroundImage)
+                    {
+                        radarImage = image;
+                        break;
+                    }
+                }
+            }
+
+            if (radarImage == null)
+            {
+                GameObject imageObject = new GameObject("Radar Image", typeof(RectTransform), typeof(CanvasRenderer), typeof(RawImage));
+                imageObject.transform.SetParent(transform, false);
+                radarImage = imageObject.GetComponent<RawImage>();
+            }
+
+            radarImage.gameObject.SetActive(true);
+            radarImage.enabled = true;
+            radarImage.raycastTarget = false;
+            if (radarImage.texture == null)
+            {
+                radarImage.color = new Color(0f, 0f, 0f, 0.96f);
+            }
         }
 
         private void ApplyXPlaneTrafficTexture()

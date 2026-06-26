@@ -101,7 +101,7 @@ namespace WeatherRadar
             Clear();
 
             WeatherRadarData radarData = dataProvider != null ? dataProvider.RadarData : null;
-            float range = radarData != null ? radarData.currentRange : 40f;
+            float range = radarData != null ? radarData.currentRange : 160f;
             float tilt = radarData != null ? radarData.tiltAngle : 0f;
             RadarMode mode = radarData != null ? radarData.currentMode : RadarMode.WX;
             _lastRange = range;

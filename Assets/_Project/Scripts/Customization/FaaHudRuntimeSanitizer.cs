@@ -1,9 +1,13 @@
+using System.Collections.Generic;
 using System.Reflection;
+using CompassNavigatorPro;
+using HUDControl.CompassBar;
 using UnityEngine;
 using UnityEngine.SceneManagement;
 using UnityEngine.UI;
 using UnityEngine.UIElements;
 using WeatherRadar;
+using TMPro;
 
 #if UNITY_EDITOR
 using UnityEditor;
@@ -16,13 +20,21 @@ namespace FAA.Customization
     public class FaaHudRuntimeSanitizer : MonoBehaviour
     {
         private const string DefaultRadarControlsObjectName = "X-Plane Radar Controls";
+        private const string XPlaneOriginalTextureObjectName = "XPlaneOriginalTexture";
         private const float LegacyScreenFlightHudScale = 420f;
         private const float MinimumReadableScreenFlightHudScale = 520f;
         private const float DefaultScreenFlightHudScale = 540f;
-        private const float MinimumTrafficRadarWidth = 520f;
-        private const float MinimumTrafficRadarHeight = 520f;
+        private const float MinimumTrafficRadarWidth = 360f;
+        private const float MinimumTrafficRadarHeight = 360f;
+        private const string HeadingTapeCanvasName = "FAAHeadingTapeCanvas";
+        private const string HeadingTapeOverlayName = "FAA Heading Tape Overlay";
+        private static readonly Color HudGreen = new Color(0.2f, 1f, 0.2f, 1f);
+        private static readonly Color HudGreenDim = new Color(0.2f, 1f, 0.2f, 0.74f);
+        private static readonly HashSet<int> BrokenSpriteImageInstanceIds = new HashSet<int>();
         private static readonly Vector2 LegacyScreenFlightHudAnchoredPosition = new Vector2(960f, 740f);
         private static readonly Vector2 DefaultScreenFlightHudAnchoredPosition = new Vector2(960f, 690f);
+        private static readonly Vector2 HeadingTapeAnchoredPosition = new Vector2(-610f, 430f);
+        private static readonly Vector2 HeadingTapeSize = new Vector2(600f, 38f);
 
         [Header("Duplicate HUD Protection")]
         [SerializeField] private bool disableWorldSpaceSymbologyCanvas = true;
@@ -40,6 +52,7 @@ namespace FAA.Customization
         [SerializeField] private float screenFlightHudScale = DefaultScreenFlightHudScale;
         [SerializeField] private int screenFlightHudSortingOrder = 5000;
         [SerializeField] private bool hideLegacyOverlayGroups = true;
+        [SerializeField] private bool suppressLegacyCompassStrips = true;
 
         [Header("Radar Pair Layout")]
         [SerializeField] private bool enforceRadarPairLayout = true;
@@ -48,8 +61,8 @@ namespace FAA.Customization
         [SerializeField] private string trafficRadarCanvasName = "XPlaneTrafficRadarCanvas";
         [SerializeField] private string trafficRadarRootName = "Traffic Radar System";
         [SerializeField] private string indicatorCanvasName = "XPlaneWeatherIndicatorCanvas";
-        [SerializeField] private Vector2 weatherRadarSize = new Vector2(430f, 326f);
-        [SerializeField] private Vector2 trafficRadarSize = new Vector2(560f, 560f);
+        [SerializeField] private Vector2 weatherRadarSize = new Vector2(372f, 372f);
+        [SerializeField] private Vector2 trafficRadarSize = new Vector2(420f, 420f);
         [SerializeField] private Vector2 radarInset = new Vector2(28f, 28f);
         [SerializeField] private bool createRadarControlStrips = true;
         [SerializeField] private string radarControlsObjectName = DefaultRadarControlsObjectName;
@@ -66,6 +79,26 @@ namespace FAA.Customization
 
         private int _remainingInitialScans;
         private float _nextScanTime;
+
+#if UNITY_EDITOR
+        [InitializeOnLoadMethod]
+        private static void QueueBrokenSpriteRepairOnEditorReload()
+        {
+            EditorApplication.delayCall -= RepairBrokenImageSpritesFromEditor;
+            EditorApplication.delayCall += RepairBrokenImageSpritesFromEditor;
+        }
+
+        private static void RepairBrokenImageSpritesFromEditor()
+        {
+            if (EditorApplication.isPlayingOrWillChangePlaymode)
+            {
+                return;
+            }
+
+            RepairBrokenImageSpritesOnce();
+            ClearSerializedXPlaneWeatherTexturesFromEditor();
+        }
+#endif
 
         private void Awake()
         {
@@ -114,11 +147,23 @@ namespace FAA.Customization
             }
 
             NormalizeScreenSpaceLegacyHud();
+            EnsureHeadingTapeOverlay();
+            if (suppressLegacyCompassStrips)
+            {
+                SuppressLegacyCompassStrips();
+            }
 
             if (enforceRadarPairLayout)
             {
                 NormalizeRadarPairLayout();
             }
+
+#if UNITY_EDITOR
+            if (!Application.isPlaying)
+            {
+                ClearSerializedXPlaneWeatherTexturesFromEditor();
+            }
+#endif
 
             if (deactivateDeprecatedWeather3DSystems)
             {
@@ -132,8 +177,203 @@ namespace FAA.Customization
 
             if (hideLargeBlankHudImages)
             {
+#if UNITY_EDITOR
+                RepairBrokenImageSpritesOnce();
+#endif
                 HideLargeBlankHudImages();
             }
+        }
+
+        private void EnsureHeadingTapeOverlay()
+        {
+            Canvas canvas = EnsureHeadingTapeCanvas();
+            if (canvas == null)
+            {
+                return;
+            }
+
+            Transform existing = FindExistingHeadingTapeOverlay();
+            GameObject overlayObject = existing != null
+                ? existing.gameObject
+                : new GameObject(HeadingTapeOverlayName, typeof(RectTransform));
+
+            RectTransform rectTransform = EnsureRectTransform(overlayObject);
+            rectTransform.SetParent(canvas.transform, false);
+            rectTransform.SetAsLastSibling();
+            overlayObject.name = HeadingTapeOverlayName;
+            overlayObject.SetActive(true);
+            RemoveDuplicateHeadingTapeOverlays(overlayObject);
+
+            FaaHeadingTapeOverlay overlay = overlayObject.GetComponent<FaaHeadingTapeOverlay>() ??
+                                           overlayObject.AddComponent<FaaHeadingTapeOverlay>();
+            overlay.enabled = true;
+            overlay.Configure(HeadingTapeAnchoredPosition, HeadingTapeSize, HudGreen, HudGreenDim);
+            overlay.SetDataSources(
+                FindAnyObjectByType<AviationUI.AviationFlightDataProvider>(FindObjectsInactive.Include),
+                FindAnyObjectByType<AircraftControl.Core.AircraftController>(FindObjectsInactive.Include),
+                Camera.main != null ? Camera.main.transform : null);
+        }
+
+        private static Transform FindExistingHeadingTapeOverlay()
+        {
+            foreach (Transform transform in FindObjectsByType<Transform>(FindObjectsInactive.Include, FindObjectsSortMode.None))
+            {
+                if (transform != null && transform.gameObject.name == HeadingTapeOverlayName && IsLoadedSceneObject(transform.gameObject))
+                {
+                    return transform;
+                }
+            }
+
+            return null;
+        }
+
+        private static void RemoveDuplicateHeadingTapeOverlays(GameObject keep)
+        {
+            foreach (Transform transform in FindObjectsByType<Transform>(FindObjectsInactive.Include, FindObjectsSortMode.None))
+            {
+                if (transform == null || transform.gameObject == keep || transform.gameObject.name != HeadingTapeOverlayName ||
+                    !IsLoadedSceneObject(transform.gameObject))
+                {
+                    continue;
+                }
+
+                if (Application.isPlaying)
+                {
+                    Destroy(transform.gameObject);
+                }
+                else
+                {
+                    DestroyImmediate(transform.gameObject);
+                }
+            }
+        }
+
+        private Canvas EnsureHeadingTapeCanvas()
+        {
+            Canvas canvas = null;
+            foreach (Canvas candidate in FindObjectsByType<Canvas>(FindObjectsInactive.Include, FindObjectsSortMode.None))
+            {
+                if (candidate == null || candidate.gameObject.name != HeadingTapeCanvasName || !IsLoadedSceneObject(candidate.gameObject))
+                {
+                    continue;
+                }
+
+                canvas = candidate;
+                break;
+            }
+
+            if (canvas == null)
+            {
+                GameObject canvasObject = new GameObject(
+                    HeadingTapeCanvasName,
+                    typeof(RectTransform),
+                    typeof(Canvas),
+                    typeof(UnityEngine.UI.CanvasScaler),
+                    typeof(GraphicRaycaster));
+                Scene activeScene = SceneManager.GetActiveScene();
+                if (activeScene.IsValid() && activeScene.isLoaded)
+                {
+                    SceneManager.MoveGameObjectToScene(canvasObject, activeScene);
+                }
+
+                canvas = canvasObject.GetComponent<Canvas>();
+            }
+
+            RemoveDuplicateHeadingTapeCanvases(canvas.gameObject);
+
+            if (canvas.transform.parent != null)
+            {
+                canvas.transform.SetParent(null, false);
+            }
+
+            canvas.gameObject.name = HeadingTapeCanvasName;
+            canvas.gameObject.SetActive(true);
+            canvas.enabled = true;
+            canvas.renderMode = RenderMode.ScreenSpaceOverlay;
+            canvas.overrideSorting = true;
+            canvas.sortingOrder = screenFlightHudSortingOrder + 200;
+
+            RectTransform rectTransform = EnsureRectTransform(canvas.gameObject);
+            rectTransform.anchorMin = Vector2.zero;
+            rectTransform.anchorMax = Vector2.one;
+            rectTransform.pivot = new Vector2(0.5f, 0.5f);
+            rectTransform.anchoredPosition = Vector2.zero;
+            rectTransform.sizeDelta = Vector2.zero;
+            rectTransform.localScale = Vector3.one;
+            rectTransform.localRotation = Quaternion.identity;
+
+            UnityEngine.UI.CanvasScaler scaler = canvas.GetComponent<UnityEngine.UI.CanvasScaler>() ??
+                                                 canvas.gameObject.AddComponent<UnityEngine.UI.CanvasScaler>();
+            scaler.uiScaleMode = UnityEngine.UI.CanvasScaler.ScaleMode.ScaleWithScreenSize;
+            scaler.referenceResolution = new Vector2(1920f, 1080f);
+            scaler.matchWidthOrHeight = 0.5f;
+
+            GraphicRaycaster raycaster = canvas.GetComponent<GraphicRaycaster>() ??
+                                         canvas.gameObject.AddComponent<GraphicRaycaster>();
+            raycaster.enabled = false;
+            return canvas;
+        }
+
+        private static void RemoveDuplicateHeadingTapeCanvases(GameObject keep)
+        {
+            foreach (Canvas candidate in FindObjectsByType<Canvas>(FindObjectsInactive.Include, FindObjectsSortMode.None))
+            {
+                if (candidate == null ||
+                    candidate.gameObject == keep ||
+                    candidate.gameObject.name != HeadingTapeCanvasName)
+                {
+                    continue;
+                }
+
+                if (Application.isPlaying)
+                {
+                    Destroy(candidate.gameObject);
+                }
+                else
+                {
+                    DestroyImmediate(candidate.gameObject);
+                }
+            }
+        }
+
+        private Canvas FindScreenSymbologyCanvas()
+        {
+            Canvas bestCanvas = null;
+            int bestScore = int.MinValue;
+            foreach (Canvas canvas in FindObjectsByType<Canvas>(FindObjectsInactive.Include, FindObjectsSortMode.None))
+            {
+                if (canvas == null || canvas.gameObject.name != screenSymbologyCanvasName || !IsLoadedSceneObject(canvas.gameObject))
+                {
+                    continue;
+                }
+
+                string path = GetHierarchyPath(canvas.transform);
+                int score = 0;
+                if (path.Contains("/_ui/faasymbologycanvas"))
+                {
+                    score += 1000;
+                }
+                if (!path.Contains("faasymbologycanvasworldspace"))
+                {
+                    score += 500;
+                }
+                if (canvas.gameObject.activeInHierarchy)
+                {
+                    score += 250;
+                }
+                if (canvas.renderMode == RenderMode.ScreenSpaceOverlay)
+                {
+                    score += 100;
+                }
+
+                if (bestCanvas == null || score > bestScore)
+                {
+                    bestCanvas = canvas;
+                    bestScore = score;
+                }
+            }
+
+            return bestCanvas;
         }
 
         private void EnsureRuntimeDefaults()
@@ -192,16 +432,223 @@ namespace FAA.Customization
                 }
             }
 
-            foreach (Transform transform in FindObjectsByType<Transform>(FindObjectsInactive.Include, FindObjectsSortMode.None))
+        }
+
+        private static void SuppressLegacyCompassStrips()
+        {
+            SuppressCompassNavigatorBars();
+            SuppressGeneratedCompassBars();
+        }
+
+        private static void SuppressCompassNavigatorBars()
+        {
+            foreach (CompassPro compass in FindObjectsByType<CompassPro>(FindObjectsInactive.Include, FindObjectsSortMode.None))
             {
-                if (transform == null || transform.gameObject.name != worldSpaceCanvasName || !IsLoadedSceneObject(transform.gameObject))
+                if (compass == null || !IsLoadedSceneObject(compass.gameObject))
                 {
                     continue;
                 }
 
-                if (transform.gameObject.activeSelf)
+                SetPrivateField(compass, "_showCompassBar", false);
+                SetPrivateField(compass, "_showCardinalPoints", false);
+                SetPrivateField(compass, "_showOrdinalPoints", false);
+                SetPrivateField(compass, "_showHalfWinds", false);
+                SetPrivateField(compass, "_alpha", 0f);
+                SetPrivateField(compass, "_alwaysVisibleInEditMode", false);
+                compass.enabled = false;
+
+                foreach (Graphic graphic in compass.GetComponentsInChildren<Graphic>(true))
                 {
-                    transform.gameObject.SetActive(false);
+                    graphic.enabled = false;
+                    graphic.raycastTarget = false;
+                }
+
+                foreach (Canvas canvas in compass.GetComponentsInChildren<Canvas>(true))
+                {
+                    canvas.enabled = false;
+                }
+
+                foreach (CanvasGroup group in compass.GetComponentsInChildren<CanvasGroup>(true))
+                {
+                    group.alpha = 0f;
+                    group.interactable = false;
+                    group.blocksRaycasts = false;
+                }
+
+                HideCompassNavigatorChild(compass.transform);
+                if (compass.gameObject.activeSelf)
+                {
+                    compass.gameObject.SetActive(false);
+                }
+            }
+        }
+
+        private static void SuppressGeneratedCompassBars()
+        {
+            foreach (Behaviour behaviour in FindObjectsByType<Behaviour>(FindObjectsInactive.Include, FindObjectsSortMode.None))
+            {
+                if (behaviour == null || !IsLoadedSceneObject(behaviour.gameObject))
+                {
+                    continue;
+                }
+
+                string typeName = behaviour.GetType().FullName ?? string.Empty;
+                if (typeName == "HUDControl.CompassBar.CompassBarElement")
+                {
+                    SetPrivateField(behaviour, "enableTapeScroll", false);
+                    SetPrivateField(behaviour, "compassTape", null);
+                    continue;
+                }
+
+                if (IsLegacyCompassStripControllerType(typeName))
+                {
+                    behaviour.enabled = false;
+                }
+            }
+
+            foreach (Transform transform in FindObjectsByType<Transform>(FindObjectsInactive.Include, FindObjectsSortMode.None))
+            {
+                if (transform == null || !IsLoadedSceneObject(transform.gameObject))
+                {
+                    continue;
+                }
+
+                string path = GetHierarchyPath(transform);
+                if (!IsLegacyCompassStripPath(path) && !IsLegacyCompassStripObjectName(transform.gameObject.name))
+                {
+                    continue;
+                }
+
+                SuppressCompassStripRoot(transform.gameObject);
+            }
+        }
+
+        private static bool IsLegacyCompassStripControllerType(string typeName)
+        {
+            return typeName == "HUDControl.CompassBar.CompassBarGenerator" ||
+                   typeName == "CompassBarSystem.CompassTapeGenerator" ||
+                   typeName == "CompassBarSystem.CompassBarController";
+        }
+
+        private static bool IsLegacyCompassStripPath(string path)
+        {
+            if (string.IsNullOrEmpty(path))
+            {
+                return false;
+            }
+
+            return path.Contains("/heading panel/compass bar generated") ||
+                   path.Contains("/compass bar generated") ||
+                   path.Contains("/faa_compasstape") ||
+                   path.Contains("/maskcanvas") ||
+                   path.Contains("/masker/compassnavigatorpro") ||
+                   path.Contains("/compassnavigatorpro");
+        }
+
+        private static bool IsLegacyCompassStripObjectName(string objectName)
+        {
+            if (string.IsNullOrEmpty(objectName))
+            {
+                return false;
+            }
+
+            string lowerName = objectName.ToLowerInvariant();
+            return lowerName == "compass bar generated" ||
+                   lowerName == "faa_compasstape" ||
+                   lowerName == "maskcanvas" ||
+                   lowerName == "masker" ||
+                   lowerName == "compassnavigatorpro";
+        }
+
+        private static void SuppressCompassStripRoot(GameObject root)
+        {
+            if (root == null)
+            {
+                return;
+            }
+
+            foreach (Behaviour behaviour in root.GetComponentsInChildren<Behaviour>(true))
+            {
+                if (behaviour == null)
+                {
+                    continue;
+                }
+
+                string typeName = behaviour.GetType().FullName ?? string.Empty;
+                if (typeName == "HUDControl.CompassBar.CompassBarElement")
+                {
+                    SetPrivateField(behaviour, "enableTapeScroll", false);
+                    SetPrivateField(behaviour, "compassTape", null);
+                }
+                else if (IsLegacyCompassStripControllerType(typeName) ||
+                         typeName == "CompassNavigatorPro.CompassPro")
+                {
+                    behaviour.enabled = false;
+                }
+            }
+
+            foreach (Graphic graphic in root.GetComponentsInChildren<Graphic>(true))
+            {
+                if (graphic == null)
+                {
+                    continue;
+                }
+
+                graphic.enabled = false;
+                graphic.raycastTarget = false;
+                Color color = graphic.color;
+                color.a = 0f;
+                graphic.color = color;
+            }
+
+            foreach (TMP_Text text in root.GetComponentsInChildren<TMP_Text>(true))
+            {
+                if (text == null)
+                {
+                    continue;
+                }
+
+                text.enabled = false;
+                text.raycastTarget = false;
+                text.color = new Color(text.color.r, text.color.g, text.color.b, 0f);
+                text.canvasRenderer.SetAlpha(0f);
+            }
+
+            foreach (Canvas canvas in root.GetComponentsInChildren<Canvas>(true))
+            {
+                canvas.enabled = false;
+            }
+
+            foreach (CanvasGroup group in root.GetComponentsInChildren<CanvasGroup>(true))
+            {
+                group.alpha = 0f;
+                group.interactable = false;
+                group.blocksRaycasts = false;
+            }
+
+            foreach (CanvasRenderer renderer in root.GetComponentsInChildren<CanvasRenderer>(true))
+            {
+                renderer.cull = true;
+                renderer.SetAlpha(0f);
+            }
+
+            if (root.activeSelf)
+            {
+                root.SetActive(false);
+            }
+        }
+
+        private static void HideCompassNavigatorChild(Transform root)
+        {
+            foreach (Transform child in root.GetComponentsInChildren<Transform>(true))
+            {
+                string lowerName = child.gameObject.name.ToLowerInvariant();
+                if (lowerName.Contains("compassbar") ||
+                    lowerName.StartsWith("cardinal") ||
+                    lowerName.StartsWith("intercardinal") ||
+                    lowerName.Contains("compass icon"))
+                {
+                    child.gameObject.SetActive(false);
                 }
             }
         }
@@ -282,6 +729,7 @@ namespace FAA.Customization
                         }
 
                         SuppressDuplicatePitchLadder(rectTransform.gameObject);
+                        NormalizeFlightHudSymbology(rectTransform.gameObject);
                     }
                     else if (!isScreenFlightHud)
                     {
@@ -449,7 +897,7 @@ namespace FAA.Customization
 
             image.gameObject.SetActive(true);
             image.enabled = true;
-            image.color = Color.white;
+            image.color = image.texture == null ? new Color(0f, 0f, 0f, 0.96f) : Color.white;
             image.raycastTarget = false;
         }
 
@@ -853,8 +1301,87 @@ namespace FAA.Customization
 
         private static bool IsLoadedSceneObject(GameObject gameObject)
         {
+            if (gameObject == null)
+            {
+                return false;
+            }
+
             Scene scene = gameObject.scene;
             return scene.IsValid() && scene.isLoaded;
+        }
+
+        private static bool TryGetLoadedSceneGameObject(Component component, out GameObject gameObject)
+        {
+            gameObject = null;
+
+            try
+            {
+                if (component == null)
+                {
+                    return false;
+                }
+
+                gameObject = component.gameObject;
+            }
+            catch (System.Exception ex) when (ex is MissingReferenceException ||
+                                              ex is System.InvalidCastException ||
+                                              ex is System.NullReferenceException)
+            {
+                return false;
+            }
+
+            return IsLoadedSceneObject(gameObject);
+        }
+
+        private static bool TryGetGameObjectName(GameObject gameObject, out string objectName)
+        {
+            objectName = null;
+            try
+            {
+                if (gameObject == null)
+                {
+                    return false;
+                }
+
+                objectName = gameObject.name;
+                return true;
+            }
+            catch (System.Exception ex) when (ex is MissingReferenceException ||
+                                              ex is System.InvalidCastException ||
+                                              ex is System.NullReferenceException)
+            {
+                return false;
+            }
+        }
+
+        private static bool TryGetActiveSelf(GameObject gameObject)
+        {
+            try
+            {
+                return gameObject != null && gameObject.activeSelf;
+            }
+            catch (System.Exception ex) when (ex is MissingReferenceException ||
+                                              ex is System.InvalidCastException ||
+                                              ex is System.NullReferenceException)
+            {
+                return false;
+            }
+        }
+
+        private static void TrySetActive(GameObject gameObject, bool active)
+        {
+            try
+            {
+                if (gameObject != null)
+                {
+                    gameObject.SetActive(active);
+                }
+            }
+            catch (System.Exception ex) when (ex is MissingReferenceException ||
+                                              ex is System.InvalidCastException ||
+                                              ex is System.NullReferenceException)
+            {
+            }
         }
 
         private static bool IsFaaHudGraphic(Graphic graphic)
@@ -1077,9 +1604,138 @@ namespace FAA.Customization
             }
         }
 
+        private static void SetPrivateField(Component component, string fieldName, object value)
+        {
+            FieldInfo field = component.GetType().GetField(fieldName, BindingFlags.Instance | BindingFlags.NonPublic | BindingFlags.Public);
+            if (field != null)
+            {
+                field.SetValue(component, value);
+            }
+        }
+
+        private static void NormalizeFlightHudSymbology(GameObject legacyHudRoot)
+        {
+            if (legacyHudRoot == null)
+            {
+                return;
+            }
+
+            Transform generatedCompass = legacyHudRoot.transform.Find("Heading Panel/Compass Bar Generated");
+            if (generatedCompass != null)
+            {
+                SuppressCompassStripRoot(generatedCompass.gameObject);
+            }
+
+            foreach (Behaviour behaviour in legacyHudRoot.GetComponentsInChildren<Behaviour>(true))
+            {
+                if (behaviour == null || behaviour.GetType().FullName != "HUDControl.CompassBar.CompassBarElement")
+                {
+                    continue;
+                }
+
+                SetPrivateField(behaviour, "enableTapeScroll", false);
+                SetPrivateField(behaviour, "compassTape", null);
+            }
+
+            foreach (Graphic graphic in legacyHudRoot.GetComponentsInChildren<Graphic>(true))
+            {
+                if (graphic == null || ShouldSkipHudColorTarget(graphic.transform))
+                {
+                    continue;
+                }
+
+                graphic.color = WithHudAlpha(graphic.color.a);
+                graphic.raycastTarget = false;
+            }
+
+            foreach (TMP_Text text in legacyHudRoot.GetComponentsInChildren<TMP_Text>(true))
+            {
+                if (text == null || ShouldSkipHudColorTarget(text.transform))
+                {
+                    continue;
+                }
+
+                ApplyTmpHudGreen(text);
+            }
+
+            foreach (Text text in legacyHudRoot.GetComponentsInChildren<Text>(true))
+            {
+                if (text == null || ShouldSkipHudColorTarget(text.transform))
+                {
+                    continue;
+                }
+
+                text.color = HudGreen;
+                text.raycastTarget = false;
+            }
+
+            foreach (Outline outline in legacyHudRoot.GetComponentsInChildren<Outline>(true))
+            {
+                if (outline == null || ShouldSkipHudColorTarget(outline.transform))
+                {
+                    continue;
+                }
+
+                outline.effectColor = HudGreenDim;
+            }
+
+            foreach (Shadow shadow in legacyHudRoot.GetComponentsInChildren<Shadow>(true))
+            {
+                if (shadow == null || ShouldSkipHudColorTarget(shadow.transform))
+                {
+                    continue;
+                }
+
+                shadow.effectColor = new Color(0f, 0.08f, 0.02f, 0.72f);
+            }
+        }
+
+        private static Color WithHudAlpha(float currentAlpha)
+        {
+            Color color = HudGreen;
+            color.a = Mathf.Max(currentAlpha, 0.92f);
+            return color;
+        }
+
+        private static void ApplyTmpHudGreen(TMP_Text text)
+        {
+            if (text.font == null && TMP_Settings.defaultFontAsset != null)
+            {
+                text.font = TMP_Settings.defaultFontAsset;
+            }
+
+            text.color = HudGreen;
+            if (text.fontSharedMaterial != null)
+            {
+                text.faceColor = HudGreen;
+                text.outlineColor = HudGreenDim;
+            }
+
+            text.enableVertexGradient = false;
+            text.raycastTarget = false;
+            text.canvasRenderer.SetColor(HudGreen);
+            text.ForceMeshUpdate(true, true);
+        }
+
+        private static bool ShouldSkipHudColorTarget(Transform transform)
+        {
+            string path = GetHierarchyPath(transform);
+            return path.Contains("/compass bar generated") ||
+                   path.Contains("/radarcanvas/") ||
+                   path.Contains("/maskcanvas/") ||
+                   path.Contains("/compassnavigatorpro") ||
+                   path.Contains("/visualunderstanding") ||
+                   path.Contains("/analysis trigger buttons") ||
+                   path.Contains("/vc/") ||
+                   path.Contains("/voice");
+        }
+
         private static bool ShouldHideLegacyOverlayGroup(string path)
         {
-            return path.Contains("/_ui/faasymbologycanvas/visualunderstanding") ||
+            return path.Contains("/_ui/faasymbologycanvas/maskcanvas") ||
+                   path.Contains("/_ui/faasymbologycanvas/compassnavigatorpro") ||
+                   path.Contains("/heading panel/compass bar generated") ||
+                   path.Contains("/_ui/faasymbologycanvas/visualunderstanding") ||
                    path.Contains("/_ui/faasymbologycanvas/vc") ||
                    path.Contains("/_ui/faasymbologycanvas/[indicator system]") ||
                    path.Contains("/_ui/faasymbologycanvas/analysis trigger buttons") ||
@@ -1113,6 +1769,31 @@ namespace FAA.Customization
                 if (transform.gameObject.activeSelf)
                 {
                     transform.gameObject.SetActive(false);
+                }
+            }
+
+            foreach (Transform transform in FindObjectsByType<Transform>(FindObjectsInactive.Include, FindObjectsSortMode.None))
+            {
+                if (transform == null || !IsLoadedSceneObject(transform.gameObject))
+                {
+                    continue;
+                }
+
+                string objectName = transform.gameObject.name;
+                if (!string.Equals(objectName, "UniStorm Clouds", System.StringComparison.OrdinalIgnoreCase) &&
+                    !string.Equals(objectName, "UniStorm Clouds (Lightning)", System.StringComparison.OrdinalIgnoreCase))
+                {
+                    continue;
+                }
+
+                if (transform.gameObject.activeSelf)
+                {
+                    transform.gameObject.SetActive(false);
+                }
+
+                if (transform.TryGetComponent<MeshRenderer>(out MeshRenderer renderer))
+                {
+                    renderer.enabled = false;
                 }
             }
 
@@ -1159,6 +1840,8 @@ namespace FAA.Customization
                    lowerName.Contains("weather3d") ||
                    lowerName.Contains("weather 3d") ||
                    lowerName.Contains("volumetric weather") ||
+                   lowerName.Contains("unistorm system") ||
+                   lowerName.Contains("unistorm clouds") ||
                    lowerName.Contains("weathersimulator") ||
                    lowerName.Contains("precipitationvfx") ||
                    lowerName.Contains("intensitypillarrenderer") ||
@@ -1170,6 +1853,7 @@ namespace FAA.Customization
             return typeName.StartsWith("WeatherVisualization3D.", System.StringComparison.Ordinal) ||
                    typeName.StartsWith("WeatherRadar.Weather3D.", System.StringComparison.Ordinal) ||
                    typeName.StartsWith("Weather3D.", System.StringComparison.Ordinal) ||
+                   typeName == "UniStormSystem" ||
                    typeName == "IndicatorSystem.Integration.Weather3DIndicatorBridge";
         }
 
@@ -1358,6 +2042,112 @@ namespace FAA.Customization
 
             return largeRect || largeEffectiveRect;
         }
+
+#if UNITY_EDITOR
+        private static void RepairBrokenImageSpritesOnce()
+        {
+            foreach (UnityEngine.UI.Image image in FindObjectsByType<UnityEngine.UI.Image>(FindObjectsInactive.Include, FindObjectsSortMode.None))
+            {
+                if (image == null || !IsLoadedSceneObject(image.gameObject))
+                {
+                    continue;
+                }
+
+                int instanceId = image.GetInstanceID();
+                if (BrokenSpriteImageInstanceIds.Contains(instanceId))
+                {
+                    continue;
+                }
+
+                Sprite sprite = null;
+                try
+                {
+                    sprite = image.sprite;
+                    if (sprite == null)
+                    {
+                        continue;
+                    }
+
+                    _ = sprite.texture;
+                }
+                catch (System.Exception ex) when (ex is MissingReferenceException ||
+                                                  ex is System.InvalidCastException ||
+                                                  ex is System.NullReferenceException)
+                {
+                    BrokenSpriteImageInstanceIds.Add(instanceId);
+                    SerializedObject serializedImage = new SerializedObject(image);
+                    SerializedProperty spriteProperty = serializedImage.FindProperty("m_Sprite");
+                    if (spriteProperty != null)
+                    {
+                        spriteProperty.objectReferenceValue = null;
+                    }
+
+                    SerializedProperty enabledProperty = serializedImage.FindProperty("m_Enabled");
+                    if (enabledProperty != null)
+                    {
+                        enabledProperty.boolValue = false;
+                    }
+
+                    SerializedProperty raycastProperty = serializedImage.FindProperty("m_RaycastTarget");
+                    if (raycastProperty != null)
+                    {
+                        raycastProperty.boolValue = false;
+                    }
+
+                    serializedImage.ApplyModifiedPropertiesWithoutUndo();
+                    EditorUtility.SetDirty(image);
+                    Debug.LogWarning($"[FaaHudRuntimeSanitizer] Removed broken HUD sprite from {GetHierarchyPath(image.transform)}.", image);
+                }
+            }
+        }
+
+        private static void ClearSerializedXPlaneWeatherTexturesFromEditor()
+        {
+            if (EditorApplication.isPlayingOrWillChangePlaymode)
+            {
+                return;
+            }
+
+            foreach (RawImage rawImage in FindObjectsByType<RawImage>(FindObjectsInactive.Include, FindObjectsSortMode.None))
+            {
+                if (rawImage == null ||
+                    !IsLoadedSceneObject(rawImage.gameObject) ||
+                    !string.Equals(rawImage.gameObject.name, XPlaneOriginalTextureObjectName, System.StringComparison.OrdinalIgnoreCase) ||
+                    rawImage.texture == null)
+                {
+                    continue;
+                }
+
+                SerializedObject serializedImage = new SerializedObject(rawImage);
+                SerializedProperty textureProperty = serializedImage.FindProperty("m_Texture");
+                if (textureProperty != null)
+                {
+                    textureProperty.objectReferenceValue = null;
+                }
+
+                SerializedProperty colorProperty = serializedImage.FindProperty("m_Color");
+                if (colorProperty != null)
+                {
+                    colorProperty.colorValue = new Color(0f, 0f, 0f, 0.96f);
+                }
+
+                SerializedProperty raycastProperty = serializedImage.FindProperty("m_RaycastTarget");
+                if (raycastProperty != null)
+                {
+                    raycastProperty.boolValue = false;
+                }
+
+                serializedImage.ApplyModifiedPropertiesWithoutUndo();
+                EditorUtility.SetDirty(rawImage);
+                if (rawImage.gameObject.scene.IsValid())
+                {
+                    UnityEditor.SceneManagement.EditorSceneManager.MarkSceneDirty(rawImage.gameObject.scene);
+                }
+
+                Debug.Log($"[FaaHudRuntimeSanitizer] Cleared serialized X-Plane weather radar texture from {GetHierarchyPath(rawImage.transform)}.", rawImage);
+            }
+        }
+#endif
 
         private static string GetHierarchyPath(Transform transform)
         {

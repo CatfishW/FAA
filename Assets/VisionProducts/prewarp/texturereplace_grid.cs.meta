@@ -1,0 +1,13 @@
+fileFormatVersion: 2
+guid: 4be8cef0dc7c42941afba382c7a40baa
+MonoImporter:
+  externalObjects: {}
+  serializedVersion: 2
+  defaultReferences:
+  - Xasset: {fileID: 4900000, guid: 7ededb4ee61270c4db468e20952a0580, type: 3}
+  - Yasset: {fileID: 4900000, guid: 8286979ef1286be4eb4bd8181f386e83, type: 3}
+  executionOrder: 0
+  icon: {instanceID: 0}
+  userData: 
+  assetBundleName: 
+  assetBundleVariant: 

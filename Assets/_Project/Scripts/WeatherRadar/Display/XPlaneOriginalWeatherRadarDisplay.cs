@@ -35,7 +35,7 @@ namespace WeatherRadar
         [SerializeField] private float emptyRefreshDelaySeconds = 0.75f;
         [SerializeField] private float staleRefreshDelaySeconds = 3f;
         [SerializeField] private bool keepTextureVisibleWhenRadarOff = true;
-        [SerializeField] private Vector2 minimumDisplaySize = new Vector2(408f, 288.5f);
+        [SerializeField] private Vector2 minimumDisplaySize = new Vector2(352f, 352f);
         [SerializeField] private bool showReferenceOverlay = false;
 
         private Texture _currentTexture;
@@ -342,7 +342,7 @@ namespace WeatherRadar
             if (targetImage != null)
             {
                 EnsureVisibleDisplayRect();
-                if (targetImage.texture != null)
+                if (IsRuntimeXPlaneWeatherTexture(targetImage.texture))
                 {
                     _currentTexture = targetImage.texture;
                     _lastTextureRealtime = Time.realtimeSinceStartup;
@@ -373,8 +373,8 @@ namespace WeatherRadar
             }
 
             Vector2 minSize = new Vector2(
-                Mathf.Max(408f, minimumDisplaySize.x),
-                Mathf.Max(288.5f, minimumDisplaySize.y));
+                Mathf.Max(352f, minimumDisplaySize.x),
+                Mathf.Max(352f, minimumDisplaySize.y));
 
             rectTransform.anchorMin = new Vector2(0.5f, 0.5f);
             rectTransform.anchorMax = new Vector2(0.5f, 0.5f);
@@ -430,7 +430,7 @@ namespace WeatherRadar
 
             if (targetImage != null)
             {
-                if (!hasTexture && targetImage.texture == null)
+                if (!hasTexture && !IsRuntimeXPlaneWeatherTexture(targetImage.texture))
                 {
                     targetImage.texture = GetBlackPlaceholder();
                 }
@@ -452,14 +452,22 @@ namespace WeatherRadar
 
             if (sourceLabel != null)
             {
-                sourceLabel.text = weatherProvider != null ? "X-PLANE WX" : "WX SOURCE";
+                sourceLabel.text = weatherProvider is XPlaneOriginalWeatherRadarProvider
+                    ? "XPL WX DATAREFS"
+                    : weatherProvider != null ? "X-PLANE WX" : "WX SOURCE";
             }
 
             if (statusLabel != null)
             {
-                statusLabel.text = hasTexture
-                    ? $"{_currentTexture.width}x{_currentTexture.height}"
-                    : _lastStatus.ToString().ToUpperInvariant();
+                string providerStatus = weatherProvider is XPlaneOriginalWeatherRadarProvider originalProvider
+                    ? originalProvider.LastStatus
+                    : string.Empty;
+                statusLabel.text = !string.IsNullOrWhiteSpace(providerStatus) &&
+                    !providerStatus.StartsWith("Requesting ", System.StringComparison.OrdinalIgnoreCase)
+                    ? providerStatus
+                    : hasTexture
+                        ? $"{_currentTexture.width}x{_currentTexture.height}"
+                        : _lastStatus.ToString().ToUpperInvariant();
             }
 
             if (ageLabel != null)
@@ -519,6 +527,20 @@ namespace WeatherRadar
             });
             _blackPlaceholder.Apply(false, true);
             return _blackPlaceholder;
+        }
+
+        private static bool IsRuntimeXPlaneWeatherTexture(Texture texture)
+        {
+            if (texture == null)
+            {
+                return false;
+            }
+
+            string textureName = texture.name;
+            return !string.IsNullOrEmpty(textureName) &&
+                   (textureName.StartsWith("XPlaneOriginalWeatherRadar", System.StringComparison.OrdinalIgnoreCase) ||
+                    textureName.StartsWith("XPlaneStreamWeatherRadar", System.StringComparison.OrdinalIgnoreCase) ||
+                    textureName.StartsWith("v1/render/weather", System.StringComparison.OrdinalIgnoreCase));
         }
     }
 }

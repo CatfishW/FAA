@@ -377,7 +377,7 @@ namespace WeatherRadar.Editor
                 new Vector2(0, halfSize - 25), TextAlignmentOptions.Center);
 
             // Range label (bottom center, below radar)
-            TMP_Text rangeLabel = CreateTMPLabel(parent, "RangeLabel", "40nm",
+            TMP_Text rangeLabel = CreateTMPLabel(parent, "RangeLabel", "160nm",
                 new Vector2(0, -halfSize - 20), TextAlignmentOptions.Center);
 
             // Tilt label (inside radar, bottom-right area)
@@ -513,7 +513,7 @@ namespace WeatherRadar.Editor
             CreateSectionHeader(controlsObj.transform, "RANGE");
             GameObject rangeRow = CreateControlRow(controlsObj.transform, "RangeRow", 32);
             Button rangeDownBtn = CreateControlButton(rangeRow.transform, "RangeDown", "−", 30);
-            TMP_Text rangeText = CreateValueDisplay(rangeRow.transform, "RangeValue", "40nm", 50);
+            TMP_Text rangeText = CreateValueDisplay(rangeRow.transform, "RangeValue", "160nm", 50);
             Button rangeUpBtn = CreateControlButton(rangeRow.transform, "RangeUp", "+", 30);
 
             // === TILT SECTION ===
