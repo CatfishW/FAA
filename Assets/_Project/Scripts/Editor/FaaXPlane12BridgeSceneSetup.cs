@@ -11,6 +11,7 @@ using FAA.XPlaneIntegration.Runtime;
 using IndicatorSystem.Controller;
 using IndicatorSystem.Core;
 using IndicatorSystem.Integration;
+using TrafficRadar.Core;
 using UnityEditor;
 using UnityEditor.SceneManagement;
 using UnityEngine;
@@ -261,7 +262,7 @@ namespace FAA.Editor
             SetBool(serializedBridge, "pollTraffic", true);
             SetBool(serializedBridge, "pollRenderAssets", true);
             SetFloat(serializedBridge, "renderAssetPollIntervalSeconds", 1f);
-            SetBool(serializedBridge, "publishWeatherDatarefTextureFromStream", true);
+            SetBool(serializedBridge, "publishWeatherDatarefTextureFromStream", false);
             SetFloat(serializedBridge, "streamWeatherTextureIntervalSeconds", 1f);
             SetInt(serializedBridge, "streamWeatherTextureSize", 512);
             SetObject(serializedBridge, "hudController", FindFirstSceneObject(FindType("HUDControl.Core.HUDController")));
@@ -812,18 +813,23 @@ namespace FAA.Editor
             SetInt(weatherSo, "maxWeatherIndicators", 4);
             SetFloat(weatherSo, "updateInterval", 1.5f);
             SetBool(weatherSo, "requirePoweredRadar", true);
-            SetBool(weatherSo, "showPoweredRadarFallback", true);
+            SetBool(weatherSo, "showPoweredRadarFallback", false);
+            SetBool(weatherSo, "useRadarRelativeScreenProjection", true);
             SetFloat(weatherSo, "poweredRadarFallbackDistanceNM", 12f);
             SetFloat(weatherSo, "poweredRadarFallbackRelativeBearing", 35f);
             SetFloat(weatherSo, "indicatorVerticalOffsetMeters", 3f);
             weatherSo.ApplyModifiedPropertiesWithoutUndo();
 
-            TrafficIndicatorBridge trafficBridge = controller.GetComponent<TrafficIndicatorBridge>();
+            TrafficIndicatorBridge trafficBridge = controller.GetComponent<TrafficIndicatorBridge>() ?? controller.gameObject.AddComponent<TrafficIndicatorBridge>();
             if (trafficBridge != null)
             {
                 trafficBridge.enabled = true;
                 SerializedObject trafficSo = new SerializedObject(trafficBridge);
+                SetObject(trafficSo, "trafficRadarController", FindFirstSceneObject<TrafficRadarController>());
                 SetObject(trafficSo, "indicatorController", controller);
+                SetObject(trafficSo, "positionReference", mainCamera != null ? mainCamera.transform : null);
+                SetBool(trafficSo, "syncPositionFromRadar", true);
+                SetBool(trafficSo, "useRadarRelativeScreenProjection", true);
                 trafficSo.ApplyModifiedPropertiesWithoutUndo();
                 EditorUtility.SetDirty(trafficBridge);
             }

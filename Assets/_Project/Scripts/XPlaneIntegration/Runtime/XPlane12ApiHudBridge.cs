@@ -1663,13 +1663,13 @@ namespace FAA.XPlaneIntegration.Runtime
                 trafficRadarDataManager.aircraftList.Add(row);
             }
 
-            trafficRadarDataManager.SetReferencePosition((float)ownLat, (float)ownLon);
-            trafficRadarDataManager.onDataUpdated?.Invoke(_trafficRows);
-
             if (trafficRadarController != null)
             {
                 trafficRadarController.SetOwnPosition(ownLat, ownLon, data.altitudeMSL / MetersToFeet, data.heading);
             }
+
+            trafficRadarDataManager.SetReferencePosition((float)ownLat, (float)ownLon);
+            trafficRadarDataManager.onDataUpdated?.Invoke(_trafficRows);
         }
 
         private void BuildTrafficRows(
