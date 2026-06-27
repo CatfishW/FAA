@@ -39,8 +39,8 @@ namespace FAA.Customization
         [SerializeField] private string trafficRadarRootName = "Traffic Radar System";
 
         [Header("Layout")]
-        [SerializeField] private Vector2 weatherStripSize = new Vector2(430f, 76f);
-        [SerializeField] private Vector2 trafficStripSize = new Vector2(448f, 76f);
+        [SerializeField] private Vector2 weatherStripSize = new Vector2(176f, 44f);
+        [SerializeField] private Vector2 trafficStripSize = new Vector2(226f, 44f);
         [SerializeField] private Vector2 stripOffset = new Vector2(0f, 8f);
         [SerializeField] private bool showOnStart = true;
         [SerializeField] private bool startExpanded;
@@ -474,7 +474,7 @@ namespace FAA.Customization
             if (_weatherExpanded)
             {
                 _weatherExpandText = GetButtonLabel(EnsureButton(primaryRow, "WXExpandToggle", "<", ToggleWeatherExpanded, 24f));
-                _weatherRangeText = EnsureLabel(primaryRow, "WXRangeValue", "WX 40", 58f);
+                _weatherRangeText = EnsureLabel(primaryRow, "WXRangeValue", "WX 160", 58f);
                 EnsureButton(primaryRow, "WXRangeDown", "-", WeatherRangeDown, 30f);
                 EnsureButton(primaryRow, "WXRangeUp", "+", WeatherRangeUp, 30f);
                 _weatherModeText = GetButtonLabel(EnsureButton(primaryRow, "WXModeCycle", "WX", CycleWeatherMode, 48f));
@@ -485,7 +485,7 @@ namespace FAA.Customization
             }
             else
             {
-                _weatherSummaryText = GetButtonLabel(EnsureButton(primaryRow, "WXSummaryToggle", "WX 40NM >", ToggleWeatherExpanded, WeatherCollapsedWidth - 10f));
+                _weatherSummaryText = GetButtonLabel(EnsureButton(primaryRow, "WXSummaryToggle", "WX 160NM >", ToggleWeatherExpanded, WeatherCollapsedWidth - 10f));
                 _weatherExpandText = null;
                 HideUnexpectedRowChildren(primaryRow, "WXSummaryToggle");
             }

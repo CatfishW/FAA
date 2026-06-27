@@ -1,22 +1,24 @@
 using System;
 using System.Collections;
+using System.Globalization;
 using UnityEngine;
 using UnityEngine.Networking;
 
 namespace WeatherRadar
 {
     /// <summary>
-    /// Downloads and publishes X-Plane 12's original weather radar render texture.
-    /// This provider intentionally preserves the source image instead of remapping it
-    /// into a synthetic NEXRAD-style return texture.
+    /// Publishes X-Plane 12 weather radar imagery when the bridge receives an
+    /// original render texture, or a live dataref-driven weather instrument when
+    /// only the NDJSON stream is available.
     /// </summary>
     [AddComponentMenu("Weather Radar/Providers/X-Plane 12 Original Weather Radar Provider")]
     public class XPlaneOriginalWeatherRadarProvider : WeatherRadarProviderBase
     {
-        private const string DefaultRadarTextureUrl = "https://faa.agaii.org/xplane12/v1/render/weather.png";
+        private const string DefaultRadarTextureUrl = "http://127.0.0.1:12678/v1/render/weather.png";
 
         [Header("X-Plane Original Texture")]
         [SerializeField] private string radarTextureUrl = DefaultRadarTextureUrl;
+        [SerializeField] private bool allowHttpTexturePolling = true;
         [SerializeField] private float requestTimeoutSeconds = 2f;
         [SerializeField] private bool cacheBustRequests = true;
         [SerializeField] private bool acceptAllCertificates = false;
@@ -54,10 +56,25 @@ namespace WeatherRadar
                 wrapMode = TextureWrapMode.Clamp,
                 name = "XPlaneOriginalWeatherRadar"
             };
+            radarTexture.SetPixels(new[] { Color.black, Color.black, Color.black, Color.black });
+            radarTexture.Apply(false, true);
         }
 
         protected override void GenerateRadarData()
         {
+            if (!allowHttpTexturePolling)
+            {
+                lastStatus = lastSuccessfulUpdateTime > 0f
+                    ? lastStatus
+                    : "Waiting for X-Plane stream data";
+                if (lastSuccessfulUpdateTime <= 0f)
+                {
+                    SetStatus(ProviderStatus.Connecting);
+                }
+                isGenerating = false;
+                return;
+            }
+
             if (!isActiveAndEnabled)
             {
                 isGenerating = false;
@@ -86,6 +103,11 @@ namespace WeatherRadar
 
         public void PublishTexture(Texture2D texture)
         {
+            PublishTexture(texture, null);
+        }
+
+        public void PublishTexture(Texture2D texture, string statusOverride)
+        {
             if (texture == null)
             {
                 isGenerating = false;
@@ -93,7 +115,9 @@ namespace WeatherRadar
             }
 
             ReplaceRadarTexture(CopyTexture(texture));
-            lastStatus = $"Received {texture.width}x{texture.height}";
+            lastStatus = string.IsNullOrWhiteSpace(statusOverride)
+                ? $"Received {texture.width}x{texture.height}"
+                : statusOverride.Trim();
             SetStatus(ProviderStatus.Active);
             NotifyDataUpdated();
         }
@@ -142,6 +166,7 @@ namespace WeatherRadar
         private string BuildRequestUrl()
         {
             string url = string.IsNullOrWhiteSpace(radarTextureUrl) ? DefaultRadarTextureUrl : radarTextureUrl.Trim();
+            url = AppendQueryParameter(url, "range_nm", Mathf.Clamp(RangeNM, 5f, 320f).ToString("0", CultureInfo.InvariantCulture));
             if (!cacheBustRequests)
             {
                 return url;
@@ -149,6 +174,17 @@ namespace WeatherRadar
 
             string separator = url.Contains("?") ? "&" : "?";
             return $"{url}{separator}t={DateTimeOffset.UtcNow.ToUnixTimeMilliseconds()}";
+        }
+
+        private static string AppendQueryParameter(string url, string key, string value)
+        {
+            if (url.IndexOf(key + "=", StringComparison.OrdinalIgnoreCase) >= 0)
+            {
+                return url;
+            }
+
+            string separator = url.Contains("?") ? "&" : "?";
+            return $"{url}{separator}{key}={value}";
         }
 
         private void ReplaceRadarTexture(Texture2D replacement)

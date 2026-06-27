@@ -28,13 +28,10 @@ namespace FAA.Customization
             "window",
             "container",
             "placeholder",
-            "image",
-            "rawimage",
             "radarreturns",
             "rangerings",
             "sweepline",
-            "readout",
-            "readoutimage"
+            "rawimage"
         };
 
         private static readonly string[] UiChromePathFragments =
@@ -111,12 +108,14 @@ namespace FAA.Customization
             }
 
             string path = GetHierarchyPath(image.transform);
-            if (HasExcludedPathFragment(path, excludedPathFragments))
+            bool isScreenHud = path.Contains("/faasymbologycanvas/second interation gui/");
+
+            if (!isScreenHud && HasExcludedPathFragment(path, excludedPathFragments))
             {
                 return false;
             }
 
-            if (HasFragment(path, UiChromePathFragments))
+            if (!isScreenHud && HasFragment(path, UiChromePathFragments))
             {
                 return false;
             }
@@ -127,10 +126,6 @@ namespace FAA.Customization
             }
 
             string lowerName = image.name.ToLowerInvariant();
-            if (HasFragment(lowerName, UiChromeNameFragments))
-            {
-                return false;
-            }
 
             Rect rect = image.rectTransform != null ? image.rectTransform.rect : Rect.zero;
             float width = Mathf.Abs(rect.width);
@@ -145,16 +140,46 @@ namespace FAA.Customization
             float effectiveHeight = height * Mathf.Max(lossyScaleY, 0.0001f);
             bool isHugeInWorld = effectiveWidth >= 120f && effectiveHeight >= 120f;
             bool isLargeSolidImage = hasUsableRect && width >= 16f && height >= 16f && image.sprite == null && !isThinLine;
-            bool isScreenHudSpriteSymbology = image.sprite != null &&
-                path.Contains("/faasymbologycanvas/second interation gui/") &&
-                HasFragment(lowerName, SymbologyNameFragments);
+            bool isScreenHudSpriteSymbology = image.sprite != null && isScreenHud &&
+                (HasFragment(lowerName, SymbologyNameFragments) ||
+                 lowerName.Contains("readout") ||
+                 lowerName.Contains("window") ||
+                 lowerName.Contains("frame") ||
+                 lowerName.Contains("indicator"));
+            bool isGeneratedCompassGraphic = isScreenHud &&
+                path.Contains("/heading panel/compass bar generated/") &&
+                (lowerName.Contains("tick") || lowerName.Contains("background"));
+            bool isScreenHudImageSymbology = isScreenHud &&
+                (image.sprite != null ||
+                 isThinLine ||
+                 isScreenHudSpriteSymbology ||
+                 isGeneratedCompassGraphic ||
+                 HasFragment(lowerName, SymbologyNameFragments) ||
+                 lowerName.Contains("readout") ||
+                 lowerName.Contains("window") ||
+                 lowerName.Contains("frame") ||
+                 lowerName.Contains("indicator"));
 
-            if (isLargeSolidImage || (isHugeInWorld && !isScreenHudSpriteSymbology))
+            if (HasFragment(lowerName, UiChromeNameFragments) && !isScreenHudImageSymbology)
             {
                 return false;
             }
 
-            return isThinLine || isScreenHudSpriteSymbology || HasFragment(lowerName, SymbologyNameFragments);
+            if (isLargeSolidImage && !isScreenHudImageSymbology)
+            {
+                return false;
+            }
+
+            if (isHugeInWorld && !isScreenHudImageSymbology)
+            {
+                return false;
+            }
+
+            return isScreenHudImageSymbology ||
+                   isThinLine ||
+                   isScreenHudSpriteSymbology ||
+                   isGeneratedCompassGraphic ||
+                   HasFragment(lowerName, SymbologyNameFragments);
         }
 
         public static bool ShouldTintText(Transform textTransform, IList<string> excludedPathFragments = null)
@@ -165,6 +190,11 @@ namespace FAA.Customization
             }
 
             string path = GetHierarchyPath(textTransform);
+            if (path.Contains("/second interation gui/"))
+            {
+                return true;
+            }
+
             if (HasExcludedPathFragment(path, excludedPathFragments))
             {
                 return false;
@@ -173,11 +203,6 @@ namespace FAA.Customization
             if (HasFragment(path, DefaultTextChromePathFragments))
             {
                 return false;
-            }
-
-            if (path.Contains("/second interation gui/"))
-            {
-                return true;
             }
 
             return path.Contains("/maskcanvas/") ||
@@ -311,7 +336,6 @@ namespace FAA.Customization
             "vc",
             "minimap",
             "compassnavigatorpro",
-            "panel",
             "button",
             "toggle",
             "header",
@@ -321,8 +345,7 @@ namespace FAA.Customization
             "scalemasker",
             "radarreturns",
             "rangerings",
-            "sweepline",
-            "readoutimage"
+            "sweepline"
         };
         
         [Header("Debug")]
@@ -501,7 +524,7 @@ namespace FAA.Customization
             {
                 if (txt != null)
                 {
-                    txt.color = BuildTintColor(color, GetBaseColor(txt));
+                    ApplyTMPTextColor(txt, BuildTintColor(color, GetBaseColor(txt)));
                 }
             }
             
@@ -509,7 +532,7 @@ namespace FAA.Customization
             {
                 if (txt != null)
                 {
-                    txt.color = BuildTintColor(color, GetBaseColor(txt));
+                    ApplyLegacyTextColor(txt, BuildTintColor(color, GetBaseColor(txt)));
                 }
             }
             
@@ -552,7 +575,7 @@ namespace FAA.Customization
             {
                 if (txt != null)
                 {
-                    txt.color = BuildTintColor(_currentColor, GetBaseColor(txt), opacity);
+                    ApplyTMPTextColor(txt, BuildTintColor(_currentColor, GetBaseColor(txt), opacity));
                 }
             }
             
@@ -560,7 +583,7 @@ namespace FAA.Customization
             {
                 if (txt != null)
                 {
-                    txt.color = BuildTintColor(_currentColor, GetBaseColor(txt), opacity);
+                    ApplyLegacyTextColor(txt, BuildTintColor(_currentColor, GetBaseColor(txt), opacity));
                 }
             }
             
@@ -674,6 +697,12 @@ namespace FAA.Customization
         
         private bool IsUnderExceptionParent(Transform t)
         {
+            string path = SymbologyTintUtility.GetHierarchyPath(t);
+            if (path.Contains("/faasymbologycanvas/second interation gui/"))
+            {
+                return false;
+            }
+
             foreach (var parent in exceptionParents)
             {
                 if (parent == null) continue;
@@ -726,6 +755,89 @@ namespace FAA.Customization
         {
             return SymbologyTintUtility.BuildTintColor(tint, baseColor, preserveElementAlpha, opacityMultiplier);
         }
+
+        private static void ApplyTMPTextColor(TMP_Text text, Color color)
+        {
+            if (text == null)
+            {
+                return;
+            }
+
+            if (text.font == null && TMP_Settings.defaultFontAsset != null)
+            {
+                text.font = TMP_Settings.defaultFontAsset;
+            }
+
+            text.color = color;
+            text.enableVertexGradient = false;
+            Color outline = color;
+            outline.a *= 0.62f;
+            if (text.fontSharedMaterial != null)
+            {
+                text.faceColor = color;
+                text.outlineColor = outline;
+            }
+
+            text.raycastTarget = false;
+            text.canvasRenderer.SetColor(color);
+            text.ForceMeshUpdate(true, true);
+
+#if UNITY_EDITOR
+            if (!Application.isPlaying)
+            {
+                SerializedObject serializedText = new SerializedObject(text);
+                ApplySerializedColor(serializedText, "m_Color", color);
+                ApplySerializedColor(serializedText, "m_fontColor", color);
+                ApplySerializedColor(serializedText, "m_faceColor", color);
+                ApplySerializedColor(serializedText, "m_outlineColor", outline);
+                ApplySerializedBool(serializedText, "m_enableVertexGradient", false);
+                serializedText.ApplyModifiedPropertiesWithoutUndo();
+                EditorUtility.SetDirty(text);
+            }
+#endif
+        }
+
+        private static void ApplyLegacyTextColor(Text text, Color color)
+        {
+            if (text == null)
+            {
+                return;
+            }
+
+            text.color = color;
+            text.raycastTarget = false;
+            text.canvasRenderer.SetColor(color);
+
+#if UNITY_EDITOR
+            if (!Application.isPlaying)
+            {
+                SerializedObject serializedText = new SerializedObject(text);
+                ApplySerializedColor(serializedText, "m_Color", color);
+                serializedText.ApplyModifiedPropertiesWithoutUndo();
+                EditorUtility.SetDirty(text);
+            }
+#endif
+        }
+
+#if UNITY_EDITOR
+        private static void ApplySerializedColor(SerializedObject serializedObject, string propertyName, Color value)
+        {
+            SerializedProperty property = serializedObject.FindProperty(propertyName);
+            if (property != null && property.propertyType == SerializedPropertyType.Color)
+            {
+                property.colorValue = value;
+            }
+        }
+
+        private static void ApplySerializedBool(SerializedObject serializedObject, string propertyName, bool value)
+        {
+            SerializedProperty property = serializedObject.FindProperty(propertyName);
+            if (property != null && property.propertyType == SerializedPropertyType.Boolean)
+            {
+                property.boolValue = value;
+            }
+        }
+#endif
 
         private void PruneDestroyedBaseColors()
         {
@@ -811,7 +923,7 @@ namespace FAA.Customization
                 {
                     if (_cachedTexts[i] != null)
                     {
-                        _cachedTexts[i].color = BuildTintColor(currentLerpColor, GetBaseColor(_cachedTexts[i]));
+                        ApplyTMPTextColor(_cachedTexts[i], BuildTintColor(currentLerpColor, GetBaseColor(_cachedTexts[i])));
                     }
                 }
                 
@@ -819,7 +931,7 @@ namespace FAA.Customization
                 {
                     if (_cachedStandardTexts[i] != null)
                     {
-                        _cachedStandardTexts[i].color = BuildTintColor(currentLerpColor, GetBaseColor(_cachedStandardTexts[i]));
+                        ApplyLegacyTextColor(_cachedStandardTexts[i], BuildTintColor(currentLerpColor, GetBaseColor(_cachedStandardTexts[i])));
                     }
                 }
                 
