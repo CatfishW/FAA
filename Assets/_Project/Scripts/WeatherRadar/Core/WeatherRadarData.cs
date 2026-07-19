@@ -31,7 +31,7 @@ namespace WeatherRadar
 
         [Header("Range Settings")]
         [Tooltip("Current range in nautical miles")]
-        public float currentRange = 40f;
+        public float currentRange = 160f;
         
         [Tooltip("Available range options")]
         public static readonly float[] RangeOptions = { 5f, 10f, 20f, 40f, 80f, 160f, 320f };
@@ -87,7 +87,7 @@ namespace WeatherRadar
                 if (Mathf.Approximately(currentRange, RangeOptions[i]))
                     return i;
             }
-            return 3; // Default to 40nm
+            return 5; // Default to 160nm
         }
 
         /// <summary>
@@ -143,7 +143,7 @@ namespace WeatherRadar
             sweepAngle = 0f;
             isScanning = true;
             scanDirection = 1;
-            currentRange = 40f;
+            currentRange = 160f;
             tiltAngle = 0f;
             gainOffset = 0f;
             currentMode = RadarMode.WX;

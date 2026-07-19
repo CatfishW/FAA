@@ -63,27 +63,49 @@ namespace AviationUI
         [Tooltip("Engine 1 torque percentage")]
         [Range(0f, 150f)]
         public float engine1Torque;
+
+        public bool engine1TorqueValid;
         
-        [Tooltip("Engine 1 rotor RPM percentage")]
+        [Tooltip("Engine 1 N2 RPM percentage")]
         [Range(0f, 120f)]
         public float engine1NR;
+
+        public bool engine1NRValid;
         
         [Tooltip("Engine 1 gas generator RPM percentage")]
         [Range(0f, 120f)]
         public float engine1NG;
 
+        public bool engine1NGValid;
+
         [Header("Engine 2")]
         [Tooltip("Engine 2 torque percentage")]
         [Range(0f, 150f)]
         public float engine2Torque;
+
+        public bool engine2TorqueValid;
         
-        [Tooltip("Engine 2 rotor RPM percentage")]
+        [Tooltip("Engine 2 N2 RPM percentage")]
         [Range(0f, 120f)]
         public float engine2NR;
+
+        public bool engine2NRValid;
         
         [Tooltip("Engine 2 gas generator RPM percentage")]
         [Range(0f, 120f)]
         public float engine2NG;
+
+        public bool engine2NGValid;
+
+        [Header("Common Rotor / Propeller")]
+        [Tooltip("Primary propeller or rotor speed as a percentage of the aircraft redline")]
+        [Range(0f, 120f)]
+        public float rotorNR;
+
+        public bool rotorNRValid;
+
+        [Tooltip("Number of engines reported by X-Plane")]
+        public int engineCount;
 
         [Header("Wind")]
         [Tooltip("Wind direction in degrees")]
@@ -146,6 +168,15 @@ namespace AviationUI
                 engine2Torque = Mathf.Lerp(a.engine2Torque, b.engine2Torque, t),
                 engine2NR = Mathf.Lerp(a.engine2NR, b.engine2NR, t),
                 engine2NG = Mathf.Lerp(a.engine2NG, b.engine2NG, t),
+                rotorNR = Mathf.Lerp(a.rotorNR, b.rotorNR, t),
+                engine1TorqueValid = t < 0.5f ? a.engine1TorqueValid : b.engine1TorqueValid,
+                engine2TorqueValid = t < 0.5f ? a.engine2TorqueValid : b.engine2TorqueValid,
+                engine1NRValid = t < 0.5f ? a.engine1NRValid : b.engine1NRValid,
+                engine2NRValid = t < 0.5f ? a.engine2NRValid : b.engine2NRValid,
+                engine1NGValid = t < 0.5f ? a.engine1NGValid : b.engine1NGValid,
+                engine2NGValid = t < 0.5f ? a.engine2NGValid : b.engine2NGValid,
+                rotorNRValid = t < 0.5f ? a.rotorNRValid : b.rotorNRValid,
+                engineCount = t < 0.5f ? a.engineCount : b.engineCount,
                 windDirection = Mathf.LerpAngle(a.windDirection, b.windDirection, t),
                 windSpeed = Mathf.Lerp(a.windSpeed, b.windSpeed, t),
                 flightPathAngle = Mathf.Lerp(a.flightPathAngle, b.flightPathAngle, t),
@@ -181,6 +212,15 @@ namespace AviationUI
             engine2Torque = 0f;
             engine2NR = 0f;
             engine2NG = 0f;
+            rotorNR = 0f;
+            engineCount = 0;
+            engine1TorqueValid = false;
+            engine2TorqueValid = false;
+            engine1NRValid = false;
+            engine2NRValid = false;
+            engine1NGValid = false;
+            engine2NGValid = false;
+            rotorNRValid = false;
             windDirection = 0f;
             windSpeed = 0f;
             flightPathAngle = 0f;

@@ -5,7 +5,7 @@ namespace HUDControl.Elements
 {
     /// <summary>
     /// Torque Panel element for Image-based HUD.
-    /// Animates dual engine torque pointers with strict bounds.
+    /// Animates dual engine torque pointers along the authored vertical bar scale.
     /// </summary>
     [AddComponentMenu("HUD Control/Elements/Torque Panel")]
     public class TorquePanelElement : Core.HUDElementBase
@@ -37,20 +37,24 @@ namespace HUDControl.Elements
         
         #region Inspector - Bounds
         
-        [Header("Torque Bounds")]
-        [Tooltip("Minimum torque rotation angle")]
-        [SerializeField] private float minRotationAngle = 0f;
+        [Header("Torque Bar Calibration")]
+        [Tooltip("Anchored Y position representing zero torque")]
+        [SerializeField] private float pointerMinimumY = 0.004f;
+
+        [Tooltip("Vertical pointer travel from zero to maximum torque")]
+        [SerializeField] private float pointerTravelY = 0.24f;
         
-        [Tooltip("Maximum torque rotation angle")]
-        [SerializeField] private float maxRotationAngle = 90f;
-        
-        [Tooltip("Max torque value (100% = this rotation)")]
-        [SerializeField] private float maxTorquePercent = 100f;
+        [Tooltip("Maximum torque percentage represented at the top of the bar")]
+        [SerializeField] private float maxTorquePercent = 120f;
         
         #endregion
         
         private float displayedTorqueL;
         private float displayedTorqueR;
+        private float targetTorqueL;
+        private float targetTorqueR;
+        private bool hasExternalTorqueL;
+        private bool hasExternalTorqueR;
         
         public override string ElementId => "TorquePanel";
         
@@ -58,40 +62,131 @@ namespace HUDControl.Elements
         {
             displayedTorqueL = 0f;
             displayedTorqueR = 0f;
+            targetTorqueL = 0f;
+            targetTorqueR = 0f;
+            if (!simulateFromThrottle)
+            {
+                SetPointerAvailable(torquePointerL, false);
+                SetPointerAvailable(torquePointerR, false);
+            }
+            ApplyPointerPositions();
         }
         
         protected override void OnUpdateElement(AircraftState state)
         {
             if (!enableAnimation) return;
             
-            // Get torque values (simulated from throttle or external)
-            float targetL = simulateFromThrottle ? (state.ThrottlePercent / 100f) * maxTorquePercent : 0f;
-            float targetR = simulateFromThrottle ? (state.ThrottlePercent / 100f) * maxTorquePercent : 0f;
+            float targetL = simulateFromThrottle
+                ? (state.ThrottlePercent / 100f) * maxTorquePercent
+                : targetTorqueL;
+            float targetR = simulateFromThrottle
+                ? (state.ThrottlePercent / 100f) * maxTorquePercent
+                : targetTorqueR;
             
             displayedTorqueL = Core.HUDAnimator.SmoothValue(displayedTorqueL, targetL, smoothing);
             displayedTorqueR = Core.HUDAnimator.SmoothValue(displayedTorqueR, targetR, smoothing);
             
-            // Calculate rotation with bounds
-            float rotL = Mathf.Lerp(minRotationAngle, maxRotationAngle, displayedTorqueL / maxTorquePercent);
-            float rotR = Mathf.Lerp(minRotationAngle, maxRotationAngle, displayedTorqueR / maxTorquePercent);
-            
-            rotL = Mathf.Clamp(rotL, minRotationAngle, maxRotationAngle);
-            rotR = Mathf.Clamp(rotR, minRotationAngle, maxRotationAngle);
-            
-            if (torquePointerL != null)
-                torquePointerL.localRotation = Quaternion.Euler(0, 0, -rotL);
-            if (torquePointerR != null)
-                torquePointerR.localRotation = Quaternion.Euler(0, 0, rotR);
+            ApplyPointerPositions();
         }
         
         public void SetTorque(float leftPercent, float rightPercent)
         {
+            SetTorqueData(leftPercent, true, rightPercent, true);
+        }
+
+        public void SetTorqueData(float leftPercent, bool leftValid, float rightPercent, bool rightValid)
+        {
             simulateFromThrottle = false;
-            displayedTorqueL = Mathf.Clamp(leftPercent, 0f, maxTorquePercent);
-            displayedTorqueR = Mathf.Clamp(rightPercent, 0f, maxTorquePercent);
+            if (leftValid)
+            {
+                targetTorqueL = Mathf.Clamp(leftPercent, 0f, maxTorquePercent);
+                displayedTorqueL = targetTorqueL;
+                hasExternalTorqueL = true;
+            }
+
+            if (rightValid)
+            {
+                targetTorqueR = Mathf.Clamp(rightPercent, 0f, maxTorquePercent);
+                displayedTorqueR = targetTorqueR;
+                hasExternalTorqueR = true;
+            }
+
+            SetPointerAvailable(torquePointerL, leftValid || hasExternalTorqueL);
+            SetPointerAvailable(torquePointerR, rightValid || hasExternalTorqueR);
+            ApplyPointerPositions();
+        }
+
+        public void ConfigurePointers(RectTransform left, RectTransform right, RectTransform frame)
+        {
+            torquePointerL = left;
+            torquePointerR = right;
+            torqueFrame = frame;
+            ApplyPointerPositions();
+        }
+
+        public void SetEngineCount(int engineCount)
+        {
+            if (engineCount <= 0)
+            {
+                ClearExternalData();
+                return;
+            }
+
+            if (engineCount == 1)
+            {
+                ClearRightChannel();
+            }
+        }
+
+        public void ClearExternalData()
+        {
+            simulateFromThrottle = false;
+            targetTorqueL = displayedTorqueL = 0f;
+            targetTorqueR = displayedTorqueR = 0f;
+            hasExternalTorqueL = false;
+            hasExternalTorqueR = false;
+            SetPointerAvailable(torquePointerL, false);
+            SetPointerAvailable(torquePointerR, false);
+            ApplyPointerPositions();
+        }
+
+        private void ClearRightChannel()
+        {
+            targetTorqueR = displayedTorqueR = 0f;
+            hasExternalTorqueR = false;
+            SetPointerAvailable(torquePointerR, false);
+            ApplyPointerPosition(torquePointerR, displayedTorqueR);
+        }
+
+        private void ApplyPointerPositions()
+        {
+            ApplyPointerPosition(torquePointerL, displayedTorqueL);
+            ApplyPointerPosition(torquePointerR, displayedTorqueR);
+        }
+
+        private void ApplyPointerPosition(RectTransform pointer, float torquePercent)
+        {
+            if (pointer == null)
+            {
+                return;
+            }
+
+            Vector2 anchored = pointer.anchoredPosition;
+            anchored.y = pointerMinimumY + Mathf.Clamp01(torquePercent / Mathf.Max(1f, maxTorquePercent)) * pointerTravelY;
+            pointer.anchoredPosition = anchored;
+        }
+
+        private static void SetPointerAvailable(RectTransform pointer, bool available)
+        {
+            if (pointer != null && pointer.gameObject.activeSelf != available)
+            {
+                pointer.gameObject.SetActive(available);
+            }
         }
         
         public float GetDisplayedTorqueL() => displayedTorqueL;
         public float GetDisplayedTorqueR() => displayedTorqueR;
+        public float GetTargetTorqueL() => targetTorqueL;
+        public float GetTargetTorqueR() => targetTorqueR;
     }
 }

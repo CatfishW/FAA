@@ -11,6 +11,9 @@ namespace WeatherRadar
     [AddComponentMenu("Weather Radar/Display/X-Plane Original Weather Radar Display")]
     public class XPlaneOriginalWeatherRadarDisplay : MonoBehaviour
     {
+        private const string SweepOverlayName = "XPlaneWeatherSweepOverlay";
+        private const float DefaultTextureAspect = 724f / 512f;
+
         [Header("References")]
         [SerializeField] private WeatherRadarProviderBase weatherProvider;
         [SerializeField] private WeatherRadarDataProvider dataProvider;
@@ -35,8 +38,8 @@ namespace WeatherRadar
         [SerializeField] private float emptyRefreshDelaySeconds = 0.75f;
         [SerializeField] private float staleRefreshDelaySeconds = 3f;
         [SerializeField] private bool keepTextureVisibleWhenRadarOff = true;
-        [SerializeField] private Vector2 minimumDisplaySize = new Vector2(408f, 288.5f);
-        [SerializeField] private bool showReferenceOverlay = false;
+        [SerializeField] private Vector2 minimumDisplaySize = new Vector2(352f, 352f);
+        [SerializeField] private bool showReferenceOverlay = true;
 
         private Texture _currentTexture;
         private float _lastTextureRealtime = -1f;
@@ -48,6 +51,7 @@ namespace WeatherRadar
         private Texture2D _blackPlaceholder;
         private float _nextLabelRefreshRealtime;
         private bool _layerOrderDirty = true;
+        private XPlaneWeatherRadarSweepOverlay _sweepOverlay;
 
         public RawImage TargetImage => targetImage;
         public Texture CurrentTexture => _currentTexture;
@@ -59,6 +63,7 @@ namespace WeatherRadar
         public bool HasRadarPowerState => _hasRadarPowerState;
         public bool IsRadarPowered => _isRadarPowered;
         public int RadarMode => _radarMode;
+        public XPlaneWeatherRadarSweepOverlay SweepOverlay => _sweepOverlay;
         public bool ShowReferenceOverlay
         {
             get => showReferenceOverlay;
@@ -76,6 +81,10 @@ namespace WeatherRadar
 
         private void Awake()
         {
+            // Existing scenes serialized this off while the overlay was still a
+            // diagnostic layer. It is now the primary aircraft reference layer;
+            // controls can still toggle it after initialization.
+            showReferenceOverlay = true;
             AutoFindReferences();
             ApplyInitialVisualState();
         }
@@ -144,11 +153,16 @@ namespace WeatherRadar
         public void SetDataProvider(WeatherRadarDataProvider provider)
         {
             dataProvider = provider;
+            if (_sweepOverlay != null)
+            {
+                _sweepOverlay.Configure(targetImage, this, dataProvider);
+            }
         }
 
         public void SetTargetImage(RawImage image)
         {
             targetImage = image;
+            EnsureSweepOverlay();
             if (targetImage != null && _currentTexture != null)
             {
                 EnsureVisibleDisplayRect();
@@ -209,6 +223,8 @@ namespace WeatherRadar
                 aspectRatioFitter.aspectRatio = texture.width / (float)texture.height;
             }
 
+            EnsureSweepOverlay();
+
             if (dataProvider != null)
             {
                 dataProvider.UpdateRadarTexture(texture);
@@ -239,7 +255,11 @@ namespace WeatherRadar
                 aspectRatioFitter = targetImage.GetComponent<AspectRatioFitter>();
             }
 
+            // X-Plane's native render is a 724x512 sector. Square-stretching it
+            // distorts bearings and weather cells, so runtime always preserves it.
+            preserveAspectRatio = true;
             EnsureVisibleDisplayRect();
+            EnsureSweepOverlay();
             _layerOrderDirty = true;
         }
 
@@ -264,6 +284,11 @@ namespace WeatherRadar
             }
 
             Transform overlay = textureTransform.Find("FAAReferenceOverlay");
+            if (_sweepOverlay != null)
+            {
+                _sweepOverlay.transform.SetAsLastSibling();
+            }
+
             if (overlay != null)
             {
                 ApplyReferenceOverlayVisibility(overlay);
@@ -342,7 +367,7 @@ namespace WeatherRadar
             if (targetImage != null)
             {
                 EnsureVisibleDisplayRect();
-                if (targetImage.texture != null)
+                if (IsRuntimeXPlaneWeatherTexture(targetImage.texture))
                 {
                     _currentTexture = targetImage.texture;
                     _lastTextureRealtime = Time.realtimeSinceStartup;
@@ -372,16 +397,92 @@ namespace WeatherRadar
                 return;
             }
 
-            Vector2 minSize = new Vector2(
-                Mathf.Max(408f, minimumDisplaySize.x),
-                Mathf.Max(288.5f, minimumDisplaySize.y));
+            Vector2 displayBounds = new Vector2(
+                Mathf.Max(128f, minimumDisplaySize.x),
+                Mathf.Max(128f, minimumDisplaySize.y));
+            float aspect = GetSourceTextureAspect();
+            Vector2 fittedSize = CalculateAspectFitSize(displayBounds, aspect);
 
             rectTransform.anchorMin = new Vector2(0.5f, 0.5f);
             rectTransform.anchorMax = new Vector2(0.5f, 0.5f);
             rectTransform.pivot = new Vector2(0.5f, 0.5f);
             rectTransform.anchoredPosition = new Vector2(0f, 2f);
-            rectTransform.sizeDelta = minSize;
+            rectTransform.sizeDelta = fittedSize;
             rectTransform.localScale = Vector3.one;
+
+            if (aspectRatioFitter != null)
+            {
+                // The size is fitted explicitly so it stays deterministic even
+                // under parent layout groups and while the texture is refreshing.
+                aspectRatioFitter.aspectRatio = aspect;
+                aspectRatioFitter.aspectMode = AspectRatioFitter.AspectMode.None;
+                aspectRatioFitter.enabled = false;
+            }
+        }
+
+        public static Vector2 CalculateAspectFitSize(Vector2 bounds, float aspect)
+        {
+            float width = Mathf.Max(1f, bounds.x);
+            float height = Mathf.Max(1f, bounds.y);
+            float safeAspect = Mathf.Max(0.01f, aspect);
+
+            float fittedWidth = width;
+            float fittedHeight = fittedWidth / safeAspect;
+            if (fittedHeight > height)
+            {
+                fittedHeight = height;
+                fittedWidth = fittedHeight * safeAspect;
+            }
+
+            return new Vector2(fittedWidth, fittedHeight);
+        }
+
+        private float GetSourceTextureAspect()
+        {
+            Texture texture = _currentTexture != null
+                ? _currentTexture
+                : targetImage != null ? targetImage.texture : null;
+            return texture != null && texture.height > 0
+                ? texture.width / (float)texture.height
+                : DefaultTextureAspect;
+        }
+
+        private void EnsureSweepOverlay()
+        {
+            if (!Application.isPlaying || targetImage == null)
+            {
+                return;
+            }
+
+            if (_sweepOverlay == null)
+            {
+                Transform existing = targetImage.transform.Find(SweepOverlayName);
+                GameObject overlayObject;
+                if (existing != null)
+                {
+                    overlayObject = existing.gameObject;
+                }
+                else
+                {
+                    overlayObject = new GameObject(
+                        SweepOverlayName,
+                        typeof(RectTransform),
+                        typeof(CanvasRenderer),
+                        typeof(RawImage));
+                    overlayObject.layer = targetImage.gameObject.layer;
+                    overlayObject.transform.SetParent(targetImage.transform, false);
+                }
+
+                RawImage image = overlayObject.GetComponent<RawImage>() ?? overlayObject.AddComponent<RawImage>();
+                image.texture = Texture2D.whiteTexture;
+                image.color = Color.white;
+                image.raycastTarget = false;
+                _sweepOverlay = overlayObject.GetComponent<XPlaneWeatherRadarSweepOverlay>() ??
+                                overlayObject.AddComponent<XPlaneWeatherRadarSweepOverlay>();
+            }
+
+            _sweepOverlay.Configure(targetImage, this, dataProvider);
+            _layerOrderDirty = true;
         }
 
         private void Subscribe()
@@ -430,7 +531,7 @@ namespace WeatherRadar
 
             if (targetImage != null)
             {
-                if (!hasTexture && targetImage.texture == null)
+                if (!hasTexture && !IsRuntimeXPlaneWeatherTexture(targetImage.texture))
                 {
                     targetImage.texture = GetBlackPlaceholder();
                 }
@@ -452,14 +553,22 @@ namespace WeatherRadar
 
             if (sourceLabel != null)
             {
-                sourceLabel.text = weatherProvider != null ? "X-PLANE WX" : "WX SOURCE";
+                sourceLabel.text = weatherProvider is XPlaneOriginalWeatherRadarProvider
+                    ? "XPL WX LIVE"
+                    : weatherProvider != null ? "X-PLANE WX" : "WX SOURCE";
             }
 
             if (statusLabel != null)
             {
-                statusLabel.text = hasTexture
-                    ? $"{_currentTexture.width}x{_currentTexture.height}"
-                    : _lastStatus.ToString().ToUpperInvariant();
+                string providerStatus = weatherProvider is XPlaneOriginalWeatherRadarProvider originalProvider
+                    ? originalProvider.LastStatus
+                    : string.Empty;
+                statusLabel.text = !string.IsNullOrWhiteSpace(providerStatus) &&
+                    !providerStatus.StartsWith("Requesting ", System.StringComparison.OrdinalIgnoreCase)
+                    ? providerStatus
+                    : hasTexture
+                        ? $"{_currentTexture.width}x{_currentTexture.height}"
+                        : _lastStatus.ToString().ToUpperInvariant();
             }
 
             if (ageLabel != null)
@@ -519,6 +628,20 @@ namespace WeatherRadar
             });
             _blackPlaceholder.Apply(false, true);
             return _blackPlaceholder;
+        }
+
+        private static bool IsRuntimeXPlaneWeatherTexture(Texture texture)
+        {
+            if (texture == null)
+            {
+                return false;
+            }
+
+            string textureName = texture.name;
+            return !string.IsNullOrEmpty(textureName) &&
+                   (textureName.StartsWith("XPlaneOriginalWeatherRadar", System.StringComparison.OrdinalIgnoreCase) ||
+                    textureName.StartsWith("XPlaneStreamWeatherRadar", System.StringComparison.OrdinalIgnoreCase) ||
+                    textureName.StartsWith("v1/render/weather", System.StringComparison.OrdinalIgnoreCase));
         }
     }
 }

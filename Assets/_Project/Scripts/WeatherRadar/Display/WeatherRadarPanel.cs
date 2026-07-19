@@ -382,7 +382,7 @@ namespace WeatherRadar
 
             if (radarDisplay != null)
             {
-                ConfigureOriginalTextureRect(radarDisplay.rectTransform);
+                ConfigureOriginalTextureRect(radarDisplay.rectTransform, weatherTexture);
                 radarDisplay.texture = weatherTexture;
                 radarDisplay.color = Color.white;
                 radarDisplay.enabled = true;
@@ -402,7 +402,7 @@ namespace WeatherRadar
                     continue;
                 }
 
-                ConfigureOriginalTextureRect(rawImage.rectTransform);
+                ConfigureOriginalTextureRect(rawImage.rectTransform, weatherTexture);
                 rawImage.texture = weatherTexture;
                 rawImage.color = Color.white;
                 rawImage.enabled = true;
@@ -430,7 +430,7 @@ namespace WeatherRadar
                 rawImage.enabled = true;
                 rawImage.color = Color.white;
                 rawImage.raycastTarget = false;
-                ConfigureOriginalTextureRect(rawImage.rectTransform);
+                ConfigureOriginalTextureRect(rawImage.rectTransform, rawImage.texture);
                 textureTransform = rawImage.rectTransform;
             }
 
@@ -440,17 +440,20 @@ namespace WeatherRadar
                 Transform overlay = textureTransform.Find("FAAReferenceOverlay");
                 if (overlay != null)
                 {
-                    overlay.gameObject.SetActive(false);
+                    XPlaneOriginalWeatherRadarDisplay display =
+                        textureTransform.GetComponent<XPlaneOriginalWeatherRadarDisplay>();
+                    bool showOverlay = display == null || display.ShowReferenceOverlay;
+                    overlay.gameObject.SetActive(showOverlay);
                     XPlaneWeatherRadarOverlay referenceOverlay = overlay.GetComponent<XPlaneWeatherRadarOverlay>();
                     if (referenceOverlay != null)
                     {
-                        referenceOverlay.enabled = false;
+                        referenceOverlay.enabled = showOverlay;
                     }
 
                     RawImage overlayImage = overlay.GetComponent<RawImage>();
                     if (overlayImage != null)
                     {
-                        overlayImage.enabled = false;
+                        overlayImage.enabled = showOverlay;
                         overlayImage.raycastTarget = false;
                     }
                 }
@@ -462,7 +465,7 @@ namespace WeatherRadar
             BringLabelToFront(gainLabel);
         }
 
-        private static void ConfigureOriginalTextureRect(RectTransform rectTransform)
+        private static void ConfigureOriginalTextureRect(RectTransform rectTransform, Texture texture)
         {
             if (rectTransform == null)
             {
@@ -473,7 +476,12 @@ namespace WeatherRadar
             rectTransform.anchorMax = new Vector2(0.5f, 0.5f);
             rectTransform.pivot = new Vector2(0.5f, 0.5f);
             rectTransform.anchoredPosition = new Vector2(0f, 2f);
-            rectTransform.sizeDelta = new Vector2(408f, 288.5f);
+            float aspect = texture != null && texture.height > 0
+                ? texture.width / (float)texture.height
+                : 724f / 512f;
+            rectTransform.sizeDelta = XPlaneOriginalWeatherRadarDisplay.CalculateAspectFitSize(
+                new Vector2(352f, 352f),
+                aspect);
             rectTransform.localScale = Vector3.one;
         }
 

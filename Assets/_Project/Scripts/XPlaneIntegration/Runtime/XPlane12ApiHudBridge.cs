@@ -21,6 +21,7 @@ using TrafficRadar;
 using TrafficRadar.Core;
 using UnityEngine;
 using UnityEngine.Networking;
+using UnityEngine.Serialization;
 using UnityEngine.UI;
 using WeatherRadar;
 using HUDControl.Elements;
@@ -35,6 +36,7 @@ namespace FAA.XPlaneIntegration.Runtime
         private const float MetersPerSecondToKnots = 1.94384f;
         private const float MetersPerSecondToFeetPerMinute = 196.8504f;
         private const float KnotsToFeetPerSecond = 1.68781f;
+        private const string TangTunnelLiveApiBaseUrl = "http://127.0.0.1:12678";
 
         public enum TransportMode
         {
@@ -51,21 +53,22 @@ namespace FAA.XPlaneIntegration.Runtime
         }
 
         [Header("X-Plane 12 API")]
-        [SerializeField] private string baseUrl = "https://faa.agaii.org/xplane12";
+        [Tooltip("Live X-Plane 12 API reached through the local SSH forward to tang-server.")]
+        [SerializeField] private string baseUrl = "http://127.0.0.1:12678";
         [SerializeField] private bool autoStartOnPlay = true;
         [SerializeField] private float pollIntervalSeconds = 0.1f;
         [SerializeField] private float requestTimeoutSeconds = 2f;
         [SerializeField] private float staleAfterSeconds = 5f;
 
         [Header("Transport")]
-        [SerializeField] private TransportMode transportMode = TransportMode.TcpNdjsonStream;
+        [SerializeField] private TransportMode transportMode = TransportMode.HttpApi;
         [SerializeField] private string tcpStreamHost = "127.0.0.1";
         [SerializeField] private int tcpStreamPort = 37212;
         [SerializeField] private string webSocketUrl = "ws://127.0.0.1:37212/v1/stream/ws";
         [SerializeField] private float webSocketReconnectDelaySeconds = 0.5f;
         [SerializeField] private int webSocketReceiveBufferBytes = 262144;
-        [SerializeField] private bool webSocketUseMqttFallback = true;
-        [SerializeField] private bool webSocketUseHttpFallback = true;
+        [SerializeField] private bool webSocketUseMqttFallback = false;
+        [SerializeField] private bool webSocketUseHttpFallback = false;
         [SerializeField] private float webSocketFallbackAfterSeconds = 1.25f;
         [SerializeField] private string mqttBrokerHost = "127.0.0.1";
         [SerializeField] private int mqttBrokerPort = 18883;
@@ -98,6 +101,12 @@ namespace FAA.XPlaneIntegration.Runtime
         [SerializeField] private bool pollRenderAssets = true;
         [SerializeField] private float renderAssetPollIntervalSeconds = 2f;
 
+        [Header("Weather Radar X-Plane Datarefs")]
+        [FormerlySerializedAs("synthesizeWeatherRadarTextureFromStream")]
+        [SerializeField] private bool publishWeatherDatarefTextureFromStream = true;
+        [SerializeField] private float streamWeatherTextureIntervalSeconds = 1f;
+        [SerializeField] private int streamWeatherTextureSize = 512;
+
         [Header("Targets")]
         [SerializeField] private AviationUIManager uiManager;
         [SerializeField] private AviationFlightDataProvider flightDataProvider;
@@ -120,6 +129,8 @@ namespace FAA.XPlaneIntegration.Runtime
         [SerializeField] private bool applyToWeatherRadar = true;
         [SerializeField] private bool disableUserControlWhenReceiving = true;
         [SerializeField] private bool disableTrafficApiWhenReceiving = true;
+        [Tooltip("When disabled, traffic is exclusively sourced from X-Plane multiplayer datarefs.")]
+        [SerializeField] private bool allowExternalTrafficFallback = false;
         [SerializeField] private bool refreshWeatherRadarTexture = false;
         [SerializeField] private bool treatFreshWeatherTextureAsRadarOn = true;
         [SerializeField] private float minimumUnityTerrainClearanceMeters = 120f;
@@ -146,6 +157,8 @@ namespace FAA.XPlaneIntegration.Runtime
         private bool _trafficWasFetchingBeforeApi;
         private float _lastWeatherRefreshTime;
         private float _lastDisplayApplyRealtime;
+        private float _lastFlightSnapshotRealtime = -1f;
+        private bool _enginePointersClearedForStaleFeed;
         private bool _hasWeatherRadarPowerState;
         private bool _isWeatherRadarPowered;
         private int _weatherRadarMode = -1;
@@ -169,6 +182,19 @@ namespace FAA.XPlaneIntegration.Runtime
         private bool _usingMqttFallback;
         private readonly List<TrafficRadarDataManager.AircraftData> _trafficRows = new List<TrafficRadarDataManager.AircraftData>(19);
 
+        private struct StreamWeatherMetrics
+        {
+            public float Precipitation;
+            public float CloudCoverage;
+            public float Turbulence;
+            public float WindDirection;
+            public float WindSpeed;
+            public float VisibilityMeters;
+            public float CloudBaseMeters;
+            public float TemperatureC;
+            public float Intensity;
+        }
+
         private AirspeedHUD[] _airspeedHuds = Array.Empty<AirspeedHUD>();
         private AltitudeHUD[] _altitudeHuds = Array.Empty<AltitudeHUD>();
         private VerticalSpeedHUD[] _verticalSpeedHuds = Array.Empty<VerticalSpeedHUD>();
@@ -183,6 +209,8 @@ namespace FAA.XPlaneIntegration.Runtime
         private Glideslope[] _glideslopeHuds = Array.Empty<Glideslope>();
         private LocalizerElement[] _localizerElements = Array.Empty<LocalizerElement>();
         private GlidescopeElement[] _glidescopeElements = Array.Empty<GlidescopeElement>();
+        private TorquePanelElement[] _torquePanelElements = Array.Empty<TorquePanelElement>();
+        private NRIndicatorElement[] _nrIndicatorElements = Array.Empty<NRIndicatorElement>();
 
         public bool IsRunning => _pollRoutine != null || _mqttTransportRunning || _webSocketTransportRunning || _tcpStreamTransportRunning;
         public bool IsFeedHealthy { get; private set; }
@@ -195,6 +223,10 @@ namespace FAA.XPlaneIntegration.Runtime
         public XPlane12ApiSnapshot LatestSnapshot => _snapshot;
         private Texture2D _latestWeatherTexture;
         private Texture2D _latestTrafficTexture;
+        private Texture2D _streamWeatherTexture;
+        private Color32[] _streamWeatherPixels;
+        private float _lastDownloadedWeatherTextureRealtime = -1f;
+        private float _lastStreamWeatherTextureRealtime = -1f;
 
         public Texture2D LatestWeatherTexture => _latestWeatherTexture;
         public Texture2D LatestTrafficTexture => _latestTrafficTexture;
@@ -202,7 +234,19 @@ namespace FAA.XPlaneIntegration.Runtime
 
         private void Awake()
         {
+            // This FAA scene is intentionally X-Plane-only. Port 12678 is locally
+            // forwarded over SSH to tang-server, avoiding Unity/libcurl HTTP/2 issues
+            // while still consuming the remote live X-Plane API.
+            baseUrl = TangTunnelLiveApiBaseUrl;
+            transportMode = TransportMode.HttpApi;
+            allowExternalTrafficFallback = false;
+            publishWeatherDatarefTextureFromStream = false;
+
             FindDependencies();
+            if (!allowExternalTrafficFallback)
+            {
+                SuppressExternalTrafficFetching();
+            }
         }
 
         private void Start()
@@ -220,6 +264,8 @@ namespace FAA.XPlaneIntegration.Runtime
                 return;
             }
 
+            MaintainTrafficApiFallback();
+
             if (transportMode == TransportMode.MqttSnapshot || _usingMqttFallback)
             {
                 ProcessPendingMqttSnapshot();
@@ -232,6 +278,7 @@ namespace FAA.XPlaneIntegration.Runtime
             }
 
             ApplyContinuousDisplayFrame();
+            ClearEnginePointersWhenFeedIsStale();
         }
 
         private void OnDisable()
@@ -243,6 +290,7 @@ namespace FAA.XPlaneIntegration.Runtime
         {
             DestroyTexture(ref _latestWeatherTexture);
             DestroyTexture(ref _latestTrafficTexture);
+            DestroyTexture(ref _streamWeatherTexture);
         }
 
         [ContextMenu("Start X-Plane 12 API Bridge")]
@@ -286,6 +334,8 @@ namespace FAA.XPlaneIntegration.Runtime
             {
                 _renderAssetRoutine = StartCoroutine(RenderAssetLoop());
             }
+
+            MaintainTrafficApiFallback();
         }
 
         [ContextMenu("Stop X-Plane 12 API Bridge")]
@@ -308,6 +358,7 @@ namespace FAA.XPlaneIntegration.Runtime
             }
 
             RestoreSuppressedSystems();
+            ClearEngineHudPointers();
             IsFeedHealthy = false;
             _pendingSnapshotJson = null;
             _pendingWebSocketSnapshotJson = null;
@@ -321,6 +372,8 @@ namespace FAA.XPlaneIntegration.Runtime
             _targetFlightData = null;
             _latestFlightData = null;
             _lastDisplayApplyRealtime = 0f;
+            _lastFlightSnapshotRealtime = -1f;
+            _enginePointersClearedForStaleFeed = true;
             _hasTargetFlightData = false;
         }
 
@@ -427,6 +480,11 @@ namespace FAA.XPlaneIntegration.Runtime
                 weatherImageTarget = xPlaneWeatherRadarDisplay.TargetImage;
             }
 
+            if (weatherRadarProvider is XPlaneOriginalWeatherRadarProvider originalWeatherProvider)
+            {
+                originalWeatherProvider.RadarTextureUrl = BuildUrl(GetWeatherTexturePath());
+            }
+
             TrafficRadarDisplay preferredTrafficDisplay = FindPreferredTrafficTextureDisplay();
             if (preferredTrafficDisplay != null &&
                 (xPlaneTrafficRadarDisplay == null ||
@@ -462,6 +520,12 @@ namespace FAA.XPlaneIntegration.Runtime
             _glideslopeHuds = FindSceneObjects<Glideslope>();
             _localizerElements = FindSceneObjects<LocalizerElement>();
             _glidescopeElements = FindSceneObjects<GlidescopeElement>();
+            _torquePanelElements = Array.FindAll(
+                FindSceneObjects<TorquePanelElement>(),
+                element => element != null && element.enabled && element.gameObject.activeInHierarchy);
+            _nrIndicatorElements = Array.FindAll(
+                FindSceneObjects<NRIndicatorElement>(),
+                element => element != null && element.enabled && element.gameObject.activeInHierarchy);
         }
 
         private static T[] FindSceneObjects<T>() where T : Component
@@ -1244,6 +1308,8 @@ namespace FAA.XPlaneIntegration.Runtime
 
         private void ApplySnapshot()
         {
+            _lastFlightSnapshotRealtime = Time.realtimeSinceStartup;
+            _enginePointersClearedForStaleFeed = false;
             _rawFlightData = BuildFlightData(_snapshot.Aircraft, _snapshot.Weather, _snapshot.Systems);
             _targetFlightData = BuildDisplayTargetFlightData(_rawFlightData);
             _hasTargetFlightData = _targetFlightData != null;
@@ -1466,33 +1532,103 @@ namespace FAA.XPlaneIntegration.Runtime
 
         private void ApplyEngineData(AviationFlightData data, IDictionary<string, float> systems)
         {
-            data.engine1Torque = GetAny(systems, data.engine1Torque,
-                "sim/cockpit2/engine/indicators/torque_percent[0]",
-                "sim/flightmodel/engine/ENGN_thro[0]");
-            data.engine2Torque = GetAny(systems, data.engine2Torque,
-                "sim/cockpit2/engine/indicators/torque_percent[1]",
-                "sim/flightmodel/engine/ENGN_thro[1]");
-            data.engine1NR = GetAny(systems, data.engine1NR,
-                "sim/cockpit2/engine/indicators/N1_percent[0]",
-                "sim/cockpit2/engine/indicators/prop_speed_rpm[0]");
-            data.engine2NR = GetAny(systems, data.engine2NR,
-                "sim/cockpit2/engine/indicators/N1_percent[1]",
-                "sim/cockpit2/engine/indicators/prop_speed_rpm[1]");
-            data.engine1NG = GetAny(systems, data.engine1NG,
-                "sim/cockpit2/engine/indicators/N2_percent[0]",
-                "sim/cockpit2/engine/indicators/engine_speed_rpm[0]");
-            data.engine2NG = GetAny(systems, data.engine2NG,
-                "sim/cockpit2/engine/indicators/N2_percent[1]",
-                "sim/cockpit2/engine/indicators/engine_speed_rpm[1]");
+            data.engineCount = TryGetAny(
+                systems,
+                out float engineCount,
+                "sim/aircraft/engine/acf_num_engines")
+                ? Mathf.Clamp(Mathf.RoundToInt(engineCount), 0, 8)
+                : 0;
 
-            if (data.engine1Torque > 0f && data.engine1Torque <= 1f)
+            data.engine1TorqueValid = TryCalculateTorquePercent(systems, 0, out data.engine1Torque);
+            data.engine2TorqueValid = data.engineCount >= 2 &&
+                                      TryCalculateTorquePercent(systems, 1, out data.engine2Torque);
+
+            data.engine1NRValid = TryReadEnginePercent(
+                systems,
+                "sim/cockpit2/engine/indicators/N2_percent[0]",
+                110f,
+                out data.engine1NR);
+            data.engine2NRValid = data.engineCount >= 2 && TryReadEnginePercent(
+                systems,
+                "sim/cockpit2/engine/indicators/N2_percent[1]",
+                110f,
+                out data.engine2NR);
+
+            data.engine1NGValid = TryReadEnginePercent(
+                systems,
+                "sim/cockpit2/engine/indicators/N1_percent[0]",
+                120f,
+                out data.engine1NG);
+            data.engine2NGValid = data.engineCount >= 2 && TryReadEnginePercent(
+                systems,
+                "sim/cockpit2/engine/indicators/N1_percent[1]",
+                120f,
+                out data.engine2NG);
+
+            data.rotorNRValid = TryCalculateRotorNrPercent(systems, 0, out data.rotorNR);
+        }
+
+        public static bool TryCalculateTorquePercent(
+            IDictionary<string, float> systems,
+            int engineIndex,
+            out float percent)
+        {
+            percent = 0f;
+            if (!TryGetFinite(systems, $"sim/flightmodel/engine/ENGN_driv_TRQ[{engineIndex}]", out float torqueNm) ||
+                !TryGetFinite(systems, $"sim/flightmodel/engine/POINT_max_TRQ[{engineIndex}]", out float ratedTorqueNm))
             {
-                data.engine1Torque *= 100f;
+                return false;
             }
-            if (data.engine2Torque > 0f && data.engine2Torque <= 1f)
+
+            ratedTorqueNm = Mathf.Abs(ratedTorqueNm);
+            if (ratedTorqueNm <= 0.001f)
             {
-                data.engine2Torque *= 100f;
+                return false;
             }
+
+            percent = Mathf.Clamp(Mathf.Abs(torqueNm) / ratedTorqueNm * 100f, 0f, 120f);
+            return true;
+        }
+
+        public static bool TryCalculateRotorNrPercent(
+            IDictionary<string, float> systems,
+            int propellerIndex,
+            out float percent)
+        {
+            percent = 0f;
+            if (!TryGetFinite(
+                    systems,
+                    $"sim/cockpit2/engine/indicators/prop_speed_rpm[{propellerIndex}]",
+                    out float propellerRpm) ||
+                !TryGetFinite(systems, "sim/aircraft/controls/acf_RSC_redline_prp", out float redlineRadiansPerSecond))
+            {
+                return false;
+            }
+
+            float redlineRpm = Mathf.Abs(redlineRadiansPerSecond) * 60f / (2f * Mathf.PI);
+            if (redlineRpm <= 0.001f)
+            {
+                return false;
+            }
+
+            percent = Mathf.Clamp(Mathf.Abs(propellerRpm) / redlineRpm * 100f, 0f, 110f);
+            return true;
+        }
+
+        private static bool TryReadEnginePercent(
+            IDictionary<string, float> systems,
+            string key,
+            float maximum,
+            out float percent)
+        {
+            percent = 0f;
+            if (!TryGetFinite(systems, key, out float value))
+            {
+                return false;
+            }
+
+            percent = Mathf.Clamp(value, 0f, maximum);
+            return true;
         }
 
         private void ApplyToAviationHud(AviationFlightData data)
@@ -1554,12 +1690,54 @@ namespace FAA.XPlaneIntegration.Runtime
             {
                 ForEach(_localizerElements, element => element.SetDeviation(data.courseDeviation));
                 ForEach(_glidescopeElements, element => element.SetDeviation(data.glideslopeDeviation));
+                ForEach(_torquePanelElements, element =>
+                {
+                    element.SetEngineCount(data.engineCount);
+                    element.SetTorqueData(
+                        data.engine1Torque,
+                        data.engine1TorqueValid,
+                        data.engine2Torque,
+                        data.engine2TorqueValid);
+                });
+                ForEach(_nrIndicatorElements, element =>
+                {
+                    element.SetEngineCount(data.engineCount);
+                    element.SetRPMData(
+                        data.rotorNR,
+                        data.rotorNRValid,
+                        data.engine1NR,
+                        data.engine1NRValid,
+                        data.engine2NR,
+                        data.engine2NRValid);
+                });
             }
 
             if (hudController != null && aircraftController?.State != null)
             {
                 hudController.InjectState(aircraftController.State);
             }
+        }
+
+        private void ClearEnginePointersWhenFeedIsStale()
+        {
+            if (_enginePointersClearedForStaleFeed || _lastFlightSnapshotRealtime < 0f)
+            {
+                return;
+            }
+
+            if (Time.realtimeSinceStartup - _lastFlightSnapshotRealtime <= Mathf.Max(0.1f, staleAfterSeconds))
+            {
+                return;
+            }
+
+            ClearEngineHudPointers();
+            _enginePointersClearedForStaleFeed = true;
+        }
+
+        private void ClearEngineHudPointers()
+        {
+            ForEach(_torquePanelElements, element => element.ClearExternalData());
+            ForEach(_nrIndicatorElements, element => element.ClearExternalData());
         }
 
         private void SuppressLocalAircraftSimulation()
@@ -1610,20 +1788,25 @@ namespace FAA.XPlaneIntegration.Runtime
                 return;
             }
 
-            if (disableTrafficApiWhenReceiving && !_suppressedTrafficFetching)
-            {
-                _trafficWasFetchingBeforeApi = trafficRadarDataManager.IsActive;
-                if (_trafficWasFetchingBeforeApi)
-                {
-                    trafficRadarDataManager.StopFetching();
-                }
-                _suppressedTrafficFetching = true;
-            }
-
             double ownLat = Get(_snapshot.Aircraft, "sim/flightmodel/position/latitude", 0d);
             double ownLon = Get(_snapshot.Aircraft, "sim/flightmodel/position/longitude", 0d);
             BuildTrafficRows(_snapshot.Traffic, ownLat, ownLon, _trafficRows);
             TrafficCount = _trafficRows.Count;
+
+            if (_trafficRows.Count == 0)
+            {
+                if (allowExternalTrafficFallback)
+                {
+                    EnableTrafficApiFallback();
+                    return;
+                }
+
+                SuppressExternalTrafficFetching();
+                ClearTrafficRadarRows(ownLat, ownLon, data);
+                return;
+            }
+
+            SuppressExternalTrafficFetching();
 
             trafficRadarDataManager.aircraftMap.Clear();
             trafficRadarDataManager.aircraftList.Clear();
@@ -1633,6 +1816,70 @@ namespace FAA.XPlaneIntegration.Runtime
                 trafficRadarDataManager.aircraftList.Add(row);
             }
 
+            if (trafficRadarController != null)
+            {
+                trafficRadarController.SetOwnPosition(ownLat, ownLon, data.altitudeMSL / MetersToFeet, data.heading);
+            }
+
+            trafficRadarDataManager.SetReferencePosition((float)ownLat, (float)ownLon);
+            trafficRadarDataManager.onDataUpdated?.Invoke(_trafficRows);
+        }
+
+        private void MaintainTrafficApiFallback()
+        {
+            if (!disableTrafficApiWhenReceiving || trafficRadarDataManager == null)
+            {
+                return;
+            }
+
+            if (allowExternalTrafficFallback && (!IsFeedHealthy || TrafficCount == 0))
+            {
+                EnableTrafficApiFallback();
+                return;
+            }
+
+            SuppressExternalTrafficFetching();
+        }
+
+        private void EnableTrafficApiFallback()
+        {
+            if (!allowExternalTrafficFallback || !disableTrafficApiWhenReceiving || trafficRadarDataManager == null)
+            {
+                return;
+            }
+
+            // Release the prior live-traffic suppression before starting the fallback.
+            _suppressedTrafficFetching = false;
+            _trafficWasFetchingBeforeApi = false;
+            if (!trafficRadarDataManager.IsActive)
+            {
+                trafficRadarDataManager.StartFetching();
+            }
+        }
+
+        private void SuppressExternalTrafficFetching()
+        {
+            if (!disableTrafficApiWhenReceiving || trafficRadarDataManager == null)
+            {
+                return;
+            }
+
+            if (!_suppressedTrafficFetching)
+            {
+                _trafficWasFetchingBeforeApi = trafficRadarDataManager.IsActive;
+                _suppressedTrafficFetching = true;
+            }
+
+            if (trafficRadarDataManager.IsActive)
+            {
+                trafficRadarDataManager.StopFetching();
+            }
+        }
+
+        private void ClearTrafficRadarRows(double ownLat, double ownLon, AviationFlightData data)
+        {
+            trafficRadarDataManager.aircraftMap.Clear();
+            trafficRadarDataManager.aircraftList.Clear();
             trafficRadarDataManager.SetReferencePosition((float)ownLat, (float)ownLon);
             trafficRadarDataManager.onDataUpdated?.Invoke(_trafficRows);
 
@@ -1650,6 +1897,10 @@ namespace FAA.XPlaneIntegration.Runtime
         {
             rows.Clear();
             if (traffic == null)
+            {
+                return;
+            }
+            if (IsSyntheticSourceMode(LastSender))
             {
                 return;
             }
@@ -1700,12 +1951,763 @@ namespace FAA.XPlaneIntegration.Runtime
             float latitude = Get(_snapshot.Aircraft, "sim/flightmodel/position/latitude");
             float longitude = Get(_snapshot.Aircraft, "sim/flightmodel/position/longitude");
             weatherRadarProvider.SetAircraftPosition(data.altitudeMSL, latitude, longitude, data.heading);
+            if (weatherRadarDataProvider != null)
+            {
+                weatherRadarDataProvider.SetPosition(latitude, longitude, data.altitudeMSL);
+                weatherRadarDataProvider.SetHeading(data.heading);
+            }
+            ApplyStreamWeatherTexture(data, latitude, longitude);
 
             if (refreshWeatherRadarTexture && Time.time - _lastWeatherRefreshTime >= Mathf.Max(1f, renderAssetPollIntervalSeconds))
             {
                 _lastWeatherRefreshTime = Time.time;
                 weatherRadarProvider.RefreshData();
             }
+        }
+
+        private void ApplyStreamWeatherTexture(AviationFlightData data, float latitude, float longitude)
+        {
+            if (!publishWeatherDatarefTextureFromStream || weatherRadarProvider == null || data == null)
+            {
+                return;
+            }
+
+            float now = Time.realtimeSinceStartup;
+            float interval = Mathf.Max(0.25f, streamWeatherTextureIntervalSeconds);
+            if (_lastStreamWeatherTextureRealtime >= 0f && now - _lastStreamWeatherTextureRealtime < interval)
+            {
+                return;
+            }
+
+            float downloadedAge = _lastDownloadedWeatherTextureRealtime >= 0f
+                ? now - _lastDownloadedWeatherTextureRealtime
+                : float.PositiveInfinity;
+            if (downloadedAge <= Mathf.Max(2f, renderAssetPollIntervalSeconds * 2f))
+            {
+                return;
+            }
+
+            StreamWeatherMetrics metrics = ReadStreamWeatherMetrics();
+            Texture2D texture = BuildStreamWeatherTexture(data, metrics);
+            if (texture == null)
+            {
+                return;
+            }
+
+            _lastStreamWeatherTextureRealtime = now;
+            if (weatherRadarProvider is XPlaneOriginalWeatherRadarProvider originalProvider)
+            {
+                originalProvider.PublishTexture(texture, BuildStreamWeatherStatus(metrics));
+                return;
+            }
+
+            MethodInfo method = weatherRadarProvider.GetType().GetMethod(
+                "SimulateDataReceived",
+                BindingFlags.Instance | BindingFlags.Public | BindingFlags.NonPublic,
+                null,
+                new[] { typeof(Texture2D) },
+                null);
+            method?.Invoke(weatherRadarProvider, new object[] { texture });
+        }
+
+        private Texture2D BuildStreamWeatherTexture(AviationFlightData data, StreamWeatherMetrics metrics)
+        {
+            int size = Mathf.Clamp(streamWeatherTextureSize, 128, 1024);
+            if (_streamWeatherTexture == null || _streamWeatherTexture.width != size || _streamWeatherTexture.height != size)
+            {
+                DestroyTexture(ref _streamWeatherTexture);
+                _streamWeatherTexture = new Texture2D(size, size, TextureFormat.RGBA32, false)
+                {
+                    name = "XPlaneStreamWeatherRadar",
+                    filterMode = FilterMode.Bilinear,
+                    wrapMode = TextureWrapMode.Clamp
+                };
+                _streamWeatherPixels = new Color32[size * size];
+            }
+            else if (_streamWeatherPixels == null || _streamWeatherPixels.Length != size * size)
+            {
+                _streamWeatherPixels = new Color32[size * size];
+            }
+
+            DrawModernWeatherRadar(_streamWeatherPixels, size, data, metrics);
+
+            _streamWeatherTexture.SetPixels32(_streamWeatherPixels);
+            _streamWeatherTexture.Apply(false);
+            return _streamWeatherTexture;
+        }
+
+        private StreamWeatherMetrics ReadStreamWeatherMetrics()
+        {
+            float precipitation = GetNormalizedWeatherValue(
+                "sim/weather/aircraft/precipitation_on_aircraft_ratio",
+                "sim/weather/precipitation_on_aircraft_ratio",
+                "sim/weather/region/rain_percent",
+                "sim/weather/rain_percent");
+            float cloudCoverage = Mathf.Max(GetCloudCoverage(0), GetCloudCoverage(1), GetCloudCoverage(2));
+            float turbulence = GetMaxWeatherValue("sim/weather/region/turbulence", 13);
+            float visibilityMeters = GetAny(_snapshot.Weather, 0f,
+                "sim/weather/visibility_reported_m",
+                "sim/weather/aircraft/visibility_reported_m");
+            float visibilitySm = GetAny(_snapshot.Weather, 0f,
+                "sim/weather/region/visibility_reported_sm",
+                "sim/weather/aircraft/visibility_reported_sm");
+            if (visibilityMeters <= 0f && visibilitySm > 0f)
+            {
+                visibilityMeters = visibilitySm * 1609.344f;
+            }
+
+            float cloudBaseMeters = GetAny(_snapshot.Weather, 0f,
+                "sim/weather/region/cloud_base_msl_m[0]",
+                "sim/weather/cloud_base_msl_m[0]",
+                "sim/weather/aircraft/cloud_base_msl_m",
+                "sim/weather/cloud_base_m");
+
+            return new StreamWeatherMetrics
+            {
+                Precipitation = precipitation,
+                CloudCoverage = cloudCoverage,
+                Turbulence = turbulence,
+                WindDirection = GetWeatherWindDirection(_snapshot.Weather),
+                WindSpeed = GetWindSpeed(_snapshot.Weather),
+                VisibilityMeters = visibilityMeters,
+                CloudBaseMeters = cloudBaseMeters,
+                TemperatureC = GetAny(_snapshot.Weather, 0f,
+                    "sim/weather/temperature_ambient_c",
+                    "sim/weather/aircraft/temperature_ambient_deg_c"),
+                Intensity = Mathf.Clamp01(Mathf.Max(precipitation, cloudCoverage * 0.65f, turbulence * 0.7f))
+            };
+        }
+
+        private string BuildStreamWeatherStatus(StreamWeatherMetrics metrics)
+        {
+            float visibilitySm = metrics.VisibilityMeters > 0f ? metrics.VisibilityMeters / 1609.344f : 0f;
+            if (metrics.Precipitation > 0.02f || visibilitySm > 0f)
+            {
+                return $"RAIN {metrics.Precipitation * 100f:0} VIS {visibilitySm:0.0}SM";
+            }
+
+            return $"CLD {metrics.CloudCoverage * 100f:0} TURB {metrics.Turbulence * 100f:0}";
+        }
+
+        private float GetNormalizedWeatherValue(params string[] keys)
+        {
+            float value = GetAny(_snapshot.Weather, 0f, keys);
+            if (value > 1f)
+            {
+                value /= 100f;
+            }
+            return Mathf.Clamp01(value);
+        }
+
+        private float GetMaxWeatherValue(string keyPrefix, int count)
+        {
+            float max = 0f;
+            for (int i = 0; i < count; i++)
+            {
+                max = Mathf.Max(max, Get(_snapshot.Weather, $"{keyPrefix}[{i}]"));
+            }
+            return Mathf.Clamp01(max > 1f ? max / 100f : max);
+        }
+
+        private float GetCloudCoverage(int layer)
+        {
+            float coverage = GetAny(_snapshot.Weather, float.NaN,
+                $"sim/weather/region/cloud_coverage_percent[{layer}]",
+                $"sim/weather/cloud_coverage_percent[{layer}]");
+            if (!float.IsNaN(coverage))
+            {
+                return NormalizeCoverageValue(coverage);
+            }
+
+            coverage = GetAny(_snapshot.Weather, float.NaN,
+                $"sim/weather/cloud_coverage[{layer}]",
+                $"sim/weather/region/cloud_coverage[{layer}]");
+            return float.IsNaN(coverage) ? 0f : NormalizeCoverageValue(coverage);
+        }
+
+        private static float NormalizeCoverageValue(float value)
+        {
+            if (value <= 1f)
+            {
+                return Mathf.Clamp01(value);
+            }
+            if (value <= 4f)
+            {
+                return Mathf.Clamp01(value / 4f);
+            }
+            if (value <= 8f)
+            {
+                return Mathf.Clamp01(value / 8f);
+            }
+
+            return Mathf.Clamp01(value / 100f);
+        }
+
+        private static void DrawModernWeatherRadar(Color32[] pixels, int size, AviationFlightData data, StreamWeatherMetrics metrics)
+        {
+            int originX = size / 2;
+            int originY = Mathf.RoundToInt(size * 0.12f);
+            float maxRadius = size * 0.90f;
+            float halfAngleDegrees = 62f;
+
+            DrawModernRadarBackdrop(pixels, size, originX, originY, maxRadius, halfAngleDegrees);
+            DrawModernWeatherReturns(pixels, size, originX, originY, maxRadius, halfAngleDegrees, data, metrics);
+            DrawModernRadarGrid(pixels, size, originX, originY, maxRadius, halfAngleDegrees, data, metrics);
+        }
+
+        private static void DrawModernRadarBackdrop(Color32[] pixels, int size, int originX, int originY, float maxRadius, float halfAngleDegrees)
+        {
+            for (int y = 0; y < size; y++)
+            {
+                float vertical = y / Mathf.Max(1f, size - 1f);
+                int row = y * size;
+                for (int x = 0; x < size; x++)
+                {
+                    float rangeNorm;
+                    float angleDegrees;
+                    bool insideSector = TryGetRadarSectorCoordinates(
+                        x,
+                        y,
+                        originX,
+                        originY,
+                        maxRadius,
+                        halfAngleDegrees,
+                        out rangeNorm,
+                        out angleDegrees);
+
+                    float dx = (x - size * 0.5f) / size;
+                    float dy = (y - size * 0.55f) / size;
+                    float vignette = Mathf.Clamp01(1f - Mathf.Sqrt(dx * dx + dy * dy) * 1.9f);
+                    byte blue = (byte)Mathf.RoundToInt(Mathf.Lerp(6f, 22f, vignette * 0.62f + vertical * 0.12f));
+                    byte green = (byte)Mathf.RoundToInt(Mathf.Lerp(1f, 7f, vignette));
+                    byte red = (byte)Mathf.RoundToInt(Mathf.Lerp(0f, 3f, vignette));
+
+                    if (insideSector)
+                    {
+                        float fade = Mathf.Clamp01(1f - Mathf.Abs(angleDegrees) / halfAngleDegrees);
+                        blue = (byte)Mathf.Min(255, blue + Mathf.RoundToInt(Mathf.Lerp(2f, 9f, fade) * (1f - rangeNorm * 0.45f)));
+                        green = (byte)Mathf.Min(255, green + Mathf.RoundToInt(Mathf.Lerp(1f, 5f, fade)));
+                    }
+
+                    pixels[row + x] = new Color32(red, green, blue, 255);
+                }
+            }
+        }
+
+        private static void DrawModernWeatherReturns(
+            Color32[] pixels,
+            int size,
+            int originX,
+            int originY,
+            float maxRadius,
+            float halfAngleDegrees,
+            AviationFlightData data,
+            StreamWeatherMetrics metrics)
+        {
+            float intensity = Mathf.Clamp01(Mathf.Max(metrics.Intensity, metrics.Precipitation * 0.95f, metrics.CloudCoverage * 0.55f));
+            if (intensity <= 0.025f)
+            {
+                return;
+            }
+
+            float heading = data != null ? data.heading : 0f;
+            float seed = Mathf.Repeat(heading * 0.73f + metrics.WindDirection * 1.37f + metrics.WindSpeed * 0.91f, 997f);
+            float stormCenter = Mathf.Lerp(0.40f, 0.70f, Mathf.Clamp01(metrics.CloudCoverage * 0.65f + metrics.Precipitation * 0.25f));
+            float threshold = Mathf.Lerp(0.80f, 0.62f, intensity);
+            float windDrift = Mathf.Clamp(Mathf.DeltaAngle(heading, metrics.WindDirection) / Mathf.Max(1f, halfAngleDegrees), -1f, 1f);
+
+            int minY = Mathf.Clamp(originY, 0, size - 1);
+            for (int y = minY; y < size; y++)
+            {
+                float ny = y / (float)size;
+                int row = y * size;
+                for (int x = 0; x < size; x++)
+                {
+                    float rangeNorm;
+                    float angleDegrees;
+                    if (!TryGetRadarSectorCoordinates(x, y, originX, originY, maxRadius, halfAngleDegrees, out rangeNorm, out angleDegrees))
+                    {
+                        continue;
+                    }
+
+                    float nx = x / (float)size;
+                    float angleNorm = angleDegrees / halfAngleDegrees;
+                    float broad = Mathf.PerlinNoise(nx * 4.7f + seed * 0.011f, ny * 4.7f - seed * 0.017f);
+                    float cell = Mathf.PerlinNoise(nx * 17.5f + seed * 0.037f, ny * 17.5f + seed * 0.019f);
+                    float fine = Mathf.PerlinNoise(nx * 58f - seed * 0.023f, ny * 58f + seed * 0.041f);
+                    float streak = Mathf.PerlinNoise((rangeNorm + seed * 0.003f) * 13f, (angleNorm + windDrift * 0.35f) * 4.8f);
+                    float radialBand = Mathf.Clamp01(1f - Mathf.Abs(rangeNorm - stormCenter) / 0.30f);
+                    float windSide = Mathf.Clamp01(0.5f + (angleNorm + windDrift * 0.45f) * 0.5f);
+                    float sectorFill = Mathf.Lerp(0.66f, 1.04f, windSide) * Mathf.Clamp01(1f - rangeNorm * 0.18f);
+                    float broadMask = Mathf.SmoothStep(0.38f, 0.76f, broad);
+                    float cellMask = Mathf.SmoothStep(0.44f, 0.78f, cell);
+                    float filamentMask = Mathf.SmoothStep(0.50f, 0.84f, streak);
+                    float nearFieldClear = Mathf.SmoothStep(0.07f, 0.20f, rangeNorm);
+                    float textureMask = broadMask
+                        * Mathf.Lerp(0.24f, 1f, cellMask)
+                        * Mathf.Lerp(0.52f, 1.08f, filamentMask);
+                    float raw = textureMask * sectorFill;
+                    raw += radialBand * Mathf.Lerp(0.04f, 0.28f, intensity) * Mathf.Lerp(0.32f, 1f, cellMask);
+                    raw += metrics.Turbulence * Mathf.Max(0f, fine - 0.58f) * 0.14f;
+                    raw *= nearFieldClear * Mathf.Lerp(0.70f, 1.34f, intensity);
+
+                    if (raw < threshold || fine < 0.18f || (fine > 0.92f && raw < 0.96f))
+                    {
+                        continue;
+                    }
+
+                    float strength = Mathf.Clamp01((raw - threshold) / Mathf.Max(0.001f, 1.30f - threshold));
+                    Color32 color = ModernWeatherReturnColor(strength, metrics.Precipitation);
+                    pixels[row + x] = BlendRadarReturn(pixels[row + x], color);
+                }
+            }
+        }
+
+        private static void DrawModernRadarGrid(
+            Color32[] pixels,
+            int size,
+            int originX,
+            int originY,
+            float maxRadius,
+            float halfAngleDegrees,
+            AviationFlightData data,
+            StreamWeatherMetrics metrics)
+        {
+            Color32 white = new Color32(235, 245, 255, 225);
+            Color32 whiteDim = new Color32(190, 216, 236, 128);
+            Color32 cyan = new Color32(48, 226, 255, 190);
+            Color32 green = new Color32(62, 255, 94, 210);
+            Color32 magenta = new Color32(255, 62, 238, 220);
+
+            int ringThickness = Mathf.Max(1, size / 220);
+            DrawRadarArc(pixels, size, originX, originY, Mathf.RoundToInt(maxRadius * 0.25f), -halfAngleDegrees, halfAngleDegrees, white, ringThickness);
+            DrawRadarArc(pixels, size, originX, originY, Mathf.RoundToInt(maxRadius * 0.45f), -halfAngleDegrees, halfAngleDegrees, white, ringThickness);
+            DrawRadarArc(pixels, size, originX, originY, Mathf.RoundToInt(maxRadius * 0.68f), -halfAngleDegrees, halfAngleDegrees, white, ringThickness);
+            DrawRadarArc(pixels, size, originX, originY, Mathf.RoundToInt(maxRadius * 0.92f), -halfAngleDegrees, halfAngleDegrees, white, ringThickness + 1);
+
+            DrawRadarBearingSegment(pixels, size, originX, originY, 0f, size * 0.10f, maxRadius * 0.95f, white, ringThickness);
+            DrawRadarBearingSegment(pixels, size, originX, originY, -halfAngleDegrees, maxRadius * 0.22f, maxRadius * 0.92f, whiteDim, 1);
+            DrawRadarBearingSegment(pixels, size, originX, originY, halfAngleDegrees, maxRadius * 0.22f, maxRadius * 0.92f, whiteDim, 1);
+
+            for (int a = -60; a <= 60; a += 5)
+            {
+                bool major = a % 10 == 0;
+                float inner = maxRadius * (major ? 0.86f : 0.89f);
+                float outer = maxRadius * 0.92f;
+                DrawRadarBearingSegment(pixels, size, originX, originY, a, inner, outer, major ? white : whiteDim, 1);
+            }
+
+            DrawRadarBearingSegment(pixels, size, originX, originY, 0f, size * 0.19f, maxRadius * 0.88f, magenta, 1);
+            DrawRadarDiamond(pixels, size, originX, originY + Mathf.RoundToInt(maxRadius * 0.45f), Mathf.Max(4, size / 80), magenta);
+            DrawOwnshipTriangle(pixels, size, originX, originY + Mathf.RoundToInt(size * 0.035f), Mathf.Max(12, size / 28), white);
+
+            int labelScale = Mathf.Max(2, size / 180);
+            DrawDigitString(pixels, size, "20", originX - labelScale * 8, originY + Mathf.RoundToInt(maxRadius * 0.45f) + labelScale * 4, labelScale, white);
+            DrawDigitString(pixels, size, "30", originX + Mathf.RoundToInt(size * 0.18f), originY + Mathf.RoundToInt(maxRadius * 0.68f) - labelScale * 2, labelScale, white);
+
+            int heading = Mathf.RoundToInt(Mathf.Repeat(data != null ? data.heading : 0f, 360f));
+            DrawDigitString(pixels, size, heading.ToString("000", CultureInfo.InvariantCulture), originX - labelScale * 8, size - labelScale * 16, labelScale, white);
+
+            int metricScale = Mathf.Max(1, size / 260);
+            DrawDigitString(pixels, size, Mathf.RoundToInt(metrics.Precipitation * 100f).ToString("00", CultureInfo.InvariantCulture), Mathf.RoundToInt(size * 0.08f), Mathf.RoundToInt(size * 0.91f), metricScale, green);
+            DrawDigitString(pixels, size, Mathf.RoundToInt(metrics.WindSpeed).ToString("000", CultureInfo.InvariantCulture), Mathf.RoundToInt(size * 0.80f), Mathf.RoundToInt(size * 0.91f), metricScale, cyan);
+        }
+
+        private static bool TryGetRadarSectorCoordinates(
+            int x,
+            int y,
+            int originX,
+            int originY,
+            float maxRadius,
+            float halfAngleDegrees,
+            out float rangeNorm,
+            out float angleDegrees)
+        {
+            float dx = x - originX;
+            float dy = y - originY;
+            float range = Mathf.Sqrt(dx * dx + dy * dy);
+            rangeNorm = maxRadius > 0f ? range / maxRadius : 1f;
+            angleDegrees = Mathf.Atan2(dx, dy) * Mathf.Rad2Deg;
+            return dy >= 0f && range <= maxRadius && Mathf.Abs(angleDegrees) <= halfAngleDegrees;
+        }
+
+        private static void DrawRadarArc(Color32[] pixels, int size, int cx, int cy, int radius, float startDegrees, float endDegrees, Color32 color, int thickness)
+        {
+            int steps = Mathf.Max(16, Mathf.RoundToInt(radius * Mathf.Abs(endDegrees - startDegrees) * Mathf.Deg2Rad * 1.5f));
+            int halfThickness = Mathf.Max(0, thickness / 2);
+            for (int t = -halfThickness; t <= halfThickness; t++)
+            {
+                int r = Mathf.Max(0, radius + t);
+                for (int i = 0; i <= steps; i++)
+                {
+                    float angle = Mathf.Lerp(startDegrees, endDegrees, i / (float)steps) * Mathf.Deg2Rad;
+                    SetPixel(
+                        pixels,
+                        size,
+                        Mathf.RoundToInt(cx + Mathf.Sin(angle) * r),
+                        Mathf.RoundToInt(cy + Mathf.Cos(angle) * r),
+                        color);
+                }
+            }
+        }
+
+        private static void DrawRadarBearingSegment(Color32[] pixels, int size, int cx, int cy, float angleDegrees, float startRadius, float endRadius, Color32 color, int thickness)
+        {
+            float angle = angleDegrees * Mathf.Deg2Rad;
+            int x0 = Mathf.RoundToInt(cx + Mathf.Sin(angle) * startRadius);
+            int y0 = Mathf.RoundToInt(cy + Mathf.Cos(angle) * startRadius);
+            int x1 = Mathf.RoundToInt(cx + Mathf.Sin(angle) * endRadius);
+            int y1 = Mathf.RoundToInt(cy + Mathf.Cos(angle) * endRadius);
+            DrawThickLine(pixels, size, x0, y0, x1, y1, color, thickness);
+        }
+
+        private static void DrawOwnshipTriangle(Color32[] pixels, int size, int cx, int cy, int height, Color32 color)
+        {
+            int halfWidth = Mathf.Max(6, height / 2);
+            int topY = cy + height / 2;
+            int bottomY = cy - height / 2;
+            DrawThickLine(pixels, size, cx, topY, cx - halfWidth, bottomY, color, 2);
+            DrawThickLine(pixels, size, cx, topY, cx + halfWidth, bottomY, color, 2);
+            DrawThickLine(pixels, size, cx - halfWidth, bottomY, cx + halfWidth, bottomY, color, 2);
+            DrawLine(pixels, size, cx, bottomY - Mathf.Max(2, height / 8), cx, bottomY - Mathf.Max(8, height / 3), color);
+        }
+
+        private static void DrawRadarDiamond(Color32[] pixels, int size, int cx, int cy, int radius, Color32 color)
+        {
+            DrawThickLine(pixels, size, cx, cy + radius, cx + radius, cy, color, 1);
+            DrawThickLine(pixels, size, cx + radius, cy, cx, cy - radius, color, 1);
+            DrawThickLine(pixels, size, cx, cy - radius, cx - radius, cy, color, 1);
+            DrawThickLine(pixels, size, cx - radius, cy, cx, cy + radius, color, 1);
+        }
+
+        private static Color32 ModernWeatherReturnColor(float strength, float precipitation)
+        {
+            strength = Mathf.Clamp01(strength);
+            Color32 color;
+            if (strength > 0.92f || precipitation > 0.92f && strength > 0.84f)
+            {
+                color = new Color32(246, 220, 62, 205);
+            }
+            else if (strength > 0.58f)
+            {
+                color = new Color32(116, 246, 58, 174);
+            }
+            else
+            {
+                color = new Color32(18, 216, 70, 146);
+            }
+
+            color.a = (byte)Mathf.RoundToInt(Mathf.Lerp(70f, color.a, strength));
+            return color;
+        }
+
+        private static Color32 BlendRadarReturn(Color32 baseColor, Color32 overlay)
+        {
+            float alpha = overlay.a / 255f;
+            byte r = (byte)Mathf.RoundToInt(Mathf.Lerp(baseColor.r, overlay.r, alpha));
+            byte g = (byte)Mathf.RoundToInt(Mathf.Lerp(baseColor.g, overlay.g, alpha));
+            byte b = (byte)Mathf.RoundToInt(Mathf.Lerp(baseColor.b, overlay.b, alpha));
+            return new Color32(r, g, b, 255);
+        }
+
+        private static void DrawDigitString(Color32[] pixels, int size, string value, int x, int y, int scale, Color32 color)
+        {
+            if (string.IsNullOrEmpty(value))
+            {
+                return;
+            }
+
+            int cursor = x;
+            int step = Mathf.Max(1, scale) * 4;
+            foreach (char character in value)
+            {
+                if (character == ' ')
+                {
+                    cursor += step;
+                    continue;
+                }
+
+                DrawDigit(pixels, size, character, cursor, y, Mathf.Max(1, scale), color);
+                cursor += step;
+            }
+        }
+
+        private static void DrawDigit(Color32[] pixels, int size, char character, int x, int y, int scale, Color32 color)
+        {
+            string[] pattern = GetDigitPattern(character);
+            if (pattern == null)
+            {
+                return;
+            }
+
+            for (int row = 0; row < pattern.Length; row++)
+            {
+                string line = pattern[row];
+                for (int column = 0; column < line.Length; column++)
+                {
+                    if (line[column] != '1')
+                    {
+                        continue;
+                    }
+
+                    DrawFilledRect(
+                        pixels,
+                        size,
+                        x + column * scale,
+                        y + (pattern.Length - 1 - row) * scale,
+                        scale,
+                        scale,
+                        color);
+                }
+            }
+        }
+
+        private static string[] GetDigitPattern(char character)
+        {
+            switch (character)
+            {
+                case '0': return new[] { "111", "101", "101", "101", "111" };
+                case '1': return new[] { "010", "110", "010", "010", "111" };
+                case '2': return new[] { "111", "001", "111", "100", "111" };
+                case '3': return new[] { "111", "001", "111", "001", "111" };
+                case '4': return new[] { "101", "101", "111", "001", "001" };
+                case '5': return new[] { "111", "100", "111", "001", "111" };
+                case '6': return new[] { "111", "100", "111", "101", "111" };
+                case '7': return new[] { "111", "001", "010", "010", "010" };
+                case '8': return new[] { "111", "101", "111", "101", "111" };
+                case '9': return new[] { "111", "101", "111", "001", "111" };
+                default: return null;
+            }
+        }
+
+        private static void DrawStreamRadarGrid(Color32[] pixels, int size)
+        {
+            int center = size / 2;
+            Color32 ring = new Color32(42, 170, 70, 70);
+            Color32 axis = new Color32(58, 220, 86, 90);
+            for (int r = 1; r <= 4; r++)
+            {
+                DrawCircle(pixels, size, center, center, Mathf.RoundToInt(center * r / 4f), ring);
+            }
+            DrawLine(pixels, size, center, 10, center, size - 11, axis);
+            DrawLine(pixels, size, 10, center, size - 11, center, axis);
+        }
+
+        private static void DrawLiveWeatherTelemetry(Color32[] pixels, int size, StreamWeatherMetrics metrics)
+        {
+            float visibilitySeverity = metrics.VisibilityMeters > 0f
+                ? 1f - Mathf.Clamp01(metrics.VisibilityMeters / 16093.44f)
+                : 0f;
+            float cloudBaseSeverity = metrics.CloudBaseMeters > 0f
+                ? 1f - Mathf.Clamp01(metrics.CloudBaseMeters / 3658f)
+                : 0f;
+
+            DrawSeverityHalo(pixels, size, metrics.Intensity);
+            DrawCompactMetricGauges(
+                pixels,
+                size,
+                metrics.Precipitation,
+                metrics.CloudCoverage,
+                metrics.Turbulence,
+                visibilitySeverity,
+                cloudBaseSeverity);
+        }
+
+        private static void DrawWindVector(Color32[] pixels, int size, float relativeWindDirection, float windSpeedKnots)
+        {
+            int center = size / 2;
+            float length = Mathf.Lerp(size * 0.10f, size * 0.35f, Mathf.Clamp01(windSpeedKnots / 120f));
+            float angle = relativeWindDirection * Mathf.Deg2Rad;
+            int endX = Mathf.RoundToInt(center + Mathf.Sin(angle) * length);
+            int endY = Mathf.RoundToInt(center + Mathf.Cos(angle) * length);
+            Color32 windColor = new Color32(84, 255, 144, 170);
+            DrawLine(pixels, size, center, center, endX, endY, windColor);
+            DrawCircle(pixels, size, endX, endY, Mathf.Max(4, size / 80), windColor);
+        }
+
+        private static void DrawSeverityHalo(Color32[] pixels, int size, float intensity)
+        {
+            intensity = Mathf.Clamp01(intensity);
+            if (intensity <= 0.03f)
+            {
+                return;
+            }
+
+            int center = size / 2;
+            int radius = Mathf.RoundToInt(size * 0.365f);
+            Color32 color = WeatherReturnColor(intensity);
+            color.a = (byte)Mathf.RoundToInt(Mathf.Lerp(44f, 120f, intensity));
+
+            int dashCount = 48;
+            float dashLength = Mathf.Lerp(0.025f, 0.055f, intensity) * Mathf.PI * 2f;
+            for (int i = 0; i < dashCount; i++)
+            {
+                if ((i & 1) == 1)
+                {
+                    continue;
+                }
+
+                float start = (i / (float)dashCount) * Mathf.PI * 2f;
+                float end = start + dashLength;
+                DrawArc(pixels, size, center, center, radius, start, end, color);
+                DrawArc(pixels, size, center, center, radius + Mathf.Max(2, size / 160), start, end, color);
+            }
+        }
+
+        private static void DrawCompactMetricGauges(
+            Color32[] pixels,
+            int size,
+            float precipitation,
+            float cloudCoverage,
+            float turbulence,
+            float visibilitySeverity,
+            float cloudBaseSeverity)
+        {
+            int gaugeCount = 5;
+            int margin = Mathf.Max(18, size / 22);
+            int gaugeWidth = Mathf.Max(4, size / 96);
+            int gaugeHeight = Mathf.Max(24, size / 18);
+            int spacing = Mathf.Max(6, size / 56);
+            int totalWidth = gaugeCount * gaugeWidth + (gaugeCount - 1) * spacing;
+            int startX = margin;
+            int baseY = margin;
+            if (startX + totalWidth > size / 2)
+            {
+                startX = Mathf.Max(10, size / 2 - totalWidth - margin / 2);
+            }
+
+            DrawSmallGauge(pixels, size, startX, baseY, gaugeWidth, gaugeHeight, precipitation);
+            DrawSmallGauge(pixels, size, startX + (gaugeWidth + spacing), baseY, gaugeWidth, gaugeHeight, cloudCoverage);
+            DrawSmallGauge(pixels, size, startX + (gaugeWidth + spacing) * 2, baseY, gaugeWidth, gaugeHeight, turbulence);
+            DrawSmallGauge(pixels, size, startX + (gaugeWidth + spacing) * 3, baseY, gaugeWidth, gaugeHeight, visibilitySeverity);
+            DrawSmallGauge(pixels, size, startX + (gaugeWidth + spacing) * 4, baseY, gaugeWidth, gaugeHeight, cloudBaseSeverity);
+        }
+
+        private static void DrawSmallGauge(Color32[] pixels, int size, int x, int y, int width, int height, float value)
+        {
+            value = Mathf.Clamp01(value);
+            DrawFilledRect(pixels, size, x, y, width, height, new Color32(8, 36, 14, 62));
+            DrawLine(pixels, size, x, y, x + width - 1, y, new Color32(62, 230, 78, 72));
+            DrawLine(pixels, size, x, y + height - 1, x + width - 1, y + height - 1, new Color32(62, 230, 78, 72));
+
+            int fillHeight = Mathf.RoundToInt(value * height);
+            if (fillHeight <= 0)
+            {
+                return;
+            }
+
+            Color32 fill = WeatherReturnColor(value);
+            fill.a = (byte)Mathf.RoundToInt(Mathf.Lerp(95f, 165f, value));
+            DrawFilledRect(pixels, size, x, y, width, fillHeight, fill);
+        }
+
+        private static void DrawArc(Color32[] pixels, int size, int cx, int cy, int radius, float startRadians, float endRadians, Color32 color)
+        {
+            int steps = Mathf.Max(4, Mathf.RoundToInt(radius * Mathf.Abs(endRadians - startRadians)));
+            for (int i = 0; i <= steps; i++)
+            {
+                float t = i / (float)steps;
+                float angle = Mathf.Lerp(startRadians, endRadians, t);
+                SetPixel(pixels, size, Mathf.RoundToInt(cx + Mathf.Cos(angle) * radius), Mathf.RoundToInt(cy + Mathf.Sin(angle) * radius), color);
+            }
+        }
+
+        private static void DrawFilledRect(Color32[] pixels, int size, int x, int y, int width, int height, Color32 color)
+        {
+            int minX = Mathf.Clamp(x, 0, size - 1);
+            int maxX = Mathf.Clamp(x + width - 1, 0, size - 1);
+            int minY = Mathf.Clamp(y, 0, size - 1);
+            int maxY = Mathf.Clamp(y + height - 1, 0, size - 1);
+            for (int py = minY; py <= maxY; py++)
+            {
+                int row = py * size;
+                for (int px = minX; px <= maxX; px++)
+                {
+                    pixels[row + px] = BlendAdditive(pixels[row + px], color);
+                }
+            }
+        }
+
+        private static Color32 WeatherReturnColor(float strength)
+        {
+            if (strength > 0.78f)
+            {
+                return new Color32(255, 174, 36, 220);
+            }
+            if (strength > 0.48f)
+            {
+                return new Color32(210, 232, 58, 205);
+            }
+            return new Color32(38, 220, 64, (byte)Mathf.RoundToInt(Mathf.Lerp(90f, 185f, strength)));
+        }
+
+        private static Color32 BlendAdditive(Color32 baseColor, Color32 overlay)
+        {
+            byte r = (byte)Mathf.Min(255, baseColor.r + overlay.r * overlay.a / 255);
+            byte g = (byte)Mathf.Min(255, baseColor.g + overlay.g * overlay.a / 255);
+            byte b = (byte)Mathf.Min(255, baseColor.b + overlay.b * overlay.a / 255);
+            return new Color32(r, g, b, 255);
+        }
+
+        private static void DrawCircle(Color32[] pixels, int size, int cx, int cy, int radius, Color32 color)
+        {
+            int steps = Mathf.Max(48, radius * 8);
+            for (int i = 0; i < steps; i++)
+            {
+                float angle = (i / (float)steps) * Mathf.PI * 2f;
+                SetPixel(pixels, size, Mathf.RoundToInt(cx + Mathf.Cos(angle) * radius), Mathf.RoundToInt(cy + Mathf.Sin(angle) * radius), color);
+            }
+        }
+
+        private static void DrawLine(Color32[] pixels, int size, int x0, int y0, int x1, int y1, Color32 color)
+        {
+            int dx = Mathf.Abs(x1 - x0);
+            int dy = Mathf.Abs(y1 - y0);
+            int steps = Mathf.Max(dx, dy);
+            if (steps == 0)
+            {
+                SetPixel(pixels, size, x0, y0, color);
+                return;
+            }
+
+            for (int i = 0; i <= steps; i++)
+            {
+                float t = i / (float)steps;
+                SetPixel(pixels, size, Mathf.RoundToInt(Mathf.Lerp(x0, x1, t)), Mathf.RoundToInt(Mathf.Lerp(y0, y1, t)), color);
+            }
+        }
+
+        private static void DrawThickLine(Color32[] pixels, int size, int x0, int y0, int x1, int y1, Color32 color, int thickness)
+        {
+            int radius = Mathf.Max(0, thickness / 2);
+            if (radius == 0)
+            {
+                DrawLine(pixels, size, x0, y0, x1, y1, color);
+                return;
+            }
+
+            for (int offsetY = -radius; offsetY <= radius; offsetY++)
+            {
+                for (int offsetX = -radius; offsetX <= radius; offsetX++)
+                {
+                    if (offsetX * offsetX + offsetY * offsetY > radius * radius)
+                    {
+                        continue;
+                    }
+
+                    DrawLine(pixels, size, x0 + offsetX, y0 + offsetY, x1 + offsetX, y1 + offsetY, color);
+                }
+            }
+        }
+
+        private static void SetPixel(Color32[] pixels, int size, int x, int y, Color32 color)
+        {
+            if (x < 0 || x >= size || y < 0 || y >= size)
+            {
+                return;
+            }
+
+            pixels[y * size + x] = BlendAdditive(pixels[y * size + x], color);
         }
 
         private void ApplyWeatherRadarPowerStateToDisplay()
@@ -1795,9 +2797,10 @@ namespace FAA.XPlaneIntegration.Runtime
             {
                 if (ShouldBridgeDownloadWeatherTexture())
                 {
-                    yield return DownloadTexture("v1/render/weather.png", texture =>
+                    yield return DownloadTexture(GetWeatherTexturePath(), texture =>
                     {
                         ReplaceTexture(ref _latestWeatherTexture, texture);
+                        _lastDownloadedWeatherTextureRealtime = Time.realtimeSinceStartup;
                         if (weatherImageTarget != null)
                         {
                             weatherImageTarget.texture = _latestWeatherTexture;
@@ -1991,13 +2994,16 @@ namespace FAA.XPlaneIntegration.Runtime
             return "v1/render/traffic.png?range_nm=" + Mathf.Clamp(rangeNm, 5f, 160f).ToString("0", CultureInfo.InvariantCulture);
         }
 
+        private string GetWeatherTexturePath()
+        {
+            // With no range query the bridge returns the current native
+            // xplm_Tex_Radar_Pilot artifact (724x512). range_nm intentionally
+            // selects the sparse UDP RADR diagnostic renderer instead.
+            return "v1/render/weather.png";
+        }
+
         private bool ShouldBridgeDownloadWeatherTexture()
         {
-            if (weatherRadarProvider is XPlaneOriginalWeatherRadarProvider)
-            {
-                return false;
-            }
-
             return weatherImageTarget != null || xPlaneWeatherRadarDisplay != null || weatherRadarProvider != null;
         }
 
@@ -2005,7 +3011,7 @@ namespace FAA.XPlaneIntegration.Runtime
         {
             string separator = relativeUrl.Contains("?") ? "&" : "?";
             string url = BuildUrl(relativeUrl) + separator + "t=" + DateTimeOffset.UtcNow.ToUnixTimeMilliseconds().ToString(CultureInfo.InvariantCulture);
-            using (UnityWebRequest request = UnityWebRequestTexture.GetTexture(url, true))
+            using (UnityWebRequest request = UnityWebRequestTexture.GetTexture(url, false))
             {
                 request.timeout = Mathf.Max(1, Mathf.RoundToInt(requestTimeoutSeconds));
                 yield return request.SendWebRequest();
@@ -2171,6 +3177,10 @@ namespace FAA.XPlaneIntegration.Runtime
                 {
                     continue;
                 }
+                if (IsSyntheticTrafficTarget(target))
+                {
+                    continue;
+                }
 
                 float latitude = ReadFloat(target["latitude"], float.NaN);
                 float longitude = ReadFloat(target["longitude"], float.NaN);
@@ -2217,6 +3227,45 @@ namespace FAA.XPlaneIntegration.Runtime
             }
 
             return false;
+        }
+
+        private static bool IsSyntheticTrafficTarget(JObject target)
+        {
+            string source = target.Value<string>("source") ?? string.Empty;
+            if (IsSyntheticSourceMode(source))
+            {
+                return true;
+            }
+
+            string icao = target.Value<string>("icao24") ?? string.Empty;
+            string callsign = target.Value<string>("callsign") ?? string.Empty;
+            return StartsWithSyntheticPrefix(icao) || StartsWithSyntheticPrefix(callsign);
+        }
+
+        private static bool StartsWithSyntheticPrefix(string value)
+        {
+            if (string.IsNullOrWhiteSpace(value))
+            {
+                return false;
+            }
+
+            return value.StartsWith("MOCK", StringComparison.OrdinalIgnoreCase) ||
+                value.StartsWith("SYN", StringComparison.OrdinalIgnoreCase) ||
+                value.StartsWith("FAKE", StringComparison.OrdinalIgnoreCase);
+        }
+
+        private static bool IsSyntheticSourceMode(string sourceMode)
+        {
+            if (string.IsNullOrWhiteSpace(sourceMode))
+            {
+                return false;
+            }
+
+            return sourceMode.IndexOf("mock", StringComparison.OrdinalIgnoreCase) >= 0 ||
+                sourceMode.IndexOf("synthetic", StringComparison.OrdinalIgnoreCase) >= 0 ||
+                sourceMode.IndexOf("generated", StringComparison.OrdinalIgnoreCase) >= 0 ||
+                sourceMode.IndexOf("sample", StringComparison.OrdinalIgnoreCase) >= 0 ||
+                sourceMode.IndexOf("demo", StringComparison.OrdinalIgnoreCase) >= 0;
         }
 
         private string DescribeTransport()
@@ -2289,6 +3338,14 @@ namespace FAA.XPlaneIntegration.Runtime
         private static bool IsFinite(float value)
         {
             return !float.IsNaN(value) && !float.IsInfinity(value);
+        }
+
+        private static bool TryGetFinite(IDictionary<string, float> values, string key, out float value)
+        {
+            value = 0f;
+            return values != null &&
+                   values.TryGetValue(key, out value) &&
+                   IsFinite(value);
         }
 
         private static void AddSnapshotValue(IDictionary<string, float> values, string key, JToken token)
@@ -2375,6 +3432,15 @@ namespace FAA.XPlaneIntegration.Runtime
             return GetAny(weather, 0f,
                 "sim/weather/wind_speed_kt[0]",
                 "sim/weather/aircraft/wind_speed_kt");
+        }
+
+        private static float GetWeatherWindDirection(IDictionary<string, float> weather)
+        {
+            return Mathf.Repeat(GetAny(weather, 0f,
+                "sim/weather/aircraft/wind_now_direction_degt",
+                "sim/weather/region/wind_direction_degt[0]",
+                "sim/weather/wind_direction_degt[0]",
+                "sim/weather/aircraft/wind_direction_deg"), 360f);
         }
 
         private static float GetBarometerInHg(IDictionary<string, float> weather)

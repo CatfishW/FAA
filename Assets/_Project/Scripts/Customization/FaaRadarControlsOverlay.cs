@@ -15,16 +15,16 @@ namespace FAA.Customization
     [AddComponentMenu("FAA/Customization/FAA Radar Controls Overlay")]
     public class FaaRadarControlsOverlay : MonoBehaviour
     {
-        private const float CompactStripHeight = 48f;
-        private const float RowHeight = 34f;
-        private const float WeatherCollapsedWidth = 186f;
-        private const float WeatherCompactWidth = 308f;
-        private const float WeatherAdvancedWidth = 336f;
-        private const float TrafficCollapsedWidth = 246f;
-        private const float TrafficCompactWidth = 330f;
-        private const float TrafficAdvancedWidth = 344f;
-        private const float TwoRowStripHeight = 82f;
-        private const float ThreeRowStripHeight = 118f;
+        private const float CompactStripHeight = 56f;
+        private const float RowHeight = 40f;
+        private const float WeatherCollapsedWidth = 214f;
+        private const float WeatherCompactWidth = 352f;
+        private const float WeatherAdvancedWidth = 392f;
+        private const float TrafficCollapsedWidth = 292f;
+        private const float TrafficCompactWidth = 382f;
+        private const float TrafficAdvancedWidth = 408f;
+        private const float TwoRowStripHeight = 98f;
+        private const float ThreeRowStripHeight = 140f;
         private static readonly Color StripBackgroundColor = new Color(0f, 0.026f, 0.018f, 0.94f);
         private static readonly Color StripStrokeColor = new Color(0.18f, 1f, 0.32f, 0.55f);
         private static readonly Color ButtonNormalColor = new Color(0.014f, 0.15f, 0.055f, 0.96f);
@@ -39,11 +39,13 @@ namespace FAA.Customization
         [SerializeField] private string trafficRadarRootName = "Traffic Radar System";
 
         [Header("Layout")]
-        [SerializeField] private Vector2 weatherStripSize = new Vector2(430f, 76f);
-        [SerializeField] private Vector2 trafficStripSize = new Vector2(448f, 76f);
+        [SerializeField] private Vector2 weatherStripSize = new Vector2(176f, 44f);
+        [SerializeField] private Vector2 trafficStripSize = new Vector2(226f, 44f);
         [SerializeField] private Vector2 stripOffset = new Vector2(0f, 8f);
         [SerializeField] private bool showOnStart = true;
         [SerializeField] private bool startExpanded;
+        [SerializeField] private bool showConfigurationButtonsOnStart;
+        [SerializeField] private bool reducedMotion;
 
         [Header("Controls")]
         [SerializeField] private bool enableWeatherControls = true;
@@ -52,6 +54,7 @@ namespace FAA.Customization
 
         [Header("Compatibility")]
         [SerializeField] private bool suppressLegacyRadarControlPanels = true;
+        [SerializeField] private bool suppressInlineWeatherLabels = true;
 
         private Transform _weatherRoot;
         private Transform _trafficRoot;
@@ -63,7 +66,12 @@ namespace FAA.Customization
         private TrafficRadarDisplay _trafficDisplay;
         private TrafficRadarDataManager _trafficDataManager;
         private RectTransform _weatherStrip;
+        private XPlaneWeatherInfoStrip _weatherConditionsStrip;
+        private FaaRadarConfigurationDrawer _weatherDrawer;
+        private FaaRadarInteractionSurface _weatherInteractionSurface;
         private RectTransform _trafficStrip;
+        private FaaRadarConfigurationDrawer _trafficDrawer;
+        private FaaRadarInteractionSurface _trafficInteractionSurface;
         private TMP_Text _weatherRangeText;
         private TMP_Text _weatherSummaryText;
         private TMP_Text _weatherTiltText;
@@ -84,9 +92,11 @@ namespace FAA.Customization
         private TMP_Text _trafficOpacityText;
         private TMP_Text _trafficExpandText;
         private TMP_Text _trafficAdvancedText;
-        private bool _weatherOverlayVisible;
+        private bool _weatherOverlayVisible = true;
         private bool _weatherExpanded;
         private bool _trafficExpanded;
+        private bool _weatherConfigurationVisible;
+        private bool _trafficConfigurationVisible;
         private bool _showWeatherAdvancedControls;
         private bool _showTrafficAdvancedControls;
         private bool _controlsVisible;
@@ -106,6 +116,8 @@ namespace FAA.Customization
         {
             _weatherExpanded = startExpanded;
             _trafficExpanded = startExpanded;
+            _weatherConfigurationVisible = showConfigurationButtonsOnStart;
+            _trafficConfigurationVisible = showConfigurationButtonsOnStart;
             RefreshReferences();
             EnsureControlStrips();
             SetVisible(showOnStart);
@@ -118,6 +130,14 @@ namespace FAA.Customization
             RefreshReferences();
             EnsureControlStrips();
             SetVisible(showOnStart);
+        }
+
+        private void OnDisable()
+        {
+            if (_weatherConditionsStrip != null)
+            {
+                _weatherConditionsStrip.ExpandedChanged -= OnWeatherConditionsExpandedChanged;
+            }
         }
 
         private void Update()
@@ -140,14 +160,74 @@ namespace FAA.Customization
         {
             _controlsVisible = visible;
             _visibilityInitialized = true;
-            SetStripVisible(_weatherStrip, visible && enableWeatherControls);
-            SetStripVisible(_trafficStrip, visible && enableTrafficControls);
+            if (_weatherConditionsStrip != null)
+            {
+                _weatherConditionsStrip.gameObject.SetActive(visible && enableWeatherControls);
+            }
+
+            ApplyRadarConfigurationVisibility();
         }
 
         public void ToggleVisible()
         {
-            bool nextVisible = !(_weatherStrip != null && _weatherStrip.gameObject.activeSelf);
+            bool nextVisible = !_controlsVisible;
             SetVisible(nextVisible);
+        }
+
+        public void ToggleRadarConfiguration(FaaRadarKind radarKind)
+        {
+            EnsureControlStrips();
+            bool show;
+            if (radarKind == FaaRadarKind.Weather)
+            {
+                show = !(_weatherConditionsStrip != null
+                    ? _weatherConditionsStrip.IsExpanded
+                    : _weatherConfigurationVisible);
+                _weatherConfigurationVisible = show;
+                if (show)
+                {
+                    _trafficConfigurationVisible = false;
+                }
+
+                _weatherConditionsStrip?.SetExpanded(show);
+            }
+            else
+            {
+                show = !_trafficConfigurationVisible;
+                _trafficConfigurationVisible = show;
+                if (show)
+                {
+                    _weatherConfigurationVisible = false;
+                    _weatherConditionsStrip?.SetExpanded(false);
+                }
+            }
+
+            ApplyRadarConfigurationVisibility();
+        }
+
+        public void SetRadarConfigurationVisible(FaaRadarKind radarKind, bool visible, bool immediate = false)
+        {
+            if (radarKind == FaaRadarKind.Weather)
+            {
+                _weatherConfigurationVisible = visible;
+                _weatherConditionsStrip?.SetExpanded(visible, immediate);
+                if (visible)
+                {
+                    _trafficConfigurationVisible = false;
+                }
+            }
+            else
+            {
+                _trafficConfigurationVisible = visible;
+                if (visible)
+                {
+                    _weatherConfigurationVisible = false;
+                    _weatherConditionsStrip?.SetExpanded(false, immediate);
+                }
+            }
+
+            EnsureControlStrips();
+            ApplyRadarConfigurationVisibility(immediate);
         }
 
         public void ToggleWeatherExpanded()
@@ -413,15 +493,154 @@ namespace FAA.Customization
 
             if (enableWeatherControls && _weatherRoot != null)
             {
+                if (suppressInlineWeatherLabels)
+                {
+                    ImproveWeatherLabelLegibility(_weatherRoot);
+                }
+
                 _weatherStrip = EnsureStrip(_weatherRoot, "WeatherControlStrip", GetWeatherStripSize());
                 EnsureWeatherControls(_weatherStrip);
+                _weatherDrawer = EnsureDrawer(_weatherStrip);
+                _weatherInteractionSurface = EnsureInteractionSurface(_weatherRoot, FaaRadarKind.Weather);
+                _weatherConditionsStrip = EnsureWeatherConditionsStrip(_weatherRoot, _weatherStrip);
+            }
+            else if (_weatherConditionsStrip != null)
+            {
+                _weatherConditionsStrip.gameObject.SetActive(false);
             }
 
             if (enableTrafficControls && _trafficRoot != null)
             {
                 _trafficStrip = EnsureStrip(_trafficRoot, "TrafficControlStrip", GetTrafficStripSize());
                 EnsureTrafficControls(_trafficStrip);
+                _trafficDrawer = EnsureDrawer(_trafficStrip);
+                _trafficInteractionSurface = EnsureInteractionSurface(_trafficRoot, FaaRadarKind.Traffic);
             }
+
+            ApplyRadarConfigurationVisibility();
+        }
+
+        private FaaRadarConfigurationDrawer EnsureDrawer(RectTransform strip)
+        {
+            if (strip == null)
+            {
+                return null;
+            }
+
+            FaaRadarConfigurationDrawer drawer = strip.GetComponent<FaaRadarConfigurationDrawer>() ??
+                                                   strip.gameObject.AddComponent<FaaRadarConfigurationDrawer>();
+            drawer.Configure(reducedMotion);
+            return drawer;
+        }
+
+        private FaaRadarInteractionSurface EnsureInteractionSurface(Transform root, FaaRadarKind radarKind)
+        {
+            RectTransform rootRect = root as RectTransform ?? root.GetComponent<RectTransform>();
+            if (rootRect == null)
+            {
+                return null;
+            }
+
+            string objectName = radarKind == FaaRadarKind.Weather
+                ? FaaRadarInteractionSurface.WeatherObjectName
+                : FaaRadarInteractionSurface.TrafficObjectName;
+            Transform existing = root.Find(objectName);
+            GameObject surfaceObject = existing != null
+                ? existing.gameObject
+                : new GameObject(objectName, typeof(RectTransform), typeof(CanvasRenderer), typeof(Image));
+            RectTransform surfaceRect = surfaceObject.GetComponent<RectTransform>();
+            surfaceRect.SetParent(root, false);
+            StretchToParent(surfaceRect);
+            surfaceRect.SetAsLastSibling();
+
+            FaaRadarInteractionSurface surface = surfaceObject.GetComponent<FaaRadarInteractionSurface>() ??
+                                                 surfaceObject.AddComponent<FaaRadarInteractionSurface>();
+            surface.Configure(this, radarKind, reducedMotion);
+            return surface;
+        }
+
+        private void ApplyRadarConfigurationVisibility(bool immediate = false)
+        {
+            bool overallVisible = _visibilityInitialized ? _controlsVisible : showOnStart;
+            bool weatherEnabled = overallVisible && enableWeatherControls;
+            bool trafficEnabled = overallVisible && enableTrafficControls;
+
+            ApplyDrawerState(
+                _weatherStrip,
+                _weatherDrawer,
+                weatherEnabled && _weatherConfigurationVisible,
+                weatherEnabled,
+                immediate);
+            ApplyDrawerState(
+                _trafficStrip,
+                _trafficDrawer,
+                trafficEnabled && _trafficConfigurationVisible,
+                trafficEnabled,
+                immediate);
+
+            if (_weatherInteractionSurface != null)
+            {
+                _weatherInteractionSurface.SetInteractionEnabled(weatherEnabled);
+                _weatherInteractionSurface.SetOpen(weatherEnabled && _weatherConfigurationVisible);
+            }
+
+            if (_trafficInteractionSurface != null)
+            {
+                _trafficInteractionSurface.SetInteractionEnabled(trafficEnabled);
+                _trafficInteractionSurface.SetOpen(trafficEnabled && _trafficConfigurationVisible);
+            }
+        }
+
+        private static void ApplyDrawerState(
+            RectTransform strip,
+            FaaRadarConfigurationDrawer drawer,
+            bool drawerVisible,
+            bool controlsEnabled,
+            bool immediate)
+        {
+            if (strip == null)
+            {
+                return;
+            }
+
+            strip.gameObject.SetActive(controlsEnabled);
+            if (controlsEnabled)
+            {
+                drawer?.SetVisible(drawerVisible, immediate);
+            }
+        }
+
+        private XPlaneWeatherInfoStrip EnsureWeatherConditionsStrip(Transform root, RectTransform weatherControlStrip)
+        {
+            Transform stripParent = root.parent != null ? root.parent : transform;
+            Transform existing = stripParent.Find(XPlaneWeatherInfoStrip.StripObjectName) ??
+                                 root.Find(XPlaneWeatherInfoStrip.StripObjectName);
+            GameObject stripObject = existing != null
+                ? existing.gameObject
+                : new GameObject(
+                    XPlaneWeatherInfoStrip.StripObjectName,
+                    typeof(RectTransform),
+                    typeof(CanvasRenderer));
+            stripObject.transform.SetParent(stripParent, false);
+            XPlaneWeatherInfoStrip infoStrip = stripObject.GetComponent<XPlaneWeatherInfoStrip>() ??
+                                               stripObject.AddComponent<XPlaneWeatherInfoStrip>();
+            infoStrip.ExpandedChanged -= OnWeatherConditionsExpandedChanged;
+            infoStrip.ExpandedChanged += OnWeatherConditionsExpandedChanged;
+            infoStrip.Configure(_xPlaneBridge, root as RectTransform ?? root.GetComponent<RectTransform>(), weatherControlStrip);
+            stripObject.SetActive((_visibilityInitialized ? _controlsVisible : showOnStart) && enableWeatherControls);
+            stripObject.transform.SetAsLastSibling();
+            return infoStrip;
+        }
+
+        private void OnWeatherConditionsExpandedChanged(bool expanded)
+        {
+            _weatherConfigurationVisible = expanded;
+            if (expanded)
+            {
+                _trafficConfigurationVisible = false;
+            }
+
+            ApplyRadarConfigurationVisibility();
         }
 
         private RectTransform EnsureStrip(Transform root, string stripName, Vector2 size)
@@ -433,7 +652,10 @@ namespace FAA.Customization
             rectTransform.SetParent(stripParent, false);
             MatchStripToRadarRoot(rectTransform, root);
             rectTransform.sizeDelta = size;
-            rectTransform.localScale = Vector3.one;
+            if (stripObject.GetComponent<FaaRadarConfigurationDrawer>() == null)
+            {
+                rectTransform.localScale = Vector3.one;
+            }
             rectTransform.localRotation = Quaternion.identity;
             stripObject.SetActive((_visibilityInitialized ? _controlsVisible : showOnStart) &&
                                   (stripName.Contains("Weather") ? enableWeatherControls : enableTrafficControls));
@@ -474,7 +696,7 @@ namespace FAA.Customization
             if (_weatherExpanded)
             {
                 _weatherExpandText = GetButtonLabel(EnsureButton(primaryRow, "WXExpandToggle", "<", ToggleWeatherExpanded, 24f));
-                _weatherRangeText = EnsureLabel(primaryRow, "WXRangeValue", "WX 40", 58f);
+                _weatherRangeText = EnsureLabel(primaryRow, "WXRangeValue", "WX 160", 58f);
                 EnsureButton(primaryRow, "WXRangeDown", "-", WeatherRangeDown, 30f);
                 EnsureButton(primaryRow, "WXRangeUp", "+", WeatherRangeUp, 30f);
                 _weatherModeText = GetButtonLabel(EnsureButton(primaryRow, "WXModeCycle", "WX", CycleWeatherMode, 48f));
@@ -485,7 +707,7 @@ namespace FAA.Customization
             }
             else
             {
-                _weatherSummaryText = GetButtonLabel(EnsureButton(primaryRow, "WXSummaryToggle", "WX 40NM >", ToggleWeatherExpanded, WeatherCollapsedWidth - 10f));
+                _weatherSummaryText = GetButtonLabel(EnsureButton(primaryRow, "WXSummaryToggle", "CONFIG WX · 160NM", ToggleWeatherExpanded, WeatherCollapsedWidth - 10f));
                 _weatherExpandText = null;
                 HideUnexpectedRowChildren(primaryRow, "WXSummaryToggle");
             }
@@ -528,7 +750,7 @@ namespace FAA.Customization
             }
             else
             {
-                _trafficSummaryText = GetButtonLabel(EnsureButton(primaryRow, "TCASSummaryToggle", "TRF 0/50 40NM >", ToggleTrafficExpanded, TrafficCollapsedWidth - 10f));
+                _trafficSummaryText = GetButtonLabel(EnsureButton(primaryRow, "TCASSummaryToggle", "CONFIG TRF · 0/50 · 40NM", ToggleTrafficExpanded, TrafficCollapsedWidth - 10f));
                 _trafficExpandText = null;
                 HideUnexpectedRowChildren(primaryRow, "TCASSummaryToggle");
             }
@@ -621,7 +843,7 @@ namespace FAA.Customization
             colors.colorMultiplier = 1f;
             button.colors = colors;
 
-            TMP_Text label = EnsureText(buttonObject.transform, "Label", text, 13f);
+            TMP_Text label = EnsureText(buttonObject.transform, "Label", text, 15f);
             StretchToParent(label.rectTransform);
             label.alignment = TextAlignmentOptions.Center;
             label.fontStyle = FontStyles.Bold;
@@ -645,7 +867,7 @@ namespace FAA.Customization
             layout.minWidth = width;
             layout.minHeight = RowHeight;
 
-            TMP_Text label = EnsureText(labelObject.transform, "Text", text, 12f);
+            TMP_Text label = EnsureText(labelObject.transform, "Text", text, 14f);
             StretchToParent(label.rectTransform);
             label.alignment = TextAlignmentOptions.Center;
             label.fontStyle = FontStyles.Bold;
@@ -664,9 +886,10 @@ namespace FAA.Customization
             TextMeshProUGUI label = textObject.GetComponent<TextMeshProUGUI>() ?? textObject.AddComponent<TextMeshProUGUI>();
             label.text = text;
             label.fontSize = fontSize;
-            label.enableAutoSizing = true;
-            label.fontSizeMin = 8f;
+            label.enableAutoSizing = false;
+            label.fontSizeMin = Mathf.Min(12f, fontSize);
             label.fontSizeMax = fontSize;
+            label.extraPadding = true;
             label.textWrappingMode = TextWrappingModes.NoWrap;
             label.overflowMode = TextOverflowModes.Truncate;
             label.raycastTarget = false;
@@ -681,11 +904,14 @@ namespace FAA.Customization
                 string modeText = data.currentMode.ToString().Replace("_", "+");
                 bool bridgeHasWeatherTexture = _xPlaneBridge != null && _xPlaneBridge.LatestWeatherTexture != null;
                 string powerText = _weatherProvider != null && _weatherProvider.Status == ProviderStatus.Inactive && !bridgeHasWeatherTexture ? "OFF" : modeText;
-                SetText(_weatherSummaryText, $"{powerText} {data.currentRange:0}NM >");
+                SetText(_weatherSummaryText, $"CONFIG {powerText} · {data.currentRange:0}NM");
                 SetText(_weatherRangeText, $"WX {data.currentRange:0}");
                 SetText(_weatherTiltText, $"T{Signed(data.tiltAngle, "0.0")}");
                 SetText(_weatherGainText, $"G{Signed(data.gainOffset, "0")}");
                 SetText(_weatherModeText, modeText);
+                SetInlineWeatherText(_weatherRoot, "ModeLabel", modeText);
+                SetInlineWeatherText(_weatherRoot, "RangeLabel", $"{data.currentRange:0} NM");
+                SetInlineWeatherText(_weatherRoot, "TiltLabel", $"TILT {Signed(data.tiltAngle, "0.0")}°");
             }
 
             if (_weatherProvider != null)
@@ -699,7 +925,7 @@ namespace FAA.Customization
                 int liveTrafficCount = _xPlaneBridge != null && _xPlaneBridge.IsFeedHealthy
                     ? _xPlaneBridge.TrafficCount
                     : _trafficController.TargetCount;
-                SetText(_trafficSummaryText, $"TRF {liveTrafficCount}/{_trafficController.MaxTargets} {_trafficController.RangeNM:0}NM >");
+                SetText(_trafficSummaryText, $"CONFIG TRF · {liveTrafficCount}/{_trafficController.MaxTargets} · {_trafficController.RangeNM:0}NM");
                 SetText(_trafficRangeText, $"TRF {_trafficController.RangeNM:0}");
                 SetText(_trafficTargetText, $"{liveTrafficCount}/{_trafficController.MaxTargets}");
                 SetText(_trafficMaxText, $"MAX {_trafficController.MaxTargets}");
@@ -739,20 +965,33 @@ namespace FAA.Customization
 
         private void ApplyWeatherOverlayVisibility()
         {
-            if (_weatherOverlays == null)
+            if (_weatherRoot == null)
             {
                 return;
             }
+
+            foreach (XPlaneOriginalWeatherRadarDisplay display in
+                     _weatherRoot.GetComponentsInChildren<XPlaneOriginalWeatherRadarDisplay>(true))
+            {
+                if (display != null)
+                {
+                    display.ShowReferenceOverlay = _weatherOverlayVisible;
+                }
+            }
+
+            _weatherOverlays = _weatherRoot.GetComponentsInChildren<XPlaneWeatherRadarOverlay>(true);
 
             foreach (XPlaneWeatherRadarOverlay overlay in _weatherOverlays)
             {
                 if (overlay != null)
                 {
+                    overlay.gameObject.SetActive(_weatherOverlayVisible);
                     overlay.enabled = _weatherOverlayVisible;
                     RawImage image = overlay.GetComponent<RawImage>();
                     if (image != null)
                     {
                         image.enabled = _weatherOverlayVisible;
+                        image.raycastTarget = false;
                     }
                 }
             }
@@ -858,6 +1097,128 @@ namespace FAA.Customization
                 {
                     clickHandler.enabled = false;
                 }
+            }
+        }
+
+        private static void ImproveWeatherLabelLegibility(Transform weatherRoot)
+        {
+            if (weatherRoot == null)
+            {
+                return;
+            }
+
+            foreach (Transform child in weatherRoot.GetComponentsInChildren<Transform>(true))
+            {
+                if (child == null || child == weatherRoot)
+                {
+                    continue;
+                }
+
+                switch (child.name)
+                {
+                    case "ModeLabel":
+                        // WeatherPowerBadge already owns the authoritative live mode and
+                        // power state in the same top-center slot. Hide the legacy duplicate.
+                        child.gameObject.SetActive(false);
+                        break;
+                    case "RangeLabel":
+                    case "TiltLabel":
+                    case "TextureStatusLabel":
+                    case "SourceLabel":
+                    case "TextureAgeLabel":
+                    case "WeatherPowerBadge":
+                        child.gameObject.SetActive(true);
+                        LayoutWeatherReadout(child, child.name);
+                        StyleWeatherReadout(child, WeatherReadoutFontSize(child.name));
+                        break;
+                }
+            }
+        }
+
+        private static void LayoutWeatherReadout(Transform root, string objectName)
+        {
+            RectTransform rect = root as RectTransform ?? root.GetComponent<RectTransform>();
+            if (rect == null)
+            {
+                return;
+            }
+
+            switch (objectName)
+            {
+                case "SourceLabel":
+                    rect.anchoredPosition = new Vector2(-105f, 142f);
+                    rect.sizeDelta = new Vector2(132f, 26f);
+                    break;
+                case "TextureAgeLabel":
+                    rect.anchoredPosition = new Vector2(137f, 142f);
+                    rect.sizeDelta = new Vector2(64f, 26f);
+                    break;
+                case "TextureStatusLabel":
+                    rect.anchoredPosition = new Vector2(-105f, -126f);
+                    rect.sizeDelta = new Vector2(138f, 26f);
+                    break;
+                case "TiltLabel":
+                    rect.anchoredPosition = new Vector2(110f, -126f);
+                    rect.sizeDelta = new Vector2(126f, 26f);
+                    break;
+                case "RangeLabel":
+                    rect.anchoredPosition = new Vector2(0f, -164f);
+                    rect.sizeDelta = new Vector2(124f, 28f);
+                    break;
+                case "WeatherPowerBadge":
+                    rect.sizeDelta = new Vector2(150f, 30f);
+                    break;
+            }
+        }
+
+        private static void SetInlineWeatherText(Transform weatherRoot, string objectName, string value)
+        {
+            if (weatherRoot == null)
+            {
+                return;
+            }
+
+            foreach (TMP_Text text in weatherRoot.GetComponentsInChildren<TMP_Text>(true))
+            {
+                if (text != null && text.name == objectName)
+                {
+                    text.text = value;
+                }
+            }
+        }
+
+        private static float WeatherReadoutFontSize(string objectName)
+        {
+            switch (objectName)
+            {
+                case "RangeLabel": return 17f;
+                case "TiltLabel": return 16f;
+                case "SourceLabel": return 15f;
+                case "WeatherPowerBadge": return 16f;
+                case "TextureAgeLabel": return 13f;
+                default: return 11f;
+            }
+        }
+
+        private static void StyleWeatherReadout(Transform root, float fontSize)
+        {
+            foreach (TMP_Text text in root.GetComponentsInChildren<TMP_Text>(true))
+            {
+                if (text == null)
+                {
+                    continue;
+                }
+
+                text.enableAutoSizing = false;
+                text.fontSize = fontSize;
+                text.fontStyle |= FontStyles.Bold;
+                text.extraPadding = true;
+                text.outlineWidth = 0.18f;
+                text.outlineColor = new Color32(0, 10, 7, 235);
+                text.color = new Color(0.78f, 1f, 0.8f, 1f);
+                text.textWrappingMode = TextWrappingModes.NoWrap;
+                text.overflowMode = TextOverflowModes.Overflow;
+                text.raycastTarget = false;
             }
         }
 
