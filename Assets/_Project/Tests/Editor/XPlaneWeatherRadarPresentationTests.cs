@@ -411,10 +411,36 @@ namespace FAA.Customization.Tests
                 Type radarKind = Type.GetType("FAA.Customization.FaaRadarKind, Assembly-CSharp");
                 object weatherKind = Enum.Parse(radarKind, "Weather");
                 surfaceType.GetMethod("Configure")?.Invoke(surface, new[] { null, weatherKind, false });
-                Transform hint = surfaceRoot.transform.Find("RadarFocusFrame/ConfigureHint");
+                Transform focusFrame = surfaceRoot.transform.Find("RadarFocusFrame");
+                Assert.That(focusFrame, Is.Not.Null);
+                GameObject legacyEdge = new GameObject(
+                    "TopEdge",
+                    typeof(RectTransform),
+                    typeof(CanvasRenderer),
+                    typeof(UnityEngine.UI.Image));
+                legacyEdge.transform.SetParent(focusFrame, false);
+                surfaceType.GetMethod("Configure")?.Invoke(surface, new[] { null, weatherKind, false });
+
+                Transform hint = focusFrame.Find("ConfigureHint");
                 Assert.That(hint, Is.Not.Null);
                 Assert.That(hint.gameObject.activeSelf, Is.False,
                     "No persistent rectangle may obscure live weather-radar annotations.");
+                Assert.That(legacyEdge.activeSelf, Is.False,
+                    "The old full-width focus edge must be retired when the glass is refreshed.");
+                string[] cornerSegments =
+                {
+                    "TopLeftHorizontal", "TopLeftVertical", "TopRightHorizontal", "TopRightVertical",
+                    "BottomLeftHorizontal", "BottomLeftVertical", "BottomRightHorizontal", "BottomRightVertical"
+                };
+                foreach (string segmentName in cornerSegments)
+                {
+                    Transform segment = focusFrame.Find(segmentName);
+                    Assert.That(segment, Is.Not.Null, segmentName);
+                    Assert.That(segment.gameObject.activeSelf, Is.True, segmentName);
+                    Vector2 size = segment.GetComponent<RectTransform>().sizeDelta;
+                    Assert.That(Mathf.Max(size.x, size.y), Is.LessThanOrEqualTo(22.1f),
+                        $"{segmentName} must remain a short corner bracket, not a view-blocking edge.");
+                }
             }
             finally
             {
@@ -511,6 +537,85 @@ namespace FAA.Customization.Tests
         }
 
         [Test]
+        public void RadarGlassPresentation_HasNoOpaqueOfflineOrSquareFallback()
+        {
+            Type weatherType = Type.GetType("WeatherRadar.XPlaneOriginalWeatherRadarDisplay, WeatherRadar");
+            Type trafficType = Type.GetType("TrafficRadar.TrafficRadarDisplay, TrafficRadar");
+            Assert.That(weatherType, Is.Not.Null);
+            Assert.That(trafficType, Is.Not.Null);
+
+            GameObject weatherRoot = new GameObject(
+                "Transparent Weather Glass Test",
+                typeof(RectTransform),
+                typeof(CanvasRenderer),
+                typeof(UnityEngine.UI.RawImage));
+            GameObject trafficRoot = new GameObject(
+                "Transparent Traffic Glass Test",
+                typeof(RectTransform),
+                typeof(UnityEngine.UI.Image),
+                typeof(UnityEngine.UI.Mask));
+            try
+            {
+                Component weather = weatherRoot.AddComponent(weatherType);
+                weatherType.GetMethod("ConfigureHudPresentation")?.Invoke(weather, new object[] { 0.82f });
+                Color offlineTint = ReadField<Color>(weatherType, weather, "offlineTint");
+                Assert.That(offlineTint.a, Is.LessThanOrEqualTo(0.061f));
+
+                Component traffic = trafficRoot.AddComponent(trafficType);
+                trafficType.GetMethod("ConfigureHudPresentation")?.Invoke(traffic, new object[] { 0.34f, 0.28f });
+                Color background = ReadField<Color>(trafficType, traffic, "backgroundColor");
+                Assert.That(background.a, Is.LessThanOrEqualTo(0.35f));
+                Assert.That(ReadField<bool>(trafficType, traffic, "enforceReadablePanelBackground"), Is.False);
+                Color ownship = ReadField<Color>(trafficType, traffic, "ownAircraftColor");
+                Assert.That(ownship.g, Is.GreaterThan(ownship.r));
+
+                Assert.That(trafficRoot.GetComponent<UnityEngine.UI.Mask>().showMaskGraphic, Is.False);
+                Assert.That(trafficRoot.GetComponent<UnityEngine.UI.Image>().color.a, Is.EqualTo(0f));
+            }
+            finally
+            {
+                UnityEngine.Object.DestroyImmediate(weatherRoot);
+                UnityEngine.Object.DestroyImmediate(trafficRoot);
+            }
+        }
+
+        [Test]
+        public void RadarSizeInitialization_IgnoresEditorPlayerPrefs()
+        {
+            Type overlayType = Type.GetType("FAA.Customization.FaaRadarControlsOverlay, Assembly-CSharp");
+            Assert.That(overlayType, Is.Not.Null);
+            const string preferenceKey = "FAA.HUD.WeatherRadarSize";
+            bool hadValue = PlayerPrefs.HasKey(preferenceKey);
+            float previousValue = hadValue ? PlayerPrefs.GetFloat(preferenceKey) : 0f;
+            GameObject root = new GameObject("Radar Size Preference Test");
+            try
+            {
+                PlayerPrefs.SetFloat(preferenceKey, 372f);
+                Component overlay = root.AddComponent(overlayType);
+                MethodInfo readInitial = overlayType.GetMethod(
+                    "ReadInitialRadarSize",
+                    BindingFlags.Instance | BindingFlags.NonPublic);
+                Assert.That(readInitial, Is.Not.Null);
+                float resolved = (float)readInitial.Invoke(overlay, new object[] { preferenceKey, 280f });
+                Assert.That(resolved, Is.EqualTo(280f),
+                    "Edit-mode setup must serialize the compact project default, not a workstation preference.");
+            }
+            finally
+            {
+                if (hadValue)
+                {
+                    PlayerPrefs.SetFloat(preferenceKey, previousValue);
+                }
+                else
+                {
+                    PlayerPrefs.DeleteKey(preferenceKey);
+                }
+                PlayerPrefs.Save();
+                UnityEngine.Object.DestroyImmediate(root);
+            }
+        }
+
+        [Test]
         public void Sa147HudCapture_SlicesTheLiveHudForTheHeadsetCameraViewports()
         {
             Type compatibilityType = Type.GetType("FAA.Headset.SA147HeadsetCompatibility, Assembly-CSharp");
@@ -540,6 +645,13 @@ namespace FAA.Customization.Tests
             PropertyInfo property = type.GetProperty(propertyName, BindingFlags.Public | BindingFlags.Instance);
             Assert.That(property, Is.Not.Null, propertyName);
             return (T)property.GetValue(target);
+        }
+
+        private static T ReadField<T>(Type type, object target, string fieldName)
+        {
+            FieldInfo field = type.GetField(fieldName, BindingFlags.Instance | BindingFlags.NonPublic);
+            Assert.That(field, Is.Not.Null, fieldName);
+            return (T)field.GetValue(target);
         }
     }
 }

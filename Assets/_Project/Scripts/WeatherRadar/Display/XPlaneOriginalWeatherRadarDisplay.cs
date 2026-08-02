@@ -27,7 +27,7 @@ namespace WeatherRadar
         [Header("Look")]
         [SerializeField] private Color onlineTint = new Color(1f, 1f, 1f, 0.84f);
         [SerializeField] private Color staleTint = new Color(0.82f, 0.9f, 0.84f, 0.72f);
-        [SerializeField] private Color offlineTint = new Color(0f, 0.035f, 0.025f, 0.42f);
+        [SerializeField] private Color offlineTint = new Color(0.004f, 0.055f, 0.04f, 0.06f);
         [SerializeField] private Color radarOnColor = new Color(0.35f, 1f, 0.35f, 1f);
         [SerializeField] private Color radarOffColor = new Color(1f, 0.35f, 0.2f, 1f);
         [SerializeField] private Color radarUnknownColor = new Color(0.72f, 0.9f, 0.72f, 1f);
@@ -247,7 +247,7 @@ namespace WeatherRadar
             float opacity = Mathf.Clamp(textureOpacity, 0.35f, 1f);
             onlineTint = new Color(1f, 1f, 1f, opacity);
             staleTint = new Color(0.82f, 0.9f, 0.84f, Mathf.Min(opacity, 0.72f));
-            offlineTint = new Color(0f, 0.035f, 0.025f, Mathf.Min(opacity, 0.42f));
+            offlineTint = new Color(0.004f, 0.055f, 0.04f, Mathf.Min(opacity, 0.06f));
             minimumDisplaySize = new Vector2(160f, 160f);
             displayPadding = Mathf.Max(0f, displayPadding);
             RefreshLayout();
@@ -669,7 +669,7 @@ namespace WeatherRadar
                     powerLabel.color = radarUnknownColor;
                     if (powerBadgeBackground != null)
                     {
-                        powerBadgeBackground.color = new Color(0f, 0f, 0f, 0.72f);
+                        powerBadgeBackground.color = new Color(0.004f, 0.10f, 0.065f, 0.38f);
                     }
                 }
                 else
@@ -681,8 +681,8 @@ namespace WeatherRadar
                     if (powerBadgeBackground != null)
                     {
                         Color badgeColor = _isRadarPowered
-                            ? new Color(0f, 0.16f, 0.04f, 0.82f)
-                            : new Color(0.22f, 0.04f, 0f, 0.82f);
+                            ? new Color(0.004f, 0.16f, 0.07f, 0.52f)
+                            : new Color(0.22f, 0.04f, 0f, 0.52f);
                         powerBadgeBackground.color = badgeColor;
                     }
                 }

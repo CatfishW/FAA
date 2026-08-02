@@ -50,8 +50,8 @@ namespace FAA.Editor
         private const string XPlaneWeatherRadarPreviewPath = "Assets/_Project/Textures/XPlaneWeatherRadarPreview.png";
         private const float ScreenFlightHudScale = 540f;
         private const float WeatherRadarDefaultRangeNM = 160f;
-        private static readonly Vector2 WeatherRadarSize = new Vector2(296f, 296f);
-        private static readonly Vector2 TrafficRadarSize = new Vector2(320f, 320f);
+        private static readonly Vector2 WeatherRadarSize = new Vector2(280f, 280f);
+        private static readonly Vector2 TrafficRadarSize = new Vector2(296f, 296f);
         private static readonly Vector2 ScreenFlightHudAnchoredPosition = new Vector2(960f, 690f);
         private static readonly Vector2 HeadingTapeAnchoredPosition = new Vector2(-610f, 430f);
         private static readonly Vector2 HeadingTapeSize = new Vector2(600f, 38f);
@@ -226,6 +226,31 @@ namespace FAA.Editor
             EditorSceneManager.MarkSceneDirty(scene);
             EditorSceneManager.SaveScene(scene);
             Debug.Log("[FaaXPlane12BridgeSceneSetup] Repaired and registered live X-Plane torque and NR/N2 bars.");
+        }
+
+        [MenuItem("FAA/X-Plane 12/Apply Compact Radar Glass In Experiment Scene")]
+        public static void ApplyCompactRadarGlassInExperimentScene()
+        {
+            Scene scene = OpenExperimentScene();
+            if (!scene.IsValid() || !scene.isLoaded)
+            {
+                return;
+            }
+
+            GameObject managers = FindOrCreateRoot(ManagersObjectName);
+            XPlane12ApiHudBridge bridge = EnsureBridge(managers.transform);
+            EnsureXPlaneWeatherRadarSystem(bridge);
+            EnsureXPlaneTrafficRadarSystem(bridge);
+            EnsureHudRuntimeSanitizer(managers.transform);
+            EnsureRadarControlsOverlay();
+            bridge.FindDependencies();
+
+            EditorUtility.SetDirty(bridge);
+            EditorSceneManager.MarkSceneDirty(scene);
+            bool saved = EditorSceneManager.SaveScene(scene);
+            Debug.Log(saved
+                ? "[FaaXPlane12BridgeSceneSetup] Applied compact, transparent weather and traffic radar glass."
+                : $"[FaaXPlane12BridgeSceneSetup] Failed to save compact radar glass in {ExperimentScenePath}.");
         }
 
         private static Scene OpenExperimentScene()
@@ -567,16 +592,22 @@ namespace FAA.Editor
                 SerializedObject displaySo = new SerializedObject(display);
                 SetObject(displaySo, "radarController", controller);
                 SetBool(displaySo, "showChartBackground", false);
-                SetFloat(displaySo, "chartOpacity", 0.78f);
+                SetFloat(displaySo, "chartOpacity", 0.28f);
+                SetFloat(displaySo, "chartEdgeSoftness", 0.035f);
                 SetBool(displaySo, "showRadarBackground", true);
+                SetBool(displaySo, "enforceReadablePanelBackground", false);
+                SetFloat(displaySo, "minimumPanelBackgroundOpacity", 0f);
+                SetFloat(displaySo, "minimumChartBackgroundOpacity", 0f);
                 SetBool(displaySo, "preferXPlaneTrafficTexture", false);
                 SetBool(displaySo, "hideGeneratedOverlaysWithXPlaneTexture", false);
                 SetVector2(displaySo, "xPlaneTextureFallbackSize", new Vector2(420f, 480f));
+                SetInt(displaySo, "displaySize", 512);
                 SetFloat(displaySo, "rangeNM", 40f);
                 SetInt(displaySo, "rangeRingCount", 4);
-                SetColor(displaySo, "backgroundColor", new Color(0f, 0f, 0f, 0.96f));
-                SetColor(displaySo, "rangeRingColor", new Color(0.42f, 0.95f, 0.52f, 0.45f));
-                SetColor(displaySo, "compassMarkingsColor", new Color(0.62f, 1f, 0.7f, 0.78f));
+                SetColor(displaySo, "backgroundColor", new Color(0.004f, 0.055f, 0.06f, 0.34f));
+                SetColor(displaySo, "rangeRingColor", new Color(0.18f, 0.9f, 0.84f, 0.58f));
+                SetColor(displaySo, "compassMarkingsColor", new Color(0.74f, 1f, 0.95f, 0.88f));
+                SetColor(displaySo, "ownAircraftColor", new Color(0.35f, 1f, 0.55f, 1f));
                 SetObject(displaySo, "radarImage", EnsureTrafficRadarImage(display));
                 displaySo.ApplyModifiedPropertiesWithoutUndo();
                 EditorUtility.SetDirty(display);
@@ -636,8 +667,10 @@ namespace FAA.Editor
             image.gameObject.name = "Radar Image";
             image.gameObject.SetActive(true);
             image.enabled = true;
-            image.texture = Texture2D.blackTexture;
-            image.color = Color.white;
+            // Keep the serialized/edit-mode state transparent. TrafficRadarDisplay
+            // supplies its circular generated texture as soon as runtime starts.
+            image.texture = null;
+            image.color = Color.clear;
             image.material = null;
             image.raycastTarget = false;
 
@@ -691,14 +724,14 @@ namespace FAA.Editor
             if (mask != null)
             {
                 mask.enabled = true;
-                mask.showMaskGraphic = true;
+                mask.showMaskGraphic = false;
                 EditorUtility.SetDirty(mask);
             }
 
             UnityEngine.UI.Image image = displayObject.GetComponent<UnityEngine.UI.Image>();
             if (image != null)
             {
-                image.color = new Color(0.05f, 0.1f, 0.15f, 0.95f);
+                image.color = new Color(0.004f, 0.055f, 0.06f, 0f);
                 image.raycastTarget = false;
                 EditorUtility.SetDirty(image);
             }
@@ -1183,7 +1216,7 @@ namespace FAA.Editor
             config.rangeRingWidth = 1f;
             config.rangeRingCount = 4;
             config.headingLineColor = new Color(0.65f, 1f, 0.72f, 0.6f);
-            config.backgroundColor = new Color(0f, 0f, 0f, 1f);
+            config.backgroundColor = new Color(0.004f, 0.055f, 0.04f, 0.06f);
             EditorUtility.SetDirty(config);
             AssetDatabase.SaveAssets();
             return config;
@@ -1209,7 +1242,10 @@ namespace FAA.Editor
             CanvasGroup canvasGroup = panelObject.GetComponent<CanvasGroup>() ?? panelObject.AddComponent<CanvasGroup>();
             WeatherRadarPanel panel = panelObject.GetComponent<WeatherRadarPanel>() ?? panelObject.AddComponent<WeatherRadarPanel>();
 
-            UnityEngine.UI.Image background = EnsureImage(panelObject.transform, "Background", new Color(0f, 0f, 0f, 0.9f));
+            UnityEngine.UI.Image background = EnsureImage(
+                panelObject.transform,
+                "Background",
+                new Color(0.004f, 0.055f, 0.04f, 0.06f));
             StretchToParent(background.rectTransform);
 
             GameObject textureObject = EnsureChild(panelObject.transform, "XPlaneOriginalTexture");
@@ -1224,13 +1260,13 @@ namespace FAA.Editor
             textureRect.pivot = new Vector2(0.5f, 0.5f);
             textureRect.anchoredPosition = new Vector2(0f, 2f);
             textureRect.sizeDelta = XPlaneOriginalWeatherRadarDisplay.CalculateAspectFitSize(
-                new Vector2(352f, 352f),
+                WeatherRadarSize - new Vector2(16f, 16f),
                 aspect.aspectRatio);
             textureRect.localScale = Vector3.one;
 
             RawImage textureImage = textureObject.GetComponent<RawImage>() ?? textureObject.AddComponent<RawImage>();
             textureImage.texture = null;
-            textureImage.color = new Color(0f, 0f, 0f, 0.96f);
+            textureImage.color = new Color(0.004f, 0.055f, 0.04f, 0f);
             textureImage.raycastTarget = false;
 
             originalDisplay = textureObject.GetComponent<XPlaneOriginalWeatherRadarDisplay>() ?? textureObject.AddComponent<XPlaneOriginalWeatherRadarDisplay>();
@@ -1258,7 +1294,7 @@ namespace FAA.Editor
             originalOverlayObject.SetActive(true);
 
             GameObject returnsObject = EnsureChild(panelObject.transform, "RadarReturns");
-            RectTransform returnsRect = EnsureCenteredSquare(returnsObject, 286f);
+            RectTransform returnsRect = EnsureCenteredSquare(returnsObject, WeatherRadarSize.x - 16f);
             RawImage returnsImage = returnsObject.GetComponent<RawImage>() ?? returnsObject.AddComponent<RawImage>();
             returnsImage.color = Color.clear;
             returnsImage.raycastTarget = false;
@@ -1270,7 +1306,7 @@ namespace FAA.Editor
             returnSo.ApplyModifiedPropertiesWithoutUndo();
 
             GameObject ringsObject = EnsureChild(panelObject.transform, "RangeRings");
-            RectTransform ringsRect = EnsureCenteredSquare(ringsObject, 286f);
+            RectTransform ringsRect = EnsureCenteredSquare(ringsObject, WeatherRadarSize.x - 16f);
             RawImage ringsImage = ringsObject.GetComponent<RawImage>() ?? ringsObject.AddComponent<RawImage>();
             ringsImage.color = Color.clear;
             ringsImage.raycastTarget = false;
@@ -1282,7 +1318,7 @@ namespace FAA.Editor
             ringsSo.ApplyModifiedPropertiesWithoutUndo();
 
             GameObject sweepObject = EnsureChild(panelObject.transform, "SweepLine");
-            RectTransform sweepRect = EnsureCenteredSquare(sweepObject, 286f);
+            RectTransform sweepRect = EnsureCenteredSquare(sweepObject, WeatherRadarSize.x - 16f);
             RawImage sweepImage = sweepObject.GetComponent<RawImage>() ?? sweepObject.AddComponent<RawImage>();
             sweepImage.color = Color.clear;
             sweepImage.raycastTarget = false;
@@ -1293,7 +1329,7 @@ namespace FAA.Editor
             sweepSo.ApplyModifiedPropertiesWithoutUndo();
 
             GameObject waypointObject = EnsureChild(panelObject.transform, "WaypointOverlay");
-            RectTransform waypointRect = EnsureCenteredSquare(waypointObject, 286f);
+            RectTransform waypointRect = EnsureCenteredSquare(waypointObject, WeatherRadarSize.x - 16f);
             WaypointOverlayRenderer waypointRenderer = waypointObject.GetComponent<WaypointOverlayRenderer>() ?? waypointObject.AddComponent<WaypointOverlayRenderer>();
             SerializedObject waypointSo = new SerializedObject(waypointRenderer);
             SetObject(waypointSo, "displayRect", waypointRect);
@@ -1301,22 +1337,25 @@ namespace FAA.Editor
 
             TMP_Text modeLabel = EnsureLabel(panelObject.transform, "ModeLabel", "WX", new Vector2(0f, 165f), TextAlignmentOptions.Center, 15f, new Color(0.75f, 1f, 0.75f, 1f), 110f);
             modeLabel.gameObject.SetActive(false);
-            TMP_Text rangeLabel = EnsureLabel(panelObject.transform, "RangeLabel", "160nm", new Vector2(0f, -164f), TextAlignmentOptions.Center, 13f, new Color(0.72f, 0.95f, 0.72f, 1f), 110f);
-            TMP_Text tiltLabel = EnsureLabel(panelObject.transform, "TiltLabel", "TLT +0.0", new Vector2(110f, -126f), TextAlignmentOptions.Right, 12f, new Color(0.72f, 0.95f, 0.72f, 1f), 126f);
+            TMP_Text rangeLabel = EnsureLabel(panelObject.transform, "RangeLabel", "160 NM", new Vector2(0f, -127f), TextAlignmentOptions.Center, 14f, new Color(0.72f, 1f, 0.76f, 1f), 110f);
+            TMP_Text tiltLabel = EnsureLabel(panelObject.transform, "TiltLabel", "TILT +0.0°", new Vector2(82f, -104f), TextAlignmentOptions.Right, 13f, new Color(0.72f, 1f, 0.76f, 1f), 112f);
             TMP_Text statusLabel = EnsureLabel(panelObject.transform, "TextureStatusLabel", "---", new Vector2(-105f, -126f), TextAlignmentOptions.Left, 11f, new Color(0.62f, 0.88f, 0.62f, 1f), 138f);
             TMP_Text sourceLabel = EnsureLabel(panelObject.transform, "SourceLabel", "X-PLANE WX", new Vector2(-105f, 142f), TextAlignmentOptions.Left, 12f, new Color(0.62f, 0.92f, 0.62f, 1f), 132f);
             TMP_Text ageLabel = EnsureLabel(panelObject.transform, "TextureAgeLabel", "--", new Vector2(137f, 142f), TextAlignmentOptions.Right, 12f, new Color(0.62f, 0.92f, 0.62f, 1f), 64f);
+            statusLabel.gameObject.SetActive(false);
+            sourceLabel.gameObject.SetActive(false);
+            ageLabel.gameObject.SetActive(false);
             GameObject powerBadge = EnsureChild(panelObject.transform, "WeatherPowerBadge");
             RectTransform powerBadgeRect = EnsureRectTransform(powerBadge);
             powerBadgeRect.anchorMin = new Vector2(0.5f, 1f);
             powerBadgeRect.anchorMax = new Vector2(0.5f, 1f);
             powerBadgeRect.pivot = new Vector2(0.5f, 1f);
-            powerBadgeRect.anchoredPosition = new Vector2(0f, -10f);
-            powerBadgeRect.sizeDelta = new Vector2(156f, 28f);
+            powerBadgeRect.anchoredPosition = new Vector2(0f, -8f);
+            powerBadgeRect.sizeDelta = new Vector2(116f, 26f);
             UnityEngine.UI.Image powerBadgeBackground = powerBadge.GetComponent<UnityEngine.UI.Image>() ?? powerBadge.AddComponent<UnityEngine.UI.Image>();
-            powerBadgeBackground.color = new Color(0f, 0f, 0f, 0.72f);
+            powerBadgeBackground.color = new Color(0.004f, 0.10f, 0.065f, 0.38f);
             powerBadgeBackground.raycastTarget = false;
-            TMP_Text powerLabel = EnsureLabel(powerBadge.transform, "PowerLabel", "WX --", Vector2.zero, TextAlignmentOptions.Center, 15f, new Color(0.72f, 0.9f, 0.72f, 1f), 150f);
+            TMP_Text powerLabel = EnsureLabel(powerBadge.transform, "PowerLabel", "WX --", Vector2.zero, TextAlignmentOptions.Center, 14f, new Color(0.72f, 1f, 0.76f, 1f), 110f);
             StretchToParent(powerLabel.rectTransform);
 
             SerializedObject displaySo = new SerializedObject(originalDisplay);
@@ -1329,14 +1368,16 @@ namespace FAA.Editor
             SetObject(displaySo, "ageLabel", ageLabel);
             SetObject(displaySo, "powerLabel", powerLabel);
             SetObject(displaySo, "powerBadgeBackground", powerBadgeBackground);
-            SetColor(displaySo, "onlineTint", Color.white);
-            SetColor(displaySo, "staleTint", Color.white);
+            SetColor(displaySo, "onlineTint", new Color(1f, 1f, 1f, 0.82f));
+            SetColor(displaySo, "staleTint", new Color(0.82f, 0.9f, 0.84f, 0.58f));
+            SetColor(displaySo, "offlineTint", new Color(0.004f, 0.055f, 0.04f, 0.06f));
             SetBool(displaySo, "preserveAspectRatio", true);
             SetBool(displaySo, "requestTextureWhenEmpty", true);
             SetFloat(displaySo, "emptyRefreshDelaySeconds", 0.75f);
             SetFloat(displaySo, "staleRefreshDelaySeconds", 3f);
             SetBool(displaySo, "keepTextureVisibleWhenRadarOff", true);
-            SetVector2(displaySo, "minimumDisplaySize", new Vector2(352f, 352f));
+            SetVector2(displaySo, "minimumDisplaySize", new Vector2(160f, 160f));
+            SetFloat(displaySo, "displayPadding", 8f);
             SetBool(displaySo, "showReferenceOverlay", true);
             displaySo.ApplyModifiedPropertiesWithoutUndo();
 

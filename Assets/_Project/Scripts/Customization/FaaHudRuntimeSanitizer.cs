@@ -62,8 +62,8 @@ namespace FAA.Customization
         [SerializeField] private string trafficRadarCanvasName = "XPlaneTrafficRadarCanvas";
         [SerializeField] private string trafficRadarRootName = "Traffic Radar System";
         [SerializeField] private string indicatorCanvasName = "XPlaneWeatherIndicatorCanvas";
-        [SerializeField] private Vector2 weatherRadarSize = new Vector2(296f, 296f);
-        [SerializeField] private Vector2 trafficRadarSize = new Vector2(320f, 320f);
+        [SerializeField] private Vector2 weatherRadarSize = new Vector2(280f, 280f);
+        [SerializeField] private Vector2 trafficRadarSize = new Vector2(296f, 296f);
         [SerializeField] private Vector2 radarInset = new Vector2(28f, 28f);
         [SerializeField] private bool createRadarControlStrips = true;
         [SerializeField] private string radarControlsObjectName = DefaultRadarControlsObjectName;
@@ -515,13 +515,13 @@ namespace FAA.Customization
             if (Vector2.Distance(weatherRadarSize, Vector2.one * LegacyWeatherRadarSize) < 0.5f ||
                 weatherRadarSize.x < MinimumRadarSize || weatherRadarSize.y < MinimumRadarSize)
             {
-                weatherRadarSize = new Vector2(296f, 296f);
+                weatherRadarSize = new Vector2(280f, 280f);
             }
 
             if (Vector2.Distance(trafficRadarSize, Vector2.one * LegacyTrafficRadarSize) < 0.5f ||
                 trafficRadarSize.x < MinimumRadarSize || trafficRadarSize.y < MinimumRadarSize)
             {
-                trafficRadarSize = new Vector2(320f, 320f);
+                trafficRadarSize = new Vector2(296f, 296f);
             }
         }
 
@@ -978,7 +978,7 @@ namespace FAA.Customization
             foreach (TrafficRadar.TrafficRadarDisplay display in radarDisplay.GetComponentsInChildren<TrafficRadar.TrafficRadarDisplay>(true))
             {
                 display.enabled = true;
-                display.ConfigureHudPresentation(0.56f, 0.42f);
+                display.ConfigureHudPresentation(0.34f, 0.28f);
                 display.PreferXPlaneTrafficTexture = false;
                 RestoreDesignedRadarImage(display.RadarImage);
             }
@@ -1033,7 +1033,7 @@ namespace FAA.Customization
                 if (display != null)
                 {
                     display.ShowReferenceOverlay = true;
-                    display.ConfigureHudPresentation(0.84f);
+                    display.ConfigureHudPresentation(0.82f);
                 }
             }
 
@@ -1078,7 +1078,7 @@ namespace FAA.Customization
 
                 image.color = isRootPlate
                     ? new Color(0.005f, 0.04f, 0.03f, 0f)
-                    : new Color(0.008f, 0.065f, 0.05f, 0.16f);
+                    : new Color(0.008f, 0.065f, 0.05f, 0.06f);
                 image.raycastTarget = false;
             }
         }
@@ -2219,7 +2219,7 @@ namespace FAA.Customization
                 SerializedProperty colorProperty = serializedImage.FindProperty("m_Color");
                 if (colorProperty != null)
                 {
-                    colorProperty.colorValue = new Color(0f, 0f, 0f, 0.96f);
+                    colorProperty.colorValue = new Color(0.004f, 0.055f, 0.04f, 0f);
                 }
 
                 SerializedProperty raycastProperty = serializedImage.FindProperty("m_RaycastTarget");

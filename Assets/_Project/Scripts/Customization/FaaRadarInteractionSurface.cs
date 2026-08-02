@@ -297,14 +297,18 @@ namespace FAA.Customization
             _focusGroup.interactable = false;
 
             Color accent = radarKind == FaaRadarKind.Weather ? WeatherAccent : TrafficAccent;
-            EnsureEdge(_focusFrame, "TopEdge", new Vector2(0f, 1f), new Vector2(1f, 1f),
-                new Vector2(0f, -2f), new Vector2(0f, 0f), accent);
-            EnsureEdge(_focusFrame, "BottomEdge", new Vector2(0f, 0f), new Vector2(1f, 0f),
-                new Vector2(0f, 0f), new Vector2(0f, 2f), accent);
-            EnsureEdge(_focusFrame, "LeftEdge", new Vector2(0f, 0f), new Vector2(0f, 1f),
-                new Vector2(0f, 0f), new Vector2(2f, 0f), accent);
-            EnsureEdge(_focusFrame, "RightEdge", new Vector2(1f, 0f), new Vector2(1f, 1f),
-                new Vector2(-2f, 0f), new Vector2(0f, 0f), accent);
+            DisableLegacyEdge(_focusFrame, "TopEdge");
+            DisableLegacyEdge(_focusFrame, "BottomEdge");
+            DisableLegacyEdge(_focusFrame, "LeftEdge");
+            DisableLegacyEdge(_focusFrame, "RightEdge");
+            EnsureCornerSegment(_focusFrame, "TopLeftHorizontal", new Vector2(0f, 1f), new Vector2(19f, -8f), new Vector2(22f, 2f), accent);
+            EnsureCornerSegment(_focusFrame, "TopLeftVertical", new Vector2(0f, 1f), new Vector2(8f, -19f), new Vector2(2f, 22f), accent);
+            EnsureCornerSegment(_focusFrame, "TopRightHorizontal", new Vector2(1f, 1f), new Vector2(-19f, -8f), new Vector2(22f, 2f), accent);
+            EnsureCornerSegment(_focusFrame, "TopRightVertical", new Vector2(1f, 1f), new Vector2(-8f, -19f), new Vector2(2f, 22f), accent);
+            EnsureCornerSegment(_focusFrame, "BottomLeftHorizontal", Vector2.zero, new Vector2(19f, 8f), new Vector2(22f, 2f), accent);
+            EnsureCornerSegment(_focusFrame, "BottomLeftVertical", Vector2.zero, new Vector2(8f, 19f), new Vector2(2f, 22f), accent);
+            EnsureCornerSegment(_focusFrame, "BottomRightHorizontal", new Vector2(1f, 0f), new Vector2(-19f, 8f), new Vector2(22f, 2f), accent);
+            EnsureCornerSegment(_focusFrame, "BottomRightVertical", new Vector2(1f, 0f), new Vector2(-8f, 19f), new Vector2(2f, 22f), accent);
 
             Transform existingHint = _focusFrame.Find("ConfigureHint");
             GameObject hintObject = existingHint != null
@@ -363,13 +367,21 @@ namespace FAA.Customization
             _hintText.text = _open ? "TRAFFIC CONFIG ACTIVE" : "CLICK · CONFIGURE TRAFFIC";
         }
 
-        private static void EnsureEdge(
+        private static void DisableLegacyEdge(RectTransform parent, string name)
+        {
+            Transform existing = parent.Find(name);
+            if (existing != null)
+            {
+                existing.gameObject.SetActive(false);
+            }
+        }
+
+        private static void EnsureCornerSegment(
             RectTransform parent,
             string name,
-            Vector2 anchorMin,
-            Vector2 anchorMax,
-            Vector2 offsetMin,
-            Vector2 offsetMax,
+            Vector2 anchor,
+            Vector2 anchoredPosition,
+            Vector2 size,
             Color color)
         {
             Transform existing = parent.Find(name);
@@ -377,11 +389,15 @@ namespace FAA.Customization
                 ? existing.gameObject
                 : new GameObject(name, typeof(RectTransform), typeof(CanvasRenderer), typeof(Image));
             edgeObject.transform.SetParent(parent, false);
+            edgeObject.SetActive(true);
             RectTransform edge = edgeObject.GetComponent<RectTransform>();
-            edge.anchorMin = anchorMin;
-            edge.anchorMax = anchorMax;
-            edge.offsetMin = offsetMin;
-            edge.offsetMax = offsetMax;
+            edge.anchorMin = anchor;
+            edge.anchorMax = anchor;
+            edge.pivot = new Vector2(0.5f, 0.5f);
+            edge.anchoredPosition = anchoredPosition;
+            edge.sizeDelta = size;
+            edge.localScale = Vector3.one;
+            edge.localRotation = Quaternion.identity;
             Image image = edgeObject.GetComponent<Image>() ?? edgeObject.AddComponent<Image>();
             image.color = new Color(color.r, color.g, color.b, 0.82f);
             image.raycastTarget = false;

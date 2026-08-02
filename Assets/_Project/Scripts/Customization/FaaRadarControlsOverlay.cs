@@ -49,8 +49,8 @@ namespace FAA.Customization
         [SerializeField] private bool reducedMotion;
 
         [Header("Radar Sizing")]
-        [SerializeField] private float defaultWeatherRadarSize = 296f;
-        [SerializeField] private float defaultTrafficRadarSize = 320f;
+        [SerializeField] private float defaultWeatherRadarSize = 280f;
+        [SerializeField] private float defaultTrafficRadarSize = 296f;
         [SerializeField] private float minimumRadarSize = 220f;
         [SerializeField] private float maximumRadarSize = 560f;
         [SerializeField] private float radarSizeStep = 32f;
@@ -553,9 +553,22 @@ namespace FAA.Customization
 
         private float ReadInitialRadarSize(string preferenceKey, float fallback)
         {
-            float value = rememberRadarSizes && PlayerPrefs.HasKey(preferenceKey)
-                ? PlayerPrefs.GetFloat(preferenceKey)
-                : fallback;
+            // Editor scene setup must be deterministic and must never serialize a
+            // developer machine's PlayerPrefs into the shared scene asset.
+            if (!Application.isPlaying || !rememberRadarSizes || !PlayerPrefs.HasKey(preferenceKey))
+            {
+                return ClampRadarSize(fallback, minimumRadarSize, maximumRadarSize);
+            }
+
+            float value = PlayerPrefs.GetFloat(preferenceKey);
+            float legacyDefault = preferenceKey == WeatherSizePreferenceKey ? 372f : 420f;
+            if (Mathf.Abs(value - legacyDefault) < 0.5f)
+            {
+                value = fallback;
+                PlayerPrefs.SetFloat(preferenceKey, value);
+                PlayerPrefs.Save();
+            }
+
             return ClampRadarSize(value, minimumRadarSize, maximumRadarSize);
         }
 
@@ -1335,15 +1348,15 @@ namespace FAA.Customization
                     rect.sizeDelta = new Vector2(138f, 26f) * scale;
                     break;
                 case "TiltLabel":
-                    rect.anchoredPosition = new Vector2(110f, -126f) * scale;
-                    rect.sizeDelta = new Vector2(126f, 26f) * scale;
+                    rect.anchoredPosition = new Vector2(82f, -104f) * scale;
+                    rect.sizeDelta = new Vector2(112f, 26f) * scale;
                     break;
                 case "RangeLabel":
-                    rect.anchoredPosition = new Vector2(0f, -164f) * scale;
-                    rect.sizeDelta = new Vector2(124f, 28f) * scale;
+                    rect.anchoredPosition = new Vector2(0f, -127f) * scale;
+                    rect.sizeDelta = new Vector2(112f, 28f) * scale;
                     break;
                 case "WeatherPowerBadge":
-                    rect.sizeDelta = new Vector2(150f, 30f) * Mathf.Max(0.86f, scale);
+                    rect.sizeDelta = new Vector2(116f, 26f) * Mathf.Max(0.9f, scale);
                     break;
             }
         }
@@ -1359,7 +1372,7 @@ namespace FAA.Customization
             float width = rootRect.rect.width > 1f ? rootRect.rect.width : rootRect.sizeDelta.x;
             float height = rootRect.rect.height > 1f ? rootRect.rect.height : rootRect.sizeDelta.y;
             float shortest = Mathf.Min(Mathf.Abs(width), Mathf.Abs(height));
-            return shortest < 220f ? 1f : Mathf.Clamp(shortest / 372f, 0.72f, 1.25f);
+            return Mathf.Clamp(shortest / 280f, 0.78f, 2f);
         }
 
         private static void SetInlineWeatherText(Transform weatherRoot, string objectName, string value)

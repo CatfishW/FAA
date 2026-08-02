@@ -23,18 +23,18 @@ namespace TrafficRadar
 
         [Header("Display Settings")]
         [Tooltip("Size of the radar display in pixels")]
-        [SerializeField] private int displaySize = 400;
+        [SerializeField] private int displaySize = 512;
         
         [Tooltip("Show FAA sectional chart as background")]
         [SerializeField] private bool showChartBackground = true;
         
         [Tooltip("Chart background opacity")]
         [Range(0f, 1f)]
-        [SerializeField] private float chartOpacity = 0.5f;
+        [SerializeField] private float chartOpacity = 0.28f;
         
         [Tooltip("Edge softness for circular chart mask (0 = hard edge, 0.1 = soft edge)")]
         [Range(0f, 0.1f)]
-        [SerializeField] private float chartEdgeSoftness = 0.02f;
+        [SerializeField] private float chartEdgeSoftness = 0.035f;
 
         [Header("Range Settings")]
         [Tooltip("Current radar range in nautical miles")]
@@ -71,11 +71,11 @@ namespace TrafficRadar
 
         [Tooltip("Minimum opacity for the traffic radar panel background.")]
         [Range(0f, 1f)]
-        [SerializeField] private float minimumPanelBackgroundOpacity = 0.48f;
+        [SerializeField] private float minimumPanelBackgroundOpacity;
 
         [Tooltip("Minimum opacity for FAA chart texture backgrounds.")]
         [Range(0f, 1f)]
-        [SerializeField] private float minimumChartBackgroundOpacity = 0.34f;
+        [SerializeField] private float minimumChartBackgroundOpacity;
 
         [Header("X-Plane Traffic Texture")]
         [Tooltip("Show the live X-Plane traffic radar PNG directly instead of reconstructing traffic symbols in Unity.")]
@@ -87,9 +87,9 @@ namespace TrafficRadar
         [Tooltip("Fallback aspect used before the first X-Plane traffic PNG arrives.")]
         [SerializeField] private Vector2 xPlaneTextureFallbackSize = new Vector2(420f, 480f);
         
-        [SerializeField] private Color backgroundColor = new Color(0.006f, 0.045f, 0.055f, 0.56f);
-        [SerializeField] private Color rangeRingColor = new Color(0.18f, 0.82f, 0.78f, 0.62f);
-        [SerializeField] private Color compassMarkingsColor = new Color(0.72f, 0.98f, 0.94f, 0.9f);
+        [SerializeField] private Color backgroundColor = new Color(0.004f, 0.055f, 0.06f, 0.34f);
+        [SerializeField] private Color rangeRingColor = new Color(0.18f, 0.9f, 0.84f, 0.58f);
+        [SerializeField] private Color compassMarkingsColor = new Color(0.74f, 1f, 0.95f, 0.88f);
         [SerializeField] private Color ownAircraftColor = new Color(0.35f, 1f, 0.55f, 1f);
 
         [Header("Symbol Settings")]
@@ -363,13 +363,34 @@ namespace TrafficRadar
             minimumPanelBackgroundOpacity = 0f;
             minimumChartBackgroundOpacity = 0f;
             showRadarBackground = true;
-            backgroundColor = new Color(0.006f, 0.045f, 0.055f, Mathf.Clamp(panelOpacity, 0.2f, 0.8f));
-            chartOpacity = Mathf.Clamp(requestedChartOpacity, 0.15f, 0.65f);
-            rangeRingColor = new Color(0.18f, 0.82f, 0.78f, 0.62f);
-            compassMarkingsColor = new Color(0.72f, 0.98f, 0.94f, 0.9f);
+            backgroundColor = new Color(0.004f, 0.055f, 0.06f, Mathf.Clamp(panelOpacity, 0.12f, 0.55f));
+            chartOpacity = Mathf.Clamp(requestedChartOpacity, 0.1f, 0.48f);
+            rangeRingColor = new Color(0.18f, 0.9f, 0.84f, 0.58f);
+            compassMarkingsColor = new Color(0.74f, 1f, 0.95f, 0.88f);
             ownAircraftColor = new Color(0.35f, 1f, 0.55f, 1f);
+            ClearRectangularMaskPlate();
             UpdateChartOpacity();
             MarkRadarDirty();
+        }
+
+        private void ClearRectangularMaskPlate()
+        {
+            foreach (Mask mask in GetComponents<Mask>())
+            {
+                if (mask != null)
+                {
+                    mask.showMaskGraphic = false;
+                }
+            }
+
+            Image panelImage = GetComponent<Image>();
+            if (panelImage != null)
+            {
+                Color color = panelImage.color;
+                color.a = 0f;
+                panelImage.color = color;
+                panelImage.raycastTarget = false;
+            }
         }
 
         #endregion
@@ -1066,7 +1087,10 @@ namespace TrafficRadar
             if (radarImage != null)
             {
                 radarImage.enabled = true;
-                radarImage.color = Color.white;
+                bool hasPresentedTexture = !preferXPlaneTrafficTexture || _xPlaneTrafficTexture != null;
+                radarImage.color = hasPresentedTexture
+                    ? Color.white
+                    : new Color(0.004f, 0.055f, 0.06f, 0.06f);
                 radarImage.texture = preferXPlaneTrafficTexture
                     ? (_xPlaneTrafficTexture != null ? _xPlaneTrafficTexture : GetBlackPlaceholder())
                     : radarTexture;
@@ -1175,7 +1199,7 @@ namespace TrafficRadar
             radarImage.raycastTarget = false;
             if (radarImage.texture == null)
             {
-                radarImage.color = new Color(0f, 0f, 0f, 0.96f);
+                radarImage.color = Color.clear;
             }
         }
 
@@ -1186,9 +1210,12 @@ namespace TrafficRadar
                 return;
             }
 
-            Texture texture = _xPlaneTrafficTexture != null ? _xPlaneTrafficTexture : GetBlackPlaceholder();
+            bool hasLiveTexture = _xPlaneTrafficTexture != null;
+            Texture texture = hasLiveTexture ? _xPlaneTrafficTexture : GetBlackPlaceholder();
             radarImage.enabled = true;
-            radarImage.color = Color.white;
+            radarImage.color = hasLiveTexture
+                ? Color.white
+                : new Color(0.004f, 0.055f, 0.06f, 0.06f);
             radarImage.texture = texture;
             radarImage.material = null;
             radarImage.raycastTarget = false;
@@ -1516,7 +1543,7 @@ namespace TrafficRadar
 
         private void DrawOwnAircraft(int centerX, int centerY)
         {
-            // Draw own aircraft as a red aircraft symbol pointing up
+            // Draw own aircraft in the shared HUD green, pointing up.
             int size = (int)(symbolSize * 1.2f);
             
             // Simple aircraft shape (triangle pointing up)
