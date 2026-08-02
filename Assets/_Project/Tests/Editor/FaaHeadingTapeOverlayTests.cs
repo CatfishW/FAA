@@ -332,7 +332,7 @@ namespace FAA.Customization.Tests
         }
 
         [Test]
-        public void RadarControls_PreserveCanonicalWeatherReadoutsWithoutDuplicateMode()
+        public void RadarControls_PreservePowerAndTextureWithoutDiagnosticClutter()
         {
             Type overlayType = Type.GetType("FAA.Customization.FaaRadarControlsOverlay, Assembly-CSharp");
             Assert.That(overlayType, Is.Not.Null);
@@ -356,7 +356,7 @@ namespace FAA.Customization.Tests
                 improve.Invoke(null, new object[] { root.transform });
 
                 Assert.That(mode.activeSelf, Is.False);
-                Assert.That(source.activeSelf, Is.True);
+                Assert.That(source.activeSelf, Is.False);
                 Assert.That(powerBadge.activeSelf, Is.True);
                 Assert.That(texture.activeSelf, Is.True);
             }

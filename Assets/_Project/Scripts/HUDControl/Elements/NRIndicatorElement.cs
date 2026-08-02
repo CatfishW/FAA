@@ -119,19 +119,28 @@ namespace HUDControl.Elements
             if (centerValid)
             {
                 targetRPMCenter = Mathf.Clamp(centerPercent, 0f, maxRPMPercent);
-                displayedRPMCenter = targetRPMCenter;
+                if (!hasExternalCenter)
+                {
+                    displayedRPMCenter = targetRPMCenter;
+                }
                 hasExternalCenter = true;
             }
             if (leftValid)
             {
                 targetRPML = Mathf.Clamp(leftPercent, 0f, maxRPMPercent);
-                displayedRPML = targetRPML;
+                if (!hasExternalL)
+                {
+                    displayedRPML = targetRPML;
+                }
                 hasExternalL = true;
             }
             if (rightValid)
             {
                 targetRPMR = Mathf.Clamp(rightPercent, 0f, maxRPMPercent);
-                displayedRPMR = targetRPMR;
+                if (!hasExternalR)
+                {
+                    displayedRPMR = targetRPMR;
+                }
                 hasExternalR = true;
             }
 

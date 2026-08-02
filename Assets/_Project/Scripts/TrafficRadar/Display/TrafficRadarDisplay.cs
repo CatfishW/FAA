@@ -66,16 +66,16 @@ namespace TrafficRadar
         [Tooltip("Show radar background circle (disable to show only chart)")]
         [SerializeField] private bool showRadarBackground = true;
 
-        [Tooltip("Keep the traffic radar readable over bright terrain by forcing a solid panel backdrop.")]
-        [SerializeField] private bool enforceReadablePanelBackground = true;
+        [Tooltip("Keep the traffic radar readable over bright terrain by enforcing a minimum circular backdrop opacity.")]
+        [SerializeField] private bool enforceReadablePanelBackground;
 
         [Tooltip("Minimum opacity for the traffic radar panel background.")]
         [Range(0f, 1f)]
-        [SerializeField] private float minimumPanelBackgroundOpacity = 0.96f;
+        [SerializeField] private float minimumPanelBackgroundOpacity = 0.48f;
 
         [Tooltip("Minimum opacity for FAA chart texture backgrounds.")]
         [Range(0f, 1f)]
-        [SerializeField] private float minimumChartBackgroundOpacity = 0.78f;
+        [SerializeField] private float minimumChartBackgroundOpacity = 0.34f;
 
         [Header("X-Plane Traffic Texture")]
         [Tooltip("Show the live X-Plane traffic radar PNG directly instead of reconstructing traffic symbols in Unity.")]
@@ -87,10 +87,10 @@ namespace TrafficRadar
         [Tooltip("Fallback aspect used before the first X-Plane traffic PNG arrives.")]
         [SerializeField] private Vector2 xPlaneTextureFallbackSize = new Vector2(420f, 480f);
         
-        [SerializeField] private Color backgroundColor = new Color(0f, 0f, 0f, 0.96f);
-        [SerializeField] private Color rangeRingColor = new Color(0.3f, 0.4f, 0.5f, 0.6f);
-        [SerializeField] private Color compassMarkingsColor = new Color(0.6f, 0.7f, 0.8f, 0.8f);
-        [SerializeField] private Color ownAircraftColor = new Color(1f, 0f, 0f, 1f);
+        [SerializeField] private Color backgroundColor = new Color(0.006f, 0.045f, 0.055f, 0.56f);
+        [SerializeField] private Color rangeRingColor = new Color(0.18f, 0.82f, 0.78f, 0.62f);
+        [SerializeField] private Color compassMarkingsColor = new Color(0.72f, 0.98f, 0.94f, 0.9f);
+        [SerializeField] private Color ownAircraftColor = new Color(0.35f, 1f, 0.55f, 1f);
 
         [Header("Symbol Settings")]
         [Tooltip("Size of aircraft symbols in pixels")]
@@ -355,6 +355,23 @@ namespace TrafficRadar
         public Texture XPlaneTrafficTexture => _xPlaneTrafficTexture;
         public RawImage RadarImage => radarImage;
 
+        public void ConfigureHudPresentation(float panelOpacity, float requestedChartOpacity)
+        {
+            // The circular render itself provides contrast. A separate opaque
+            // square is unnecessary and blocks the pilot's outside view.
+            enforceReadablePanelBackground = false;
+            minimumPanelBackgroundOpacity = 0f;
+            minimumChartBackgroundOpacity = 0f;
+            showRadarBackground = true;
+            backgroundColor = new Color(0.006f, 0.045f, 0.055f, Mathf.Clamp(panelOpacity, 0.2f, 0.8f));
+            chartOpacity = Mathf.Clamp(requestedChartOpacity, 0.15f, 0.65f);
+            rangeRingColor = new Color(0.18f, 0.82f, 0.78f, 0.62f);
+            compassMarkingsColor = new Color(0.72f, 0.98f, 0.94f, 0.9f);
+            ownAircraftColor = new Color(0.35f, 1f, 0.55f, 1f);
+            UpdateChartOpacity();
+            MarkRadarDirty();
+        }
+
         #endregion
 
         #region Unity Lifecycle
@@ -546,13 +563,14 @@ namespace TrafficRadar
                 return;
             }
 
-            bool changed = false;
-
+            // Respect the pilot's BKG/CLR control. Readability enforcement only
+            // applies while the circular backdrop is intentionally enabled.
             if (!showRadarBackground)
             {
-                showRadarBackground = true;
-                changed = true;
+                return;
             }
+
+            bool changed = false;
 
             float minimumPanelAlpha = Mathf.Clamp01(minimumPanelBackgroundOpacity);
             if (backgroundColor.a < minimumPanelAlpha)
@@ -1288,7 +1306,9 @@ namespace TrafficRadar
                 if (mask != null)
                 {
                     mask.enabled = enabled;
-                    mask.showMaskGraphic = enabled;
+                    // The mask still clips child graphics, but the rectangular
+                    // mask source must never be painted over the outside view.
+                    mask.showMaskGraphic = false;
                 }
             }
         }

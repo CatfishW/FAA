@@ -160,6 +160,8 @@ namespace FAA.Headset.Editor
             SetFloat(serialized, "horizontalFovDegrees", 53f);
             SetBool(serialized, "mirrorOverlayCanvasesToRightEye", true);
             SetBool(serialized, "routeOverlayCanvasesToLeftEye", true);
+            SetBool(serialized, "renderHudThroughHeadsetPrewarp", true);
+            SetInt(serialized, "hudCaptureLayer", 31);
             serialized.ApplyModifiedPropertiesWithoutUndo();
         }
 

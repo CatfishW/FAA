@@ -40,6 +40,12 @@ namespace FAA.Customization.Tests
                 elementType.GetMethod("UpdateElement")?.Invoke(element, new[] { state });
                 Assert.That((float)elementType.GetMethod("GetTargetTorqueL")?.Invoke(element, null), Is.EqualTo(60f));
                 Assert.That((float)elementType.GetMethod("GetDisplayedTorqueL")?.Invoke(element, null), Is.EqualTo(60f).Within(0.01f));
+
+                elementType.GetMethod("SetTorque")?.Invoke(element, new object[] { 100f, 30f });
+                Assert.That((float)elementType.GetMethod("GetTargetTorqueL")?.Invoke(element, null), Is.EqualTo(100f));
+                Assert.That((float)elementType.GetMethod("GetDisplayedTorqueL")?.Invoke(element, null), Is.EqualTo(60f),
+                    "Later X-Plane samples must become animation targets instead of snapping the bar.");
+                Assert.That(left.anchoredPosition.y, Is.EqualTo(0.124f).Within(0.0001f));
             }
             finally
             {
@@ -78,6 +84,11 @@ namespace FAA.Customization.Tests
                 Assert.That(left.anchoredPosition.y, Is.EqualTo(0.21f).Within(0.0001f));
                 Assert.That(right.anchoredPosition.y, Is.EqualTo(0.27f).Within(0.0001f));
                 Assert.That((float)elementType.GetMethod("GetDisplayedRPML")?.Invoke(element, null), Is.EqualTo(82.5f));
+                Assert.That((float)elementType.GetMethod("GetDisplayedRPMR")?.Invoke(element, null), Is.EqualTo(110f));
+
+                elementType.GetMethod("SetRPM")?.Invoke(element, new object[] { 100f, 95f, 88f });
+                Assert.That((float)elementType.GetMethod("GetDisplayedRPML")?.Invoke(element, null), Is.EqualTo(82.5f),
+                    "N2 must interpolate between live samples rather than jump to each poll result.");
                 Assert.That((float)elementType.GetMethod("GetDisplayedRPMR")?.Invoke(element, null), Is.EqualTo(110f));
             }
             finally

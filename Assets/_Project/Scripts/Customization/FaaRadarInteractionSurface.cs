@@ -136,7 +136,8 @@ namespace FAA.Customization
         IPointerEnterHandler,
         IPointerExitHandler,
         IPointerDownHandler,
-        IPointerUpHandler
+        IPointerUpHandler,
+        IScrollHandler
     {
         public const string WeatherObjectName = "FAAWeatherRadarInteractionSurface";
         public const string TrafficObjectName = "FAATrafficRadarInteractionSurface";
@@ -202,7 +203,9 @@ namespace FAA.Customization
 
         private void Update()
         {
-            float target = !_interactionEnabled ? 0f : _open ? 1f : _hovered ? 0.62f : 0f;
+            // A faint always-on edge reads as a lightweight glass instrument;
+            // hover/open states strengthen the same frame without adding a box.
+            float target = !_interactionEnabled ? 0f : _open ? 1f : _hovered ? 0.62f : 0.06f;
             float duration = reducedMotion ? 0.08f : target > _visualProgress ? 0.22f : 0.14f;
             _visualProgress = Mathf.MoveTowards(
                 _visualProgress,
@@ -261,6 +264,17 @@ namespace FAA.Customization
         public void OnPointerUp(PointerEventData eventData)
         {
             _pressed = false;
+        }
+
+        public void OnScroll(PointerEventData eventData)
+        {
+            if (!_interactionEnabled || Mathf.Approximately(eventData.scrollDelta.y, 0f))
+            {
+                return;
+            }
+
+            owner?.AdjustRadarSize(radarKind, eventData.scrollDelta.y);
+            eventData.Use();
         }
 
         private void EnsureVisualTree()

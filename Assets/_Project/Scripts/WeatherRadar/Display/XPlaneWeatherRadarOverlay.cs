@@ -15,7 +15,6 @@ namespace WeatherRadar
         private const int OverlaySupersample = 2;
         private const int BearingLabelScale = 5;
         private const int InnerRangeLabelScale = 4;
-        private const int OuterRangeLabelScale = 5;
 
         [Header("References")]
         [SerializeField] private RawImage overlayImage;
@@ -133,9 +132,9 @@ namespace WeatherRadar
             {
                 float ringRadius = radius * i / rings;
                 DrawSectorArc(originX, originY, ringRadius, -halfAngle, halfAngle, rangeLineColor, lineWidthPixels);
-                if (drawRangeLabels)
+                if (drawRangeLabels && i < rings)
                 {
-                    DrawRangeLabel(originX, originY, ringRadius, range * i / rings, i == rings);
+                    DrawRangeLabel(originX, originY, ringRadius, range * i / rings);
                 }
             }
 
@@ -388,7 +387,10 @@ namespace WeatherRadar
                 Vector2 inner = PointOnBearing(cx, cy, radius - tickLength, bearing);
                 DrawLine(inner.x, inner.y, outer.x, outer.y, tickColor, major ? majorLineWidthPixels : lineWidthPixels);
 
-                if (drawCardinalLabels)
+                // Keep ten-degree tick precision, but label only the major bearings.
+                // The full label set becomes unreadable once the HUD radar is reduced
+                // to its compact, view-preserving presentation size.
+                if (drawCardinalLabels && major && !Mathf.Approximately(bearing, 0f))
                 {
                     string label = FormatHeadingLabel(heading, bearing);
                     Vector2 labelPoint = PointOnBearing(cx, cy, radius - tickLength - ScalePixels(18f), bearing);
@@ -489,13 +491,13 @@ namespace WeatherRadar
             DrawLine(cx + notch, boxTop - notch, cx, boxTop, centerColor, lineWidthPixels * 0.72f);
         }
 
-        private void DrawRangeLabel(float cx, float cy, float ringRadius, float rangeNm, bool outer)
+        private void DrawRangeLabel(float cx, float cy, float ringRadius, float rangeNm)
         {
-            int labelScale = outer ? OuterRangeLabelScale : InnerRangeLabelScale;
+            const int labelScale = InnerRangeLabelScale;
             float labelX = cx + ScalePixels(10f);
             float labelY = cy + ringRadius - MeasureTinyTextHeight(labelScale) - ScalePixels(7f);
-            string label = outer ? $"{Mathf.RoundToInt(rangeNm)}NM" : Mathf.RoundToInt(rangeNm).ToString();
-            DrawTinyText(labelX, labelY, label, outer ? majorLineColor : textColor, labelScale);
+            string label = Mathf.RoundToInt(rangeNm).ToString();
+            DrawTinyText(labelX, labelY, label, textColor, labelScale);
         }
 
         private void DrawModeLegend(int width, int height, float rangeNm, float tiltDegrees, float heading, RadarMode mode)

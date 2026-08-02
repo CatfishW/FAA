@@ -25,9 +25,9 @@ namespace WeatherRadar
         [SerializeField] private TMP_Text powerLabel;
 
         [Header("Look")]
-        [SerializeField] private Color onlineTint = Color.white;
-        [SerializeField] private Color staleTint = Color.white;
-        [SerializeField] private Color offlineTint = new Color(0f, 0f, 0f, 1f);
+        [SerializeField] private Color onlineTint = new Color(1f, 1f, 1f, 0.84f);
+        [SerializeField] private Color staleTint = new Color(0.82f, 0.9f, 0.84f, 0.72f);
+        [SerializeField] private Color offlineTint = new Color(0f, 0.035f, 0.025f, 0.42f);
         [SerializeField] private Color radarOnColor = new Color(0.35f, 1f, 0.35f, 1f);
         [SerializeField] private Color radarOffColor = new Color(1f, 0.35f, 0.2f, 1f);
         [SerializeField] private Color radarUnknownColor = new Color(0.72f, 0.9f, 0.72f, 1f);
@@ -38,7 +38,8 @@ namespace WeatherRadar
         [SerializeField] private float emptyRefreshDelaySeconds = 0.75f;
         [SerializeField] private float staleRefreshDelaySeconds = 3f;
         [SerializeField] private bool keepTextureVisibleWhenRadarOff = true;
-        [SerializeField] private Vector2 minimumDisplaySize = new Vector2(352f, 352f);
+        [SerializeField] private Vector2 minimumDisplaySize = new Vector2(160f, 160f);
+        [SerializeField] private float displayPadding = 8f;
         [SerializeField] private bool showReferenceOverlay = true;
 
         private Texture _currentTexture;
@@ -52,6 +53,7 @@ namespace WeatherRadar
         private float _nextLabelRefreshRealtime;
         private bool _layerOrderDirty = true;
         private XPlaneWeatherRadarSweepOverlay _sweepOverlay;
+        private Vector2 _lastDisplayBounds = new Vector2(-1f, -1f);
 
         public RawImage TargetImage => targetImage;
         public Texture CurrentTexture => _currentTexture;
@@ -107,6 +109,8 @@ namespace WeatherRadar
             {
                 AutoFindReferences();
             }
+
+            RefreshLayoutIfBoundsChanged();
 
             if (_layerOrderDirty)
             {
@@ -231,6 +235,30 @@ namespace WeatherRadar
             }
 
             RefreshLabels();
+        }
+
+        /// <summary>
+        /// Applies the compact FAA glass treatment without modifying the native
+        /// X-Plane pixels. Alpha is applied at presentation time so weather cells
+        /// remain authentic while the outside view remains visible underneath.
+        /// </summary>
+        public void ConfigureHudPresentation(float textureOpacity)
+        {
+            float opacity = Mathf.Clamp(textureOpacity, 0.35f, 1f);
+            onlineTint = new Color(1f, 1f, 1f, opacity);
+            staleTint = new Color(0.82f, 0.9f, 0.84f, Mathf.Min(opacity, 0.72f));
+            offlineTint = new Color(0f, 0.035f, 0.025f, Mathf.Min(opacity, 0.42f));
+            minimumDisplaySize = new Vector2(160f, 160f);
+            displayPadding = Mathf.Max(0f, displayPadding);
+            RefreshLayout();
+            RefreshLabels();
+        }
+
+        public void RefreshLayout()
+        {
+            _lastDisplayBounds = new Vector2(-1f, -1f);
+            EnsureVisibleDisplayRect();
+            _layerOrderDirty = true;
         }
 
         private void AutoFindReferences()
@@ -397,9 +425,7 @@ namespace WeatherRadar
                 return;
             }
 
-            Vector2 displayBounds = new Vector2(
-                Mathf.Max(128f, minimumDisplaySize.x),
-                Mathf.Max(128f, minimumDisplaySize.y));
+            Vector2 displayBounds = ResolveAvailableDisplayBounds(rectTransform);
             float aspect = GetSourceTextureAspect();
             Vector2 fittedSize = CalculateAspectFitSize(displayBounds, aspect);
 
@@ -418,6 +444,62 @@ namespace WeatherRadar
                 aspectRatioFitter.aspectMode = AspectRatioFitter.AspectMode.None;
                 aspectRatioFitter.enabled = false;
             }
+
+            _lastDisplayBounds = displayBounds;
+        }
+
+        private void RefreshLayoutIfBoundsChanged()
+        {
+            if (targetImage == null)
+            {
+                return;
+            }
+
+            Vector2 bounds = ResolveAvailableDisplayBounds(targetImage.rectTransform);
+            if ((bounds - _lastDisplayBounds).sqrMagnitude > 0.25f)
+            {
+                EnsureVisibleDisplayRect();
+                _layerOrderDirty = true;
+            }
+        }
+
+        private Vector2 ResolveAvailableDisplayBounds(RectTransform imageRect)
+        {
+            Vector2 fallback = new Vector2(
+                Mathf.Max(128f, minimumDisplaySize.x),
+                Mathf.Max(128f, minimumDisplaySize.y));
+            Vector2 available = fallback;
+            bool foundParentBounds = false;
+
+            Transform ancestor = imageRect != null ? imageRect.parent : null;
+            while (ancestor != null)
+            {
+                RectTransform ancestorRect = ancestor as RectTransform;
+                if (ancestorRect != null)
+                {
+                    float width = ancestorRect.rect.width;
+                    float height = ancestorRect.rect.height;
+                    if (width >= 128f && height >= 128f)
+                    {
+                        Vector2 candidate = new Vector2(
+                            Mathf.Max(128f, width - displayPadding * 2f),
+                            Mathf.Max(128f, height - displayPadding * 2f));
+                        available = foundParentBounds
+                            ? new Vector2(Mathf.Min(available.x, candidate.x), Mathf.Min(available.y, candidate.y))
+                            : candidate;
+                        foundParentBounds = true;
+                    }
+                }
+
+                if (ancestor.GetComponent<Canvas>() != null)
+                {
+                    break;
+                }
+
+                ancestor = ancestor.parent;
+            }
+
+            return foundParentBounds ? available : fallback;
         }
 
         public static Vector2 CalculateAspectFitSize(Vector2 bounds, float aspect)
@@ -546,6 +628,7 @@ namespace WeatherRadar
                 targetImage.color = !HasUsableTexture
                     ? offlineTint
                     : !shouldShowTexture ? offlineTint
+                    : isStale ? staleTint
                     : onlineTint;
                 targetImage.enabled = true;
                 targetImage.raycastTarget = false;

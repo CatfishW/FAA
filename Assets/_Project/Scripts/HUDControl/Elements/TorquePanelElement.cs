@@ -100,14 +100,23 @@ namespace HUDControl.Elements
             if (leftValid)
             {
                 targetTorqueL = Mathf.Clamp(leftPercent, 0f, maxTorquePercent);
-                displayedTorqueL = targetTorqueL;
+                // Snap only the first live sample. Subsequent X-Plane samples become
+                // animation targets so the authored bar moves continuously between
+                // API polling frames instead of teleporting several times per second.
+                if (!hasExternalTorqueL)
+                {
+                    displayedTorqueL = targetTorqueL;
+                }
                 hasExternalTorqueL = true;
             }
 
             if (rightValid)
             {
                 targetTorqueR = Mathf.Clamp(rightPercent, 0f, maxTorquePercent);
-                displayedTorqueR = targetTorqueR;
+                if (!hasExternalTorqueR)
+                {
+                    displayedTorqueR = targetTorqueR;
+                }
                 hasExternalTorqueR = true;
             }
 

@@ -50,8 +50,8 @@ namespace FAA.Editor
         private const string XPlaneWeatherRadarPreviewPath = "Assets/_Project/Textures/XPlaneWeatherRadarPreview.png";
         private const float ScreenFlightHudScale = 540f;
         private const float WeatherRadarDefaultRangeNM = 160f;
-        private static readonly Vector2 WeatherRadarSize = new Vector2(372f, 372f);
-        private static readonly Vector2 TrafficRadarSize = new Vector2(420f, 420f);
+        private static readonly Vector2 WeatherRadarSize = new Vector2(296f, 296f);
+        private static readonly Vector2 TrafficRadarSize = new Vector2(320f, 320f);
         private static readonly Vector2 ScreenFlightHudAnchoredPosition = new Vector2(960f, 690f);
         private static readonly Vector2 HeadingTapeAnchoredPosition = new Vector2(-610f, 430f);
         private static readonly Vector2 HeadingTapeSize = new Vector2(600f, 38f);
@@ -1957,6 +1957,14 @@ namespace FAA.Editor
 
             FaaRadarControlsOverlay controls = controlsObject.GetComponent<FaaRadarControlsOverlay>() ??
                                                controlsObject.AddComponent<FaaRadarControlsOverlay>();
+            SerializedObject serializedControls = new SerializedObject(controls);
+            SetFloat(serializedControls, "defaultWeatherRadarSize", WeatherRadarSize.x);
+            SetFloat(serializedControls, "defaultTrafficRadarSize", TrafficRadarSize.x);
+            SetFloat(serializedControls, "minimumRadarSize", 220f);
+            SetFloat(serializedControls, "maximumRadarSize", 560f);
+            SetFloat(serializedControls, "radarSizeStep", 32f);
+            SetBool(serializedControls, "rememberRadarSizes", true);
+            serializedControls.ApplyModifiedPropertiesWithoutUndo();
             controls.Configure(weatherRoot, trafficRoot);
 
             EditorUtility.SetDirty(controls);

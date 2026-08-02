@@ -24,8 +24,9 @@ namespace FAA.Customization
         private const float LegacyScreenFlightHudScale = 420f;
         private const float MinimumReadableScreenFlightHudScale = 520f;
         private const float DefaultScreenFlightHudScale = 540f;
-        private const float MinimumTrafficRadarWidth = 360f;
-        private const float MinimumTrafficRadarHeight = 360f;
+        private const float LegacyWeatherRadarSize = 372f;
+        private const float LegacyTrafficRadarSize = 420f;
+        private const float MinimumRadarSize = 220f;
         private const string HeadingTapeCanvasName = "FAAHeadingTapeCanvas";
         private const string HeadingTapeOverlayName = "FAA Heading Tape Overlay";
         private static readonly Color HudGreen = new Color(0.2f, 1f, 0.2f, 1f);
@@ -61,8 +62,8 @@ namespace FAA.Customization
         [SerializeField] private string trafficRadarCanvasName = "XPlaneTrafficRadarCanvas";
         [SerializeField] private string trafficRadarRootName = "Traffic Radar System";
         [SerializeField] private string indicatorCanvasName = "XPlaneWeatherIndicatorCanvas";
-        [SerializeField] private Vector2 weatherRadarSize = new Vector2(372f, 372f);
-        [SerializeField] private Vector2 trafficRadarSize = new Vector2(420f, 420f);
+        [SerializeField] private Vector2 weatherRadarSize = new Vector2(296f, 296f);
+        [SerializeField] private Vector2 trafficRadarSize = new Vector2(320f, 320f);
         [SerializeField] private Vector2 radarInset = new Vector2(28f, 28f);
         [SerializeField] private bool createRadarControlStrips = true;
         [SerializeField] private string radarControlsObjectName = DefaultRadarControlsObjectName;
@@ -511,11 +512,16 @@ namespace FAA.Customization
                 screenFlightHudAnchoredPosition = DefaultScreenFlightHudAnchoredPosition;
             }
 
-            if (trafficRadarSize.x < MinimumTrafficRadarWidth || trafficRadarSize.y < MinimumTrafficRadarHeight)
+            if (Vector2.Distance(weatherRadarSize, Vector2.one * LegacyWeatherRadarSize) < 0.5f ||
+                weatherRadarSize.x < MinimumRadarSize || weatherRadarSize.y < MinimumRadarSize)
             {
-                trafficRadarSize = new Vector2(
-                    Mathf.Max(trafficRadarSize.x, MinimumTrafficRadarWidth),
-                    Mathf.Max(trafficRadarSize.y, MinimumTrafficRadarHeight));
+                weatherRadarSize = new Vector2(296f, 296f);
+            }
+
+            if (Vector2.Distance(trafficRadarSize, Vector2.one * LegacyTrafficRadarSize) < 0.5f ||
+                trafficRadarSize.x < MinimumRadarSize || trafficRadarSize.y < MinimumRadarSize)
+            {
+                trafficRadarSize = new Vector2(320f, 320f);
             }
         }
 
@@ -972,9 +978,7 @@ namespace FAA.Customization
             foreach (TrafficRadar.TrafficRadarDisplay display in radarDisplay.GetComponentsInChildren<TrafficRadar.TrafficRadarDisplay>(true))
             {
                 display.enabled = true;
-                display.ShowRadarBackground = true;
-                display.BackgroundColor = new Color(0f, 0f, 0f, 0.96f);
-                display.ChartOpacity = Mathf.Max(display.ChartOpacity, 0.78f);
+                display.ConfigureHudPresentation(0.56f, 0.42f);
                 display.PreferXPlaneTrafficTexture = false;
                 RestoreDesignedRadarImage(display.RadarImage);
             }
@@ -992,14 +996,14 @@ namespace FAA.Customization
                 if (mask != null)
                 {
                     mask.enabled = true;
-                    mask.showMaskGraphic = true;
+                    mask.showMaskGraphic = false;
                 }
             }
 
             UnityEngine.UI.Image image = radarDisplay.GetComponent<UnityEngine.UI.Image>();
             if (image != null)
             {
-                image.color = new Color(0.05f, 0.1f, 0.15f, 0.95f);
+                image.color = new Color(0.01f, 0.08f, 0.075f, 0f);
                 image.raycastTarget = false;
             }
         }
@@ -1013,7 +1017,7 @@ namespace FAA.Customization
 
             image.gameObject.SetActive(true);
             image.enabled = true;
-            image.color = image.texture == null ? new Color(0f, 0f, 0f, 0.96f) : Color.white;
+            image.color = Color.white;
             image.raycastTarget = false;
         }
 
@@ -1029,8 +1033,11 @@ namespace FAA.Customization
                 if (display != null)
                 {
                     display.ShowReferenceOverlay = true;
+                    display.ConfigureHudPresentation(0.84f);
                 }
             }
+
+            StyleWeatherRadarGlass(weatherRoot);
 
             foreach (XPlaneWeatherRadarOverlay overlay in weatherRoot.GetComponentsInChildren<XPlaneWeatherRadarOverlay>(true))
             {
@@ -1047,6 +1054,32 @@ namespace FAA.Customization
                     image.enabled = true;
                     image.raycastTarget = false;
                 }
+            }
+        }
+
+        private static void StyleWeatherRadarGlass(GameObject weatherRoot)
+        {
+            foreach (UnityEngine.UI.Image image in weatherRoot.GetComponentsInChildren<UnityEngine.UI.Image>(true))
+            {
+                if (image == null)
+                {
+                    continue;
+                }
+
+                string objectName = image.gameObject.name;
+                bool isRootPlate = image.transform == weatherRoot.transform;
+                bool isBackground = objectName.IndexOf("Background", System.StringComparison.OrdinalIgnoreCase) >= 0 ||
+                                    objectName.IndexOf("Backplate", System.StringComparison.OrdinalIgnoreCase) >= 0 ||
+                                    objectName.IndexOf("Bezel", System.StringComparison.OrdinalIgnoreCase) >= 0;
+                if (!isRootPlate && !isBackground)
+                {
+                    continue;
+                }
+
+                image.color = isRootPlate
+                    ? new Color(0.005f, 0.04f, 0.03f, 0f)
+                    : new Color(0.008f, 0.065f, 0.05f, 0.16f);
+                image.raycastTarget = false;
             }
         }
 
@@ -2051,22 +2084,13 @@ namespace FAA.Customization
 
             private static void SanitizeLoadedHudOverlays()
             {
-                bool sanitizedAny = false;
-                foreach (FaaHudRuntimeSanitizer sanitizer in Resources.FindObjectsOfTypeAll<FaaHudRuntimeSanitizer>())
-                {
-                    if (sanitizer == null || !IsLoadedSceneObject(sanitizer.gameObject))
-                    {
-                        continue;
-                    }
-
-                    sanitizedAny = true;
-                    sanitizer.SanitizeNow();
-                }
-
-                if (!sanitizedAny)
-                {
-                    HideCesiumCreditOverlay();
-                }
+                // This editor callback exists only to suppress Cesium's transient
+                // credit document. Running the complete HUD sanitizer here used to
+                // rescan and mutate the entire integrated FAA_OPL scene every half
+                // second, pinning the editor main thread on large terrain scenes.
+                // Runtime normalization still runs deterministically from Awake,
+                // OnEnable, and Start on each sanitizer instance.
+                HideCesiumCreditOverlay();
             }
         }
 #endif

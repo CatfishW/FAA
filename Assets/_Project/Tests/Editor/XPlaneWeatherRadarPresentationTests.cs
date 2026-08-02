@@ -174,7 +174,7 @@ namespace FAA.Customization.Tests
                     BindingFlags.Instance | BindingFlags.NonPublic);
                 Assert.That(measureLabelHeight, Is.Not.Null);
                 Assert.That((float)measureLabelHeight.Invoke(overlay, new object[] { 5 }), Is.GreaterThanOrEqualTo(60f),
-                    "Bearing and outer-range glyphs must survive the 1448-to-352 display reduction.");
+                    "Bearing and range glyphs must survive the compact display reduction.");
             }
             finally
             {
@@ -359,12 +359,21 @@ namespace FAA.Customization.Tests
 
             GameObject root = new GameObject("Weather Radar Labels", typeof(RectTransform));
             GameObject modeObject = new GameObject("ModeLabel", typeof(RectTransform), typeof(CanvasRenderer));
+            GameObject statusObject = new GameObject("TextureStatusLabel", typeof(RectTransform), typeof(CanvasRenderer));
+            GameObject sourceObject = new GameObject("SourceLabel", typeof(RectTransform), typeof(CanvasRenderer));
+            GameObject ageObject = new GameObject("TextureAgeLabel", typeof(RectTransform), typeof(CanvasRenderer));
             GameObject powerObject = new GameObject("WeatherPowerBadge", typeof(RectTransform), typeof(CanvasRenderer));
             GameObject powerTextObject = new GameObject("PowerLabel", typeof(RectTransform), typeof(CanvasRenderer));
             try
             {
                 modeObject.transform.SetParent(root.transform, false);
                 modeObject.AddComponent(tmpType);
+                statusObject.transform.SetParent(root.transform, false);
+                statusObject.AddComponent(tmpType);
+                sourceObject.transform.SetParent(root.transform, false);
+                sourceObject.AddComponent(tmpType);
+                ageObject.transform.SetParent(root.transform, false);
+                ageObject.AddComponent(tmpType);
                 powerObject.transform.SetParent(root.transform, false);
                 powerTextObject.transform.SetParent(powerObject.transform, false);
                 Component powerText = powerTextObject.AddComponent(tmpType);
@@ -376,6 +385,12 @@ namespace FAA.Customization.Tests
 
                 Assert.That(modeObject.activeSelf, Is.False,
                     "The duplicate ModeLabel must not overlap the live power/mode badge.");
+                Assert.That(statusObject.activeSelf, Is.False,
+                    "Texture status belongs in the conditions drawer, not over the radar.");
+                Assert.That(sourceObject.activeSelf, Is.False,
+                    "The source label belongs in the conditions drawer, not over the radar.");
+                Assert.That(ageObject.activeSelf, Is.False,
+                    "Texture age belongs in the conditions drawer, not over the radar.");
                 Assert.That(powerObject.activeSelf, Is.True);
                 Assert.That(ReadProperty<float>(tmpType, powerText, "fontSize"), Is.GreaterThanOrEqualTo(16f));
                 Assert.That(ReadProperty<bool>(tmpType, powerText, "extraPadding"), Is.True);
@@ -445,6 +460,72 @@ namespace FAA.Customization.Tests
             {
                 UnityEngine.Object.DestroyImmediate(root);
             }
+        }
+
+        [Test]
+        public void RadarPanels_ExposePersistentBoundedResizeControls()
+        {
+            Type overlayType = Type.GetType("FAA.Customization.FaaRadarControlsOverlay, Assembly-CSharp");
+            Type surfaceType = Type.GetType("FAA.Customization.FaaRadarInteractionSurface, Assembly-CSharp");
+            Assert.That(overlayType, Is.Not.Null);
+            Assert.That(surfaceType, Is.Not.Null);
+            Assert.That(typeof(UnityEngine.EventSystems.IScrollHandler).IsAssignableFrom(surfaceType), Is.True,
+                "The radar glass should support direct pointer-wheel resizing.");
+            Assert.That(overlayType.GetMethod("WeatherSizeDown"), Is.Not.Null);
+            Assert.That(overlayType.GetMethod("WeatherSizeUp"), Is.Not.Null);
+            Assert.That(overlayType.GetMethod("TrafficSizeDown"), Is.Not.Null);
+            Assert.That(overlayType.GetMethod("TrafficSizeUp"), Is.Not.Null);
+
+            MethodInfo clamp = overlayType.GetMethod("ClampRadarSize", BindingFlags.Public | BindingFlags.Static);
+            Assert.That(clamp, Is.Not.Null);
+            Assert.That(clamp.Invoke(null, new object[] { 90f, 220f, 560f }), Is.EqualTo(220f));
+            Assert.That(clamp.Invoke(null, new object[] { 320f, 220f, 560f }), Is.EqualTo(320f));
+            Assert.That(clamp.Invoke(null, new object[] { 900f, 220f, 560f }), Is.EqualTo(560f));
+        }
+
+        [Test]
+        public void TrafficGlassPresentation_DoesNotUndoPilotBackgroundToggle()
+        {
+            Type displayType = Type.GetType("TrafficRadar.TrafficRadarDisplay, TrafficRadar");
+            Assert.That(displayType, Is.Not.Null);
+            GameObject root = new GameObject("Traffic Glass Test", typeof(RectTransform));
+            try
+            {
+                Component display = root.AddComponent(displayType);
+                displayType.GetMethod("ConfigureHudPresentation")?.Invoke(display, new object[] { 0.56f, 0.42f });
+                PropertyInfo background = displayType.GetProperty("ShowRadarBackground");
+                Assert.That(background, Is.Not.Null);
+                background.SetValue(display, false);
+                MethodInfo normalize = displayType.GetMethod(
+                    "NormalizePanelReadability",
+                    BindingFlags.Instance | BindingFlags.NonPublic);
+                Assert.That(normalize, Is.Not.Null);
+                normalize.Invoke(display, null);
+                Assert.That(background.GetValue(display), Is.False,
+                    "BKG/CLR is a pilot control and must not be forced back on during Update.");
+            }
+            finally
+            {
+                UnityEngine.Object.DestroyImmediate(root);
+            }
+        }
+
+        [Test]
+        public void Sa147HudCapture_SlicesTheLiveHudForTheHeadsetCameraViewports()
+        {
+            Type compatibilityType = Type.GetType("FAA.Headset.SA147HeadsetCompatibility, Assembly-CSharp");
+            Assert.That(compatibilityType, Is.Not.Null);
+            MethodInfo calculate = compatibilityType.GetMethod(
+                "CalculateHudUvRect",
+                BindingFlags.Public | BindingFlags.Static);
+            Assert.That(calculate, Is.Not.Null);
+
+            Rect leftHalf = (Rect)calculate.Invoke(null, new object[] { new Rect(0f, 0f, 0.5f, 1f) });
+            Rect rightHalf = (Rect)calculate.Invoke(null, new object[] { new Rect(0.5f, 0f, 0.5f, 1f) });
+            Assert.That(leftHalf, Is.EqualTo(new Rect(0f, 0f, 0.5f, 1f)));
+            Assert.That(rightHalf, Is.EqualTo(new Rect(0.5f, 0f, 0.5f, 1f)));
+            Assert.That(compatibilityType.GetMethod("CreateRightEyeMirror", BindingFlags.Instance | BindingFlags.NonPublic), Is.Null,
+                "Headset routing must not clone live X-Plane provider/controller hierarchies per eye.");
         }
 
         private static string InvokeFormat(Type type, string methodName, params object[] arguments)
