@@ -1,3 +1,4 @@
+using System.Collections.Generic;
 using UnityEngine;
 using TMPro;
 using AircraftControl.Core;
@@ -45,6 +46,20 @@ namespace HUDControl.Elements
 
         [Range(14f, 32f)]
         [SerializeField] private float readoutFontSize = 20f;
+
+        [Header("Scale Labels")]
+        [Tooltip("Show the fixed percentage scale beside the dual NR/N2 bars")]
+        [SerializeField] private bool showScaleLabels = true;
+
+        [Tooltip("Percentage increment between adjacent NR/N2 scale labels")]
+        [Range(1, 100)]
+        [SerializeField] private int scaleLabelStepPercent = 20;
+
+        [Range(10f, 24f)]
+        [SerializeField] private float scaleLabelFontSize = 16f;
+
+        [Tooltip("World-space gap between the frame and the scale labels")]
+        [SerializeField] private float scaleLabelGap = 0.045f;
         
         #endregion
         
@@ -86,12 +101,14 @@ namespace HUDControl.Elements
         private bool hasExternalL;
         private bool hasExternalR;
         private int availableEngineCount = 2;
+        private readonly List<TMP_Text> nrScaleLabels = new List<TMP_Text>();
         
         public override string ElementId => "NRIndicator";
         
         protected override void OnInitialize()
         {
             EnsureNumericReadouts();
+            EnsureScaleLabels();
             displayedRPMCenter = 0f;
             displayedRPML = 0f;
             displayedRPMR = 0f;
@@ -179,6 +196,7 @@ namespace HUDControl.Elements
             rpmPointerL = left;
             rpmPointerR = right;
             nrFrame = frame;
+            EnsureScaleLabels();
             ApplyPointerPositions();
         }
 
@@ -256,6 +274,55 @@ namespace HUDControl.Elements
                 transform, rpmValueL, "NR Value L", leftReadoutPosition, readoutFontSize, readoutLayer);
             rpmValueR = EngineHudNumericReadout.Ensure(
                 transform, rpmValueR, "NR Value R", rightReadoutPosition, readoutFontSize, readoutLayer);
+        }
+
+        private void EnsureScaleLabels()
+        {
+            if (!showScaleLabels || nrFrame == null)
+            {
+                HideScaleLabels();
+                return;
+            }
+
+            int[] values = EngineHudNumericReadout.BuildScaleValues(maxRPMPercent, scaleLabelStepPercent);
+            int labelLayer = nrFrame.gameObject.layer;
+            // The two bars share one scale. Keep it outside the left bar so
+            // the center and right pointers retain an unobstructed silhouette.
+            float horizontalOffset = -(EngineHudNumericReadout.GetFrameWidth(nrFrame) * 0.5f + scaleLabelGap);
+
+            for (int i = 0; i < values.Length; i++)
+            {
+                Vector2 position = EngineHudNumericReadout.GetScaleLabelPosition(
+                    nrFrame,
+                    values[i],
+                    maxRPMPercent,
+                    horizontalOffset,
+                    pointerMinimumY,
+                    pointerTravelY);
+                TMP_Text label = i < nrScaleLabels.Count ? nrScaleLabels[i] : null;
+                label = EngineHudNumericReadout.Ensure(
+                    transform, label, $"NR Scale {i}", position, scaleLabelFontSize, labelLayer);
+
+                if (i >= nrScaleLabels.Count)
+                {
+                    nrScaleLabels.Add(label);
+                }
+
+                EngineHudNumericReadout.SetScaleLabel(label, values[i], true);
+            }
+
+            for (int i = values.Length; i < nrScaleLabels.Count; i++)
+            {
+                EngineHudNumericReadout.SetScaleLabel(nrScaleLabels[i], 0, false);
+            }
+        }
+
+        private void HideScaleLabels()
+        {
+            for (int i = 0; i < nrScaleLabels.Count; i++)
+            {
+                EngineHudNumericReadout.SetScaleLabel(nrScaleLabels[i], 0, false);
+            }
         }
 
         private void UpdateNumericReadouts()

@@ -247,6 +247,68 @@ namespace FAA.Customization.Tests
             }
         }
 
+        [Test]
+        public void EngineScaleLabels_FollowCalibratedPointerTravel()
+        {
+            Type torqueType = Type.GetType("HUDControl.Elements.TorquePanelElement, Assembly-CSharp");
+            Type rpmType = Type.GetType("HUDControl.Elements.NRIndicatorElement, Assembly-CSharp");
+            Assert.That(torqueType, Is.Not.Null);
+            Assert.That(rpmType, Is.Not.Null);
+
+            GameObject torqueRoot = new GameObject("Torque Scale Label Test", typeof(RectTransform));
+            GameObject rpmRoot = new GameObject("RPM Scale Label Test", typeof(RectTransform));
+            try
+            {
+                RectTransform torqueFrame = NewPointer("Torque Frame", torqueRoot.transform);
+                torqueFrame.sizeDelta = new Vector2(0.2918475f, 0.2918475f);
+                torqueFrame.anchoredPosition = new Vector2(0.017f, 0.111f);
+                torqueFrame.gameObject.layer = 31;
+                Component torque = torqueRoot.AddComponent(torqueType);
+                torqueType.GetMethod("ConfigurePointers")?.Invoke(
+                    torque, new object[] { null, null, torqueFrame });
+                torqueType.GetMethod("Initialize")?.Invoke(torque, null);
+
+                int[] torqueValues = { 0, 20, 40, 60, 80, 100, 120 };
+                for (int i = 0; i < torqueValues.Length; i++)
+                {
+                    Component label = GetTmpText(torqueRoot.transform, $"Torque Scale {i}");
+                    Assert.That(label, Is.Not.Null, $"Torque scale label {torqueValues[i]} should be generated.");
+                    Assert.That(GetTmpTextValue(label), Is.EqualTo(torqueValues[i].ToString()));
+                    Assert.That(label.gameObject.activeSelf, Is.True);
+                    Assert.That(label.gameObject.layer, Is.EqualTo(31));
+                    Assert.That(label.GetComponent<RectTransform>().anchoredPosition.y,
+                        Is.EqualTo(0.004f + i * 0.04f).Within(0.0001f));
+                }
+
+                RectTransform rpmFrame = NewPointer("RPM Frame", rpmRoot.transform);
+                rpmFrame.sizeDelta = new Vector2(0.2918475f, 0.2918475f);
+                rpmFrame.anchoredPosition = new Vector2(0f, 0.133f);
+                rpmFrame.gameObject.layer = 31;
+                Component rpm = rpmRoot.AddComponent(rpmType);
+                rpmType.GetMethod("ConfigurePointers")?.Invoke(
+                    rpm, new object[] { null, null, null, rpmFrame });
+                rpmType.GetMethod("Initialize")?.Invoke(rpm, null);
+
+                int[] rpmValues = { 0, 20, 40, 60, 80, 100, 110 };
+                for (int i = 0; i < rpmValues.Length; i++)
+                {
+                    Component label = GetTmpText(rpmRoot.transform, $"NR Scale {i}");
+                    Assert.That(label, Is.Not.Null, $"NR/N2 scale label {rpmValues[i]} should be generated.");
+                    Assert.That(GetTmpTextValue(label), Is.EqualTo(rpmValues[i].ToString()));
+                    Assert.That(label.gameObject.activeSelf, Is.True);
+                    Assert.That(label.gameObject.layer, Is.EqualTo(31));
+                    float expectedY = 0.03f + (rpmValues[i] / 110f) * 0.24f;
+                    Assert.That(label.GetComponent<RectTransform>().anchoredPosition.y,
+                        Is.EqualTo(expectedY).Within(0.0001f));
+                }
+            }
+            finally
+            {
+                UnityEngine.Object.DestroyImmediate(torqueRoot);
+                UnityEngine.Object.DestroyImmediate(rpmRoot);
+            }
+        }
+
         private static RectTransform NewPointer(string name, Transform parent)
         {
             GameObject pointer = new GameObject(name, typeof(RectTransform));
