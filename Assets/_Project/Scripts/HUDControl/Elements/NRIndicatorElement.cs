@@ -1,4 +1,5 @@
 using UnityEngine;
+using TMPro;
 using AircraftControl.Core;
 
 namespace HUDControl.Elements
@@ -24,6 +25,26 @@ namespace HUDControl.Elements
         
         [Tooltip("NR frame (non-animating)")]
         [SerializeField] private RectTransform nrFrame;
+
+        [Header("Numeric Readouts")]
+        [Tooltip("Show compact live NR/N2 values below the pointer scales")]
+        [SerializeField] private bool showNumericReadouts = true;
+
+        [Tooltip("Common rotor NR value")]
+        [SerializeField] private TMP_Text rpmValueCenter;
+
+        [Tooltip("Left engine N2 value")]
+        [SerializeField] private TMP_Text rpmValueL;
+
+        [Tooltip("Right engine N2 value")]
+        [SerializeField] private TMP_Text rpmValueR;
+
+        [SerializeField] private Vector2 leftReadoutPosition = new Vector2(-0.11f, -0.055f);
+        [SerializeField] private Vector2 centerReadoutPosition = new Vector2(0f, -0.055f);
+        [SerializeField] private Vector2 rightReadoutPosition = new Vector2(0.11f, -0.055f);
+
+        [Range(14f, 32f)]
+        [SerializeField] private float readoutFontSize = 20f;
         
         #endregion
         
@@ -64,11 +85,13 @@ namespace HUDControl.Elements
         private bool hasExternalCenter;
         private bool hasExternalL;
         private bool hasExternalR;
+        private int availableEngineCount = 2;
         
         public override string ElementId => "NRIndicator";
         
         protected override void OnInitialize()
         {
+            EnsureNumericReadouts();
             displayedRPMCenter = 0f;
             displayedRPML = 0f;
             displayedRPMR = 0f;
@@ -159,8 +182,18 @@ namespace HUDControl.Elements
             ApplyPointerPositions();
         }
 
+        public void ConfigureReadouts(TMP_Text center, TMP_Text left, TMP_Text right)
+        {
+            rpmValueCenter = center;
+            rpmValueL = left;
+            rpmValueR = right;
+            EnsureNumericReadouts();
+            UpdateNumericReadouts();
+        }
+
         public void SetEngineCount(int engineCount)
         {
+            availableEngineCount = Mathf.Max(0, engineCount);
             if (engineCount <= 0)
             {
                 ClearExternalData();
@@ -171,6 +204,8 @@ namespace HUDControl.Elements
             {
                 ClearRightChannel();
             }
+
+            UpdateNumericReadouts();
         }
 
         public void ClearExternalData()
@@ -201,6 +236,44 @@ namespace HUDControl.Elements
             ApplyPointerPosition(rpmCenterPointer, displayedRPMCenter);
             ApplyPointerPosition(rpmPointerL, displayedRPML);
             ApplyPointerPosition(rpmPointerR, displayedRPMR);
+            UpdateNumericReadouts();
+        }
+
+        private void EnsureNumericReadouts()
+        {
+            if (!showNumericReadouts)
+            {
+                EngineHudNumericReadout.SetValue(rpmValueCenter, 0f, false, false);
+                EngineHudNumericReadout.SetValue(rpmValueL, 0f, false, false);
+                EngineHudNumericReadout.SetValue(rpmValueR, 0f, false, false);
+                return;
+            }
+
+            int readoutLayer = nrFrame != null ? nrFrame.gameObject.layer : gameObject.layer;
+            rpmValueCenter = EngineHudNumericReadout.Ensure(
+                transform, rpmValueCenter, "NR Value Center", centerReadoutPosition, readoutFontSize, readoutLayer);
+            rpmValueL = EngineHudNumericReadout.Ensure(
+                transform, rpmValueL, "NR Value L", leftReadoutPosition, readoutFontSize, readoutLayer);
+            rpmValueR = EngineHudNumericReadout.Ensure(
+                transform, rpmValueR, "NR Value R", rightReadoutPosition, readoutFontSize, readoutLayer);
+        }
+
+        private void UpdateNumericReadouts()
+        {
+            bool hasSimulatedData = simulateFromThrottle;
+            bool enginesVisible = showNumericReadouts && availableEngineCount > 0;
+            EngineHudNumericReadout.SetValue(
+                rpmValueCenter,
+                displayedRPMCenter,
+                hasSimulatedData || hasExternalCenter,
+                showNumericReadouts && (hasSimulatedData || hasExternalCenter));
+            EngineHudNumericReadout.SetValue(
+                rpmValueL, displayedRPML, hasSimulatedData || hasExternalL, enginesVisible);
+            EngineHudNumericReadout.SetValue(
+                rpmValueR,
+                displayedRPMR,
+                hasSimulatedData || hasExternalR,
+                showNumericReadouts && availableEngineCount > 1);
         }
 
         private void ApplyPointerPosition(RectTransform pointer, float rpmPercent)

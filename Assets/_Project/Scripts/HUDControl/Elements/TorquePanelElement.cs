@@ -1,4 +1,5 @@
 using UnityEngine;
+using TMPro;
 using AircraftControl.Core;
 
 namespace HUDControl.Elements
@@ -21,6 +22,22 @@ namespace HUDControl.Elements
         
         [Tooltip("Torque frame (non-animating)")]
         [SerializeField] private RectTransform torqueFrame;
+
+        [Header("Numeric Readouts")]
+        [Tooltip("Show compact live torque values below the pointer scale")]
+        [SerializeField] private bool showNumericReadouts = true;
+
+        [Tooltip("Left engine torque value")]
+        [SerializeField] private TMP_Text torqueValueL;
+
+        [Tooltip("Right engine torque value")]
+        [SerializeField] private TMP_Text torqueValueR;
+
+        [SerializeField] private Vector2 leftReadoutPosition = new Vector2(-0.055f, -0.055f);
+        [SerializeField] private Vector2 rightReadoutPosition = new Vector2(0.088f, -0.055f);
+
+        [Range(14f, 32f)]
+        [SerializeField] private float readoutFontSize = 22f;
         
         #endregion
         
@@ -55,11 +72,13 @@ namespace HUDControl.Elements
         private float targetTorqueR;
         private bool hasExternalTorqueL;
         private bool hasExternalTorqueR;
+        private int availableEngineCount = 2;
         
         public override string ElementId => "TorquePanel";
         
         protected override void OnInitialize()
         {
+            EnsureNumericReadouts();
             displayedTorqueL = 0f;
             displayedTorqueR = 0f;
             targetTorqueL = 0f;
@@ -133,8 +152,17 @@ namespace HUDControl.Elements
             ApplyPointerPositions();
         }
 
+        public void ConfigureReadouts(TMP_Text left, TMP_Text right)
+        {
+            torqueValueL = left;
+            torqueValueR = right;
+            EnsureNumericReadouts();
+            UpdateNumericReadouts();
+        }
+
         public void SetEngineCount(int engineCount)
         {
+            availableEngineCount = Mathf.Max(0, engineCount);
             if (engineCount <= 0)
             {
                 ClearExternalData();
@@ -145,6 +173,8 @@ namespace HUDControl.Elements
             {
                 ClearRightChannel();
             }
+
+            UpdateNumericReadouts();
         }
 
         public void ClearExternalData()
@@ -171,6 +201,33 @@ namespace HUDControl.Elements
         {
             ApplyPointerPosition(torquePointerL, displayedTorqueL);
             ApplyPointerPosition(torquePointerR, displayedTorqueR);
+            UpdateNumericReadouts();
+        }
+
+        private void EnsureNumericReadouts()
+        {
+            if (!showNumericReadouts)
+            {
+                EngineHudNumericReadout.SetValue(torqueValueL, 0f, false, false);
+                EngineHudNumericReadout.SetValue(torqueValueR, 0f, false, false);
+                return;
+            }
+
+            int readoutLayer = torqueFrame != null ? torqueFrame.gameObject.layer : gameObject.layer;
+            torqueValueL = EngineHudNumericReadout.Ensure(
+                transform, torqueValueL, "Torque Value L", leftReadoutPosition, readoutFontSize, readoutLayer);
+            torqueValueR = EngineHudNumericReadout.Ensure(
+                transform, torqueValueR, "Torque Value R", rightReadoutPosition, readoutFontSize, readoutLayer);
+        }
+
+        private void UpdateNumericReadouts()
+        {
+            bool leftVisible = showNumericReadouts && availableEngineCount > 0;
+            bool rightVisible = showNumericReadouts && availableEngineCount > 1;
+            EngineHudNumericReadout.SetValue(
+                torqueValueL, displayedTorqueL, simulateFromThrottle || hasExternalTorqueL, leftVisible);
+            EngineHudNumericReadout.SetValue(
+                torqueValueR, displayedTorqueR, simulateFromThrottle || hasExternalTorqueR, rightVisible);
         }
 
         private void ApplyPointerPosition(RectTransform pointer, float torquePercent)

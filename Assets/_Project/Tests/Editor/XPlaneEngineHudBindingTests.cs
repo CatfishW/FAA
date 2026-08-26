@@ -172,12 +172,99 @@ namespace FAA.Customization.Tests
             }
         }
 
+        [Test]
+        public void EngineNumericReadouts_FollowDisplayedValuesAndDetectedTopology()
+        {
+            Type torqueType = Type.GetType("HUDControl.Elements.TorquePanelElement, Assembly-CSharp");
+            Type rpmType = Type.GetType("HUDControl.Elements.NRIndicatorElement, Assembly-CSharp");
+            Assert.That(torqueType, Is.Not.Null);
+            Assert.That(rpmType, Is.Not.Null);
+
+            GameObject torqueRoot = new GameObject("Torque Readout Test", typeof(RectTransform));
+            GameObject rpmRoot = new GameObject("RPM Readout Test", typeof(RectTransform));
+            try
+            {
+                RectTransform torqueFrame = NewPointer("Torque Frame", torqueRoot.transform);
+                torqueFrame.gameObject.layer = 31;
+                Component torque = torqueRoot.AddComponent(torqueType);
+                torqueType.GetMethod("ConfigurePointers")?.Invoke(
+                    torque, new object[] { null, null, torqueFrame });
+                torqueType.GetMethod("Initialize")?.Invoke(torque, null);
+                torqueType.GetMethod("SetTorqueData")?.Invoke(
+                    torque, new object[] { 60.4f, true, 90.6f, true });
+
+                Component torqueLeft = GetTmpText(torqueRoot.transform, "Torque Value L");
+                Component torqueRight = GetTmpText(torqueRoot.transform, "Torque Value R");
+                Assert.That(torqueLeft, Is.Not.Null, "Torque readouts should be created for existing HUD scenes.");
+                Assert.That(torqueRight, Is.Not.Null);
+                Assert.That(torqueLeft.gameObject.layer, Is.EqualTo(31),
+                    "Runtime readouts must inherit the headset HUD capture layer.");
+                Assert.That(torqueRight.gameObject.layer, Is.EqualTo(31));
+                Assert.That(GetTmpTextValue(torqueLeft), Is.EqualTo("060"));
+                Assert.That(GetTmpTextValue(torqueRight), Is.EqualTo("091"));
+
+                torqueType.GetMethod("SetTorqueData")?.Invoke(
+                    torque, new object[] { 100f, true, 30f, true });
+                Assert.That(GetTmpTextValue(torqueLeft), Is.EqualTo("060"),
+                    "The number must use the same smoothed value as the pointer, not jump to a new API sample.");
+                torqueType.GetMethod("SetEngineCount")?.Invoke(torque, new object[] { 1 });
+                Assert.That(torqueLeft.gameObject.activeSelf, Is.True);
+                Assert.That(torqueRight.gameObject.activeSelf, Is.False);
+
+                RectTransform rpmFrame = NewPointer("RPM Frame", rpmRoot.transform);
+                rpmFrame.gameObject.layer = 31;
+                Component rpm = rpmRoot.AddComponent(rpmType);
+                rpmType.GetMethod("ConfigurePointers")?.Invoke(
+                    rpm, new object[] { null, null, null, rpmFrame });
+                rpmType.GetMethod("Initialize")?.Invoke(rpm, null);
+                rpmType.GetMethod("SetRPMData")?.Invoke(
+                    rpm, new object[] { 99.7f, true, 88.4f, true, 0f, false });
+
+                Component rpmCenter = GetTmpText(rpmRoot.transform, "NR Value Center");
+                Component rpmLeft = GetTmpText(rpmRoot.transform, "NR Value L");
+                Component rpmRight = GetTmpText(rpmRoot.transform, "NR Value R");
+                Assert.That(rpmCenter, Is.Not.Null);
+                Assert.That(rpmLeft, Is.Not.Null);
+                Assert.That(rpmRight, Is.Not.Null);
+                Assert.That(rpmCenter.gameObject.layer, Is.EqualTo(31));
+                Assert.That(rpmLeft.gameObject.layer, Is.EqualTo(31));
+                Assert.That(rpmRight.gameObject.layer, Is.EqualTo(31));
+                Assert.That(GetTmpTextValue(rpmCenter), Is.EqualTo("100"));
+                Assert.That(GetTmpTextValue(rpmLeft), Is.EqualTo("088"));
+                Assert.That(GetTmpTextValue(rpmRight), Is.EqualTo("---"),
+                    "Unavailable X-Plane channels must not present a false zero.");
+
+                rpmType.GetMethod("SetEngineCount")?.Invoke(rpm, new object[] { 1 });
+                Assert.That(rpmRight.gameObject.activeSelf, Is.False);
+                rpmType.GetMethod("ClearExternalData")?.Invoke(rpm, null);
+                Assert.That(rpmCenter.gameObject.activeSelf, Is.False);
+                Assert.That(GetTmpTextValue(rpmLeft), Is.EqualTo("---"));
+            }
+            finally
+            {
+                UnityEngine.Object.DestroyImmediate(torqueRoot);
+                UnityEngine.Object.DestroyImmediate(rpmRoot);
+            }
+        }
+
         private static RectTransform NewPointer(string name, Transform parent)
         {
             GameObject pointer = new GameObject(name, typeof(RectTransform));
             RectTransform rect = pointer.GetComponent<RectTransform>();
             rect.SetParent(parent, false);
             return rect;
+        }
+
+        private static Component GetTmpText(Transform root, string childName)
+        {
+            Type tmpTextType = Type.GetType("TMPro.TMP_Text, Unity.TextMeshPro");
+            Transform child = root.Find(childName);
+            return tmpTextType != null && child != null ? child.GetComponent(tmpTextType) : null;
+        }
+
+        private static string GetTmpTextValue(Component textComponent)
+        {
+            return textComponent?.GetType().GetProperty("text")?.GetValue(textComponent) as string;
         }
     }
 }
