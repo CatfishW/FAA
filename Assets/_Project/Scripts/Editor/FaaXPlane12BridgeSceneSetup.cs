@@ -2113,6 +2113,7 @@ namespace FAA.Editor
             SetFloat(serializedPrimary, "pointerMinimumY", 0.004f);
             SetFloat(serializedPrimary, "pointerTravelY", 0.24f);
             SetFloat(serializedPrimary, "maxTorquePercent", 120f);
+            SetBool(serializedPrimary, "showNumericReadouts", true);
             SetBool(serializedPrimary, "showScaleLabels", true);
             SetInt(serializedPrimary, "scaleLabelStepPercent", 20);
             SetFloat(serializedPrimary, "scaleLabelFontSize", 16f);
@@ -2181,6 +2182,7 @@ namespace FAA.Editor
             SetFloat(serializedPrimary, "pointerMinimumY", 0.03f);
             SetFloat(serializedPrimary, "pointerTravelY", 0.24f);
             SetFloat(serializedPrimary, "maxRPMPercent", 110f);
+            SetBool(serializedPrimary, "showNumericReadouts", true);
             SetBool(serializedPrimary, "showScaleLabels", true);
             SetInt(serializedPrimary, "scaleLabelStepPercent", 20);
             SetFloat(serializedPrimary, "scaleLabelFontSize", 16f);
