@@ -26,6 +26,7 @@ namespace FAA.Editor
     public static class FaaXPlane12BridgeSceneSetup
     {
         private const string ExperimentScenePath = "Assets/_Project/Scenes/ExperimentScene.unity";
+        private const string SecondIterationGuiPrefabPath = "Assets/Resources/FFA GUI ASSETS/Prefabs/Second Interation GUI.prefab";
         private const string SceneRootObjectName = "FAA_Scene";
         private const string BridgeObjectName = "X-Plane 12 API HUD Bridge";
         private const string XPlaneWeatherRadarRootName = "X-Plane Weather Radar System";
@@ -220,12 +221,42 @@ namespace FAA.Editor
             }
 
             ConfigureHudControlStack(ownship);
+            AuthorEngineBarNumbersInPrefab();
             XPlane12ApiHudBridge bridge = FindSceneObjects<XPlane12ApiHudBridge>()
                 .FirstOrDefault(candidate => candidate != null && candidate.gameObject.scene == scene);
             bridge?.FindDependencies();
             EditorSceneManager.MarkSceneDirty(scene);
             EditorSceneManager.SaveScene(scene);
             Debug.Log("[FaaXPlane12BridgeSceneSetup] Repaired and registered live X-Plane torque and NR/N2 bars.");
+        }
+
+        [MenuItem("FAA/X-Plane 12/Author Engine Bar Numbers In Scene And Prefab")]
+        public static void AuthorEngineBarNumbersInSceneAndPrefab()
+        {
+            Scene scene = OpenExperimentScene();
+            if (!scene.IsValid() || !scene.isLoaded)
+            {
+                return;
+            }
+
+            GameObject legacyHudRoot = FindLegacyHudRoot();
+            if (legacyHudRoot == null)
+            {
+                Debug.LogError("[FaaXPlane12BridgeSceneSetup] Cannot author engine bar numbers because the primary HUD root is missing.");
+                return;
+            }
+
+            EnsureEngineBarEditorLabels(legacyHudRoot);
+            // The labels are authored as ordinary child objects, while the
+            // live HUD elements keep serialized references to those objects.
+            // Bind both sides in the same editor pass so a fresh scene never
+            // relies on runtime discovery or instantiation.
+            EnsurePrimaryTorquePanelElement(legacyHudRoot);
+            EnsurePrimaryNrIndicatorElement(legacyHudRoot);
+            EditorSceneManager.MarkSceneDirty(scene);
+            bool sceneSaved = EditorSceneManager.SaveScene(scene);
+            bool prefabSaved = AuthorEngineBarNumbersInPrefab();
+            Debug.Log($"[FaaXPlane12BridgeSceneSetup] Authored engine bar numbers in scene (saved={sceneSaved}) and reusable prefab (saved={prefabSaved}).");
         }
 
         [MenuItem("FAA/X-Plane 12/Apply Compact Radar Glass In Experiment Scene")]
@@ -2036,6 +2067,7 @@ namespace FAA.Editor
                 return;
             }
 
+            EnsureEngineBarEditorLabels(legacyHudRoot);
             EnsurePrimaryTorquePanelElement(legacyHudRoot);
             EnsurePrimaryNrIndicatorElement(legacyHudRoot);
             SuppressDuplicatePitchLadder(legacyHudRoot);
@@ -2080,6 +2112,183 @@ namespace FAA.Editor
             Debug.Log($"[FaaXPlane12BridgeSceneSetup] HUDControl stack configured with {registeredElements.Count} active uGUI element(s).");
         }
 
+        private static readonly int[] TorqueScaleValues = { 0, 20, 40, 60, 80, 100, 120 };
+        private static readonly int[] NrScaleValues = { 0, 20, 40, 60, 80, 100, 110 };
+
+        /// <summary>
+        /// Author the engine numbers as ordinary child UI objects. This runs
+        /// from an editor menu/setup pass, so the runtime HUD only updates
+        /// references that already exist in the scene or prefab.
+        /// </summary>
+        private static void EnsureEngineBarEditorLabels(GameObject legacyHudRoot)
+        {
+            if (legacyHudRoot == null)
+            {
+                return;
+            }
+
+            Transform torquePanel = FindChildByName(legacyHudRoot.transform, "Torque Panel");
+            if (torquePanel != null)
+            {
+                RectTransform frame = FindChildByName(torquePanel, "Torque Frame")?.GetComponent<RectTransform>();
+                int layer = frame != null ? frame.gameObject.layer : torquePanel.gameObject.layer;
+                float horizontalOffset = GetEngineScaleHorizontalOffset(frame, 0.045f);
+
+                for (int i = 0; i < TorqueScaleValues.Length; i++)
+                {
+                    Vector2 position = GetEngineScaleLabelPosition(
+                        frame, TorqueScaleValues[i], 120f, horizontalOffset, 0.004f, 0.24f);
+                    EnsureEngineNumericLabel(
+                        torquePanel,
+                        $"Torque Scale {i}",
+                        TorqueScaleValues[i].ToString(System.Globalization.CultureInfo.InvariantCulture),
+                        position,
+                        16f,
+                        layer,
+                        HudGreen);
+                }
+
+                EnsureEngineNumericLabel(
+                    torquePanel, "Torque Value L", "---", new Vector2(-0.055f, -0.055f), 22f, layer, HudGreenDim);
+                EnsureEngineNumericLabel(
+                    torquePanel, "Torque Value R", "---", new Vector2(0.088f, -0.055f), 22f, layer, HudGreenDim);
+            }
+
+            Transform nrIndicator = FindChildByName(legacyHudRoot.transform, "NR/ENG Ind");
+            if (nrIndicator != null)
+            {
+                RectTransform frame = FindChildByName(nrIndicator, "NR Indicator Frame")?.GetComponent<RectTransform>();
+                int layer = frame != null ? frame.gameObject.layer : nrIndicator.gameObject.layer;
+                float horizontalOffset = GetEngineScaleHorizontalOffset(frame, 0.045f);
+
+                for (int i = 0; i < NrScaleValues.Length; i++)
+                {
+                    Vector2 position = GetEngineScaleLabelPosition(
+                        frame, NrScaleValues[i], 110f, horizontalOffset, 0.03f, 0.24f);
+                    EnsureEngineNumericLabel(
+                        nrIndicator,
+                        $"NR Scale {i}",
+                        NrScaleValues[i].ToString(System.Globalization.CultureInfo.InvariantCulture),
+                        position,
+                        16f,
+                        layer,
+                        HudGreen);
+                }
+
+                EnsureEngineNumericLabel(
+                    nrIndicator, "NR Value Center", "---", new Vector2(0f, -0.055f), 20f, layer, HudGreenDim);
+                EnsureEngineNumericLabel(
+                    nrIndicator, "NR Value L", "---", new Vector2(-0.11f, -0.055f), 20f, layer, HudGreenDim);
+                EnsureEngineNumericLabel(
+                    nrIndicator, "NR Value R", "---", new Vector2(0.11f, -0.055f), 20f, layer, HudGreenDim);
+            }
+        }
+
+        private static bool AuthorEngineBarNumbersInPrefab()
+        {
+            if (!File.Exists(Path.Combine(Directory.GetCurrentDirectory(), SecondIterationGuiPrefabPath)))
+            {
+                return false;
+            }
+
+            GameObject prefabRoot = null;
+            try
+            {
+                prefabRoot = PrefabUtility.LoadPrefabContents(SecondIterationGuiPrefabPath);
+                EnsureEngineBarEditorLabels(prefabRoot);
+                EditorUtility.SetDirty(prefabRoot);
+                return PrefabUtility.SaveAsPrefabAsset(prefabRoot, SecondIterationGuiPrefabPath) != null;
+            }
+            catch (Exception exception)
+            {
+                Debug.LogError($"[FaaXPlane12BridgeSceneSetup] Failed to author engine bar numbers in prefab: {exception.Message}");
+                return false;
+            }
+            finally
+            {
+                if (prefabRoot != null)
+                {
+                    PrefabUtility.UnloadPrefabContents(prefabRoot);
+                }
+            }
+        }
+
+        private static List<Component> FindEngineScaleLabels(Transform parent, string prefix, int count)
+        {
+            List<Component> labels = new List<Component>(count);
+            for (int i = 0; i < count; i++)
+            {
+                TMP_Text label = FindChildByName(parent, prefix + i)?.GetComponent<TMP_Text>();
+                if (label != null)
+                {
+                    labels.Add(label);
+                }
+            }
+
+            return labels;
+        }
+
+        private static TMP_Text EnsureEngineNumericLabel(
+            Transform parent,
+            string childName,
+            string text,
+            Vector2 anchoredPosition,
+            float fontSize,
+            int layer,
+            Color color)
+        {
+            TMP_Text label = EnsureLabel(
+                parent,
+                childName,
+                text,
+                anchoredPosition,
+                TextAlignmentOptions.Center,
+                fontSize,
+                color,
+                52f);
+            RectTransform rect = label.rectTransform;
+            rect.sizeDelta = new Vector2(52f, 26f);
+            rect.localScale = Vector3.one * 0.0016f;
+            rect.localRotation = Quaternion.identity;
+            label.overflowMode = TextOverflowModes.Overflow;
+            label.textWrappingMode = TextWrappingModes.NoWrap;
+            label.raycastTarget = false;
+            label.gameObject.layer = layer;
+            label.transform.SetAsLastSibling();
+            EditorUtility.SetDirty(label);
+            EditorUtility.SetDirty(label.gameObject);
+            return label;
+        }
+
+        private static float GetEngineScaleHorizontalOffset(RectTransform frame, float gap)
+        {
+            float width = frame != null ? Mathf.Abs(frame.rect.width) : 0.2918475f;
+            if (width < 0.0001f && frame != null)
+            {
+                width = Mathf.Abs(frame.sizeDelta.x);
+            }
+
+            if (width < 0.0001f)
+            {
+                width = 0.2918475f;
+            }
+
+            return -(width * 0.5f + gap);
+        }
+
+        private static Vector2 GetEngineScaleLabelPosition(
+            RectTransform frame,
+            float value,
+            float maximumPercent,
+            float horizontalOffset,
+            float pointerMinimumY,
+            float pointerTravelY)
+        {
+            float x = frame != null ? frame.anchoredPosition.x + horizontalOffset : horizontalOffset;
+            float normalized = Mathf.Clamp01(value / Mathf.Max(1f, maximumPercent));
+            return new Vector2(x, pointerMinimumY + normalized * pointerTravelY);
+        }
+
         private static void EnsurePrimaryTorquePanelElement(GameObject legacyHudRoot)
         {
             Type torquePanelType = FindType("HUDControl.Elements.TorquePanelElement");
@@ -2103,11 +2312,17 @@ namespace FAA.Editor
             RectTransform frame = FindChildByName(torquePanel, "Torque Frame")?.GetComponent<RectTransform>();
             RectTransform leftIndicator = FindChildByName(torquePanel, "Torque Indicator L")?.GetComponent<RectTransform>();
             RectTransform rightIndicator = FindChildByName(torquePanel, "Torque Indicator R")?.GetComponent<RectTransform>();
+            TMP_Text torqueValueL = FindChildByName(torquePanel, "Torque Value L")?.GetComponent<TMP_Text>();
+            TMP_Text torqueValueR = FindChildByName(torquePanel, "Torque Value R")?.GetComponent<TMP_Text>();
+            List<Component> torqueScaleLabels = FindEngineScaleLabels(torquePanel, "Torque Scale ", 7);
 
             SerializedObject serializedPrimary = new SerializedObject(primary);
             SetObject(serializedPrimary, "torqueFrame", frame);
             SetObject(serializedPrimary, "torquePointerL", leftIndicator);
             SetObject(serializedPrimary, "torquePointerR", rightIndicator);
+            SetObject(serializedPrimary, "torqueValueL", torqueValueL);
+            SetObject(serializedPrimary, "torqueValueR", torqueValueR);
+            SetObjectArray(serializedPrimary, "torqueScaleLabels", torqueScaleLabels);
             SetBool(serializedPrimary, "enableAnimation", leftIndicator != null || rightIndicator != null);
             SetBool(serializedPrimary, "simulateFromThrottle", false);
             SetFloat(serializedPrimary, "pointerMinimumY", 0.004f);
@@ -2171,12 +2386,20 @@ namespace FAA.Editor
             RectTransform center = FindChildByName(nrIndicator, "RPM Center Pointer")?.GetComponent<RectTransform>();
             RectTransform left = FindChildByName(nrIndicator, "RPM Pointer L")?.GetComponent<RectTransform>();
             RectTransform right = FindChildByName(nrIndicator, "RPM Pointer R")?.GetComponent<RectTransform>();
+            TMP_Text rpmValueCenter = FindChildByName(nrIndicator, "NR Value Center")?.GetComponent<TMP_Text>();
+            TMP_Text rpmValueL = FindChildByName(nrIndicator, "NR Value L")?.GetComponent<TMP_Text>();
+            TMP_Text rpmValueR = FindChildByName(nrIndicator, "NR Value R")?.GetComponent<TMP_Text>();
+            List<Component> nrScaleLabels = FindEngineScaleLabels(nrIndicator, "NR Scale ", 7);
 
             SerializedObject serializedPrimary = new SerializedObject(primary);
             SetObject(serializedPrimary, "nrFrame", frame);
             SetObject(serializedPrimary, "rpmCenterPointer", center);
             SetObject(serializedPrimary, "rpmPointerL", left);
             SetObject(serializedPrimary, "rpmPointerR", right);
+            SetObject(serializedPrimary, "rpmValueCenter", rpmValueCenter);
+            SetObject(serializedPrimary, "rpmValueL", rpmValueL);
+            SetObject(serializedPrimary, "rpmValueR", rpmValueR);
+            SetObjectArray(serializedPrimary, "nrScaleLabels", nrScaleLabels);
             SetBool(serializedPrimary, "enableAnimation", center != null || left != null || right != null);
             SetBool(serializedPrimary, "simulateFromThrottle", false);
             SetFloat(serializedPrimary, "pointerMinimumY", 0.03f);

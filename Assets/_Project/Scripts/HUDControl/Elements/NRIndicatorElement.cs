@@ -1,4 +1,3 @@
-using System.Collections.Generic;
 using UnityEngine;
 using TMPro;
 using AircraftControl.Core;
@@ -60,6 +59,9 @@ namespace HUDControl.Elements
 
         [Tooltip("World-space gap between the frame and the scale labels")]
         [SerializeField] private float scaleLabelGap = 0.045f;
+
+        [Tooltip("Scale labels authored as child TextMeshPro objects in the scene/prefab")]
+        [SerializeField] private TMP_Text[] nrScaleLabels = new TMP_Text[0];
         
         #endregion
         
@@ -101,14 +103,12 @@ namespace HUDControl.Elements
         private bool hasExternalL;
         private bool hasExternalR;
         private int availableEngineCount = 2;
-        private readonly List<TMP_Text> nrScaleLabels = new List<TMP_Text>();
-        
         public override string ElementId => "NRIndicator";
         
         protected override void OnInitialize()
         {
-            EnsureNumericReadouts();
-            EnsureScaleLabels();
+            ConfigureNumericReadouts();
+            ApplyScaleLabels();
             displayedRPMCenter = 0f;
             displayedRPML = 0f;
             displayedRPMR = 0f;
@@ -196,7 +196,7 @@ namespace HUDControl.Elements
             rpmPointerL = left;
             rpmPointerR = right;
             nrFrame = frame;
-            EnsureScaleLabels();
+            ApplyScaleLabels();
             ApplyPointerPositions();
         }
 
@@ -205,8 +205,14 @@ namespace HUDControl.Elements
             rpmValueCenter = center;
             rpmValueL = left;
             rpmValueR = right;
-            EnsureNumericReadouts();
+            ConfigureNumericReadouts();
             UpdateNumericReadouts();
+        }
+
+        public void ConfigureScaleLabels(TMP_Text[] labels)
+        {
+            nrScaleLabels = labels ?? new TMP_Text[0];
+            ApplyScaleLabels();
         }
 
         public void SetEngineCount(int engineCount)
@@ -257,7 +263,7 @@ namespace HUDControl.Elements
             UpdateNumericReadouts();
         }
 
-        private void EnsureNumericReadouts()
+        private void ConfigureNumericReadouts()
         {
             if (!showNumericReadouts)
             {
@@ -268,15 +274,12 @@ namespace HUDControl.Elements
             }
 
             int readoutLayer = nrFrame != null ? nrFrame.gameObject.layer : gameObject.layer;
-            rpmValueCenter = EngineHudNumericReadout.Ensure(
-                transform, rpmValueCenter, "NR Value Center", centerReadoutPosition, readoutFontSize, readoutLayer);
-            rpmValueL = EngineHudNumericReadout.Ensure(
-                transform, rpmValueL, "NR Value L", leftReadoutPosition, readoutFontSize, readoutLayer);
-            rpmValueR = EngineHudNumericReadout.Ensure(
-                transform, rpmValueR, "NR Value R", rightReadoutPosition, readoutFontSize, readoutLayer);
+            EngineHudNumericReadout.ConfigureExisting(rpmValueCenter, readoutFontSize, readoutLayer);
+            EngineHudNumericReadout.ConfigureExisting(rpmValueL, readoutFontSize, readoutLayer);
+            EngineHudNumericReadout.ConfigureExisting(rpmValueR, readoutFontSize, readoutLayer);
         }
 
-        private void EnsureScaleLabels()
+        private void ApplyScaleLabels()
         {
             if (!showScaleLabels || nrFrame == null)
             {
@@ -285,41 +288,19 @@ namespace HUDControl.Elements
             }
 
             int[] values = EngineHudNumericReadout.BuildScaleValues(maxRPMPercent, scaleLabelStepPercent);
-            int labelLayer = nrFrame.gameObject.layer;
-            // The two bars share one scale. Keep it outside the left bar so
-            // the center and right pointers retain an unobstructed silhouette.
-            float horizontalOffset = -(EngineHudNumericReadout.GetFrameWidth(nrFrame) * 0.5f + scaleLabelGap);
-
-            for (int i = 0; i < values.Length; i++)
+            for (int i = 0; i < nrScaleLabels.Length; i++)
             {
-                Vector2 position = EngineHudNumericReadout.GetScaleLabelPosition(
-                    nrFrame,
-                    values[i],
-                    maxRPMPercent,
-                    horizontalOffset,
-                    pointerMinimumY,
-                    pointerTravelY);
-                TMP_Text label = i < nrScaleLabels.Count ? nrScaleLabels[i] : null;
-                label = EngineHudNumericReadout.Ensure(
-                    transform, label, $"NR Scale {i}", position, scaleLabelFontSize, labelLayer);
-
-                if (i >= nrScaleLabels.Count)
-                {
-                    nrScaleLabels.Add(label);
-                }
-
-                EngineHudNumericReadout.SetScaleLabel(label, values[i], true);
-            }
-
-            for (int i = values.Length; i < nrScaleLabels.Count; i++)
-            {
-                EngineHudNumericReadout.SetScaleLabel(nrScaleLabels[i], 0, false);
+                bool visible = i < values.Length;
+                EngineHudNumericReadout.ConfigureExisting(
+                    nrScaleLabels[i], scaleLabelFontSize, nrFrame.gameObject.layer);
+                EngineHudNumericReadout.SetScaleLabel(
+                    nrScaleLabels[i], visible ? values[i] : 0, visible);
             }
         }
 
         private void HideScaleLabels()
         {
-            for (int i = 0; i < nrScaleLabels.Count; i++)
+            for (int i = 0; i < nrScaleLabels.Length; i++)
             {
                 EngineHudNumericReadout.SetScaleLabel(nrScaleLabels[i], 0, false);
             }

@@ -186,19 +186,22 @@ namespace FAA.Customization.Tests
             {
                 RectTransform torqueFrame = NewPointer("Torque Frame", torqueRoot.transform);
                 torqueFrame.gameObject.layer = 31;
+                Component torqueLeft = NewTmpText("Torque Value L", torqueRoot.transform);
+                Component torqueRight = NewTmpText("Torque Value R", torqueRoot.transform);
                 Component torque = torqueRoot.AddComponent(torqueType);
                 torqueType.GetMethod("ConfigurePointers")?.Invoke(
                     torque, new object[] { null, null, torqueFrame });
+                torqueType.GetMethod("ConfigureReadouts")?.Invoke(
+                    torque, new object[] { torqueLeft, torqueRight });
+                int torqueChildCount = torqueRoot.transform.childCount;
                 torqueType.GetMethod("Initialize")?.Invoke(torque, null);
+                Assert.That(torqueRoot.transform.childCount, Is.EqualTo(torqueChildCount),
+                    "Editor-authored readouts must not be instantiated during Initialize.");
                 torqueType.GetMethod("SetTorqueData")?.Invoke(
                     torque, new object[] { 60.4f, true, 90.6f, true });
 
-                Component torqueLeft = GetTmpText(torqueRoot.transform, "Torque Value L");
-                Component torqueRight = GetTmpText(torqueRoot.transform, "Torque Value R");
-                Assert.That(torqueLeft, Is.Not.Null, "Torque readouts should be created for existing HUD scenes.");
-                Assert.That(torqueRight, Is.Not.Null);
                 Assert.That(torqueLeft.gameObject.layer, Is.EqualTo(31),
-                    "Runtime readouts must inherit the headset HUD capture layer.");
+                    "Authored readouts must inherit the headset HUD capture layer when configured.");
                 Assert.That(torqueRight.gameObject.layer, Is.EqualTo(31));
                 Assert.That(GetTmpTextValue(torqueLeft), Is.EqualTo("060"));
                 Assert.That(GetTmpTextValue(torqueRight), Is.EqualTo("091"));
@@ -213,19 +216,21 @@ namespace FAA.Customization.Tests
 
                 RectTransform rpmFrame = NewPointer("RPM Frame", rpmRoot.transform);
                 rpmFrame.gameObject.layer = 31;
+                Component rpmCenter = NewTmpText("NR Value Center", rpmRoot.transform);
+                Component rpmLeft = NewTmpText("NR Value L", rpmRoot.transform);
+                Component rpmRight = NewTmpText("NR Value R", rpmRoot.transform);
                 Component rpm = rpmRoot.AddComponent(rpmType);
                 rpmType.GetMethod("ConfigurePointers")?.Invoke(
                     rpm, new object[] { null, null, null, rpmFrame });
+                rpmType.GetMethod("ConfigureReadouts")?.Invoke(
+                    rpm, new object[] { rpmCenter, rpmLeft, rpmRight });
+                int rpmChildCount = rpmRoot.transform.childCount;
                 rpmType.GetMethod("Initialize")?.Invoke(rpm, null);
+                Assert.That(rpmRoot.transform.childCount, Is.EqualTo(rpmChildCount),
+                    "Editor-authored readouts must not be instantiated during Initialize.");
                 rpmType.GetMethod("SetRPMData")?.Invoke(
                     rpm, new object[] { 99.7f, true, 88.4f, true, 0f, false });
 
-                Component rpmCenter = GetTmpText(rpmRoot.transform, "NR Value Center");
-                Component rpmLeft = GetTmpText(rpmRoot.transform, "NR Value L");
-                Component rpmRight = GetTmpText(rpmRoot.transform, "NR Value R");
-                Assert.That(rpmCenter, Is.Not.Null);
-                Assert.That(rpmLeft, Is.Not.Null);
-                Assert.That(rpmRight, Is.Not.Null);
                 Assert.That(rpmCenter.gameObject.layer, Is.EqualTo(31));
                 Assert.That(rpmLeft.gameObject.layer, Is.EqualTo(31));
                 Assert.That(rpmRight.gameObject.layer, Is.EqualTo(31));
@@ -263,16 +268,29 @@ namespace FAA.Customization.Tests
                 torqueFrame.sizeDelta = new Vector2(0.2918475f, 0.2918475f);
                 torqueFrame.anchoredPosition = new Vector2(0.017f, 0.111f);
                 torqueFrame.gameObject.layer = 31;
-                Component torque = torqueRoot.AddComponent(torqueType);
-                torqueType.GetMethod("ConfigurePointers")?.Invoke(
-                    torque, new object[] { null, null, torqueFrame });
-                torqueType.GetMethod("Initialize")?.Invoke(torque, null);
-
+                Component[] torqueLabels = new Component[7];
                 int[] torqueValues = { 0, 20, 40, 60, 80, 100, 120 };
                 for (int i = 0; i < torqueValues.Length; i++)
                 {
-                    Component label = GetTmpText(torqueRoot.transform, $"Torque Scale {i}");
-                    Assert.That(label, Is.Not.Null, $"Torque scale label {torqueValues[i]} should be generated.");
+                    torqueLabels[i] = NewTmpText($"Torque Scale {i}", torqueRoot.transform);
+                    RectTransform labelRect = torqueLabels[i].GetComponent<RectTransform>();
+                    labelRect.anchoredPosition = new Vector2(
+                        -0.17392375f,
+                        0.004f + i * 0.04f);
+                }
+                Component torque = torqueRoot.AddComponent(torqueType);
+                torqueType.GetMethod("ConfigurePointers")?.Invoke(
+                    torque, new object[] { null, null, torqueFrame });
+                torqueType.GetMethod("ConfigureScaleLabels")?.Invoke(
+                    torque, new object[] { ToTmpTextArray(torqueLabels) });
+                int torqueChildCount = torqueRoot.transform.childCount;
+                torqueType.GetMethod("Initialize")?.Invoke(torque, null);
+                Assert.That(torqueRoot.transform.childCount, Is.EqualTo(torqueChildCount),
+                    "Editor-authored scale labels must not be instantiated during Initialize.");
+
+                for (int i = 0; i < torqueValues.Length; i++)
+                {
+                    Component label = torqueLabels[i];
                     Assert.That(GetTmpTextValue(label), Is.EqualTo(torqueValues[i].ToString()));
                     Assert.That(label.gameObject.activeSelf, Is.True);
                     Assert.That(label.gameObject.layer, Is.EqualTo(31));
@@ -284,16 +302,29 @@ namespace FAA.Customization.Tests
                 rpmFrame.sizeDelta = new Vector2(0.2918475f, 0.2918475f);
                 rpmFrame.anchoredPosition = new Vector2(0f, 0.133f);
                 rpmFrame.gameObject.layer = 31;
-                Component rpm = rpmRoot.AddComponent(rpmType);
-                rpmType.GetMethod("ConfigurePointers")?.Invoke(
-                    rpm, new object[] { null, null, null, rpmFrame });
-                rpmType.GetMethod("Initialize")?.Invoke(rpm, null);
-
+                Component[] rpmLabels = new Component[7];
                 int[] rpmValues = { 0, 20, 40, 60, 80, 100, 110 };
                 for (int i = 0; i < rpmValues.Length; i++)
                 {
-                    Component label = GetTmpText(rpmRoot.transform, $"NR Scale {i}");
-                    Assert.That(label, Is.Not.Null, $"NR/N2 scale label {rpmValues[i]} should be generated.");
+                    rpmLabels[i] = NewTmpText($"NR Scale {i}", rpmRoot.transform);
+                    RectTransform labelRect = rpmLabels[i].GetComponent<RectTransform>();
+                    labelRect.anchoredPosition = new Vector2(
+                        -0.19092375f,
+                        0.03f + (rpmValues[i] / 110f) * 0.24f);
+                }
+                Component rpm = rpmRoot.AddComponent(rpmType);
+                rpmType.GetMethod("ConfigurePointers")?.Invoke(
+                    rpm, new object[] { null, null, null, rpmFrame });
+                rpmType.GetMethod("ConfigureScaleLabels")?.Invoke(
+                    rpm, new object[] { ToTmpTextArray(rpmLabels) });
+                int rpmChildCount = rpmRoot.transform.childCount;
+                rpmType.GetMethod("Initialize")?.Invoke(rpm, null);
+                Assert.That(rpmRoot.transform.childCount, Is.EqualTo(rpmChildCount),
+                    "Editor-authored scale labels must not be instantiated during Initialize.");
+
+                for (int i = 0; i < rpmValues.Length; i++)
+                {
+                    Component label = rpmLabels[i];
                     Assert.That(GetTmpTextValue(label), Is.EqualTo(rpmValues[i].ToString()));
                     Assert.That(label.gameObject.activeSelf, Is.True);
                     Assert.That(label.gameObject.layer, Is.EqualTo(31));
@@ -315,6 +346,30 @@ namespace FAA.Customization.Tests
             RectTransform rect = pointer.GetComponent<RectTransform>();
             rect.SetParent(parent, false);
             return rect;
+        }
+
+        private static Component NewTmpText(string name, Transform parent)
+        {
+            Type tmpTextType = Type.GetType("TMPro.TextMeshProUGUI, Unity.TextMeshPro");
+            Assert.That(tmpTextType, Is.Not.Null, "TextMeshProUGUI must be available to author HUD labels.");
+
+            GameObject labelObject = new GameObject(name, typeof(RectTransform));
+            labelObject.transform.SetParent(parent, false);
+            return labelObject.AddComponent(tmpTextType);
+        }
+
+        private static Array ToTmpTextArray(Component[] labels)
+        {
+            Type tmpTextType = Type.GetType("TMPro.TMP_Text, Unity.TextMeshPro");
+            Assert.That(tmpTextType, Is.Not.Null);
+
+            Array result = Array.CreateInstance(tmpTextType, labels.Length);
+            for (int i = 0; i < labels.Length; i++)
+            {
+                result.SetValue(labels[i], i);
+            }
+
+            return result;
         }
 
         private static Component GetTmpText(Transform root, string childName)

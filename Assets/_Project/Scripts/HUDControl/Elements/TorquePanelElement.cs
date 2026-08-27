@@ -1,4 +1,3 @@
-using System.Collections.Generic;
 using UnityEngine;
 using TMPro;
 using AircraftControl.Core;
@@ -53,6 +52,9 @@ namespace HUDControl.Elements
 
         [Tooltip("World-space gap between the frame and the scale labels")]
         [SerializeField] private float scaleLabelGap = 0.045f;
+
+        [Tooltip("Scale labels authored as child TextMeshPro objects in the scene/prefab")]
+        [SerializeField] private TMP_Text[] torqueScaleLabels = new TMP_Text[0];
         
         #endregion
         
@@ -88,14 +90,12 @@ namespace HUDControl.Elements
         private bool hasExternalTorqueL;
         private bool hasExternalTorqueR;
         private int availableEngineCount = 2;
-        private readonly List<TMP_Text> torqueScaleLabels = new List<TMP_Text>();
-        
         public override string ElementId => "TorquePanel";
         
         protected override void OnInitialize()
         {
-            EnsureNumericReadouts();
-            EnsureScaleLabels();
+            ConfigureNumericReadouts();
+            ApplyScaleLabels();
             displayedTorqueL = 0f;
             displayedTorqueR = 0f;
             targetTorqueL = 0f;
@@ -166,7 +166,7 @@ namespace HUDControl.Elements
             torquePointerL = left;
             torquePointerR = right;
             torqueFrame = frame;
-            EnsureScaleLabels();
+            ApplyScaleLabels();
             ApplyPointerPositions();
         }
 
@@ -174,8 +174,14 @@ namespace HUDControl.Elements
         {
             torqueValueL = left;
             torqueValueR = right;
-            EnsureNumericReadouts();
+            ConfigureNumericReadouts();
             UpdateNumericReadouts();
+        }
+
+        public void ConfigureScaleLabels(TMP_Text[] labels)
+        {
+            torqueScaleLabels = labels ?? new TMP_Text[0];
+            ApplyScaleLabels();
         }
 
         public void SetEngineCount(int engineCount)
@@ -222,7 +228,7 @@ namespace HUDControl.Elements
             UpdateNumericReadouts();
         }
 
-        private void EnsureNumericReadouts()
+        private void ConfigureNumericReadouts()
         {
             if (!showNumericReadouts)
             {
@@ -232,13 +238,11 @@ namespace HUDControl.Elements
             }
 
             int readoutLayer = torqueFrame != null ? torqueFrame.gameObject.layer : gameObject.layer;
-            torqueValueL = EngineHudNumericReadout.Ensure(
-                transform, torqueValueL, "Torque Value L", leftReadoutPosition, readoutFontSize, readoutLayer);
-            torqueValueR = EngineHudNumericReadout.Ensure(
-                transform, torqueValueR, "Torque Value R", rightReadoutPosition, readoutFontSize, readoutLayer);
+            EngineHudNumericReadout.ConfigureExisting(torqueValueL, readoutFontSize, readoutLayer);
+            EngineHudNumericReadout.ConfigureExisting(torqueValueR, readoutFontSize, readoutLayer);
         }
 
-        private void EnsureScaleLabels()
+        private void ApplyScaleLabels()
         {
             if (!showScaleLabels || torqueFrame == null)
             {
@@ -247,39 +251,20 @@ namespace HUDControl.Elements
             }
 
             int[] values = EngineHudNumericReadout.BuildScaleValues(maxTorquePercent, scaleLabelStepPercent);
-            int labelLayer = torqueFrame.gameObject.layer;
-            float horizontalOffset = -(EngineHudNumericReadout.GetFrameWidth(torqueFrame) * 0.5f + scaleLabelGap);
 
-            for (int i = 0; i < values.Length; i++)
+            for (int i = 0; i < torqueScaleLabels.Length; i++)
             {
-                Vector2 position = EngineHudNumericReadout.GetScaleLabelPosition(
-                    torqueFrame,
-                    values[i],
-                    maxTorquePercent,
-                    horizontalOffset,
-                    pointerMinimumY,
-                    pointerTravelY);
-                TMP_Text label = i < torqueScaleLabels.Count ? torqueScaleLabels[i] : null;
-                label = EngineHudNumericReadout.Ensure(
-                    transform, label, $"Torque Scale {i}", position, scaleLabelFontSize, labelLayer);
-
-                if (i >= torqueScaleLabels.Count)
-                {
-                    torqueScaleLabels.Add(label);
-                }
-
-                EngineHudNumericReadout.SetScaleLabel(label, values[i], true);
-            }
-
-            for (int i = values.Length; i < torqueScaleLabels.Count; i++)
-            {
-                EngineHudNumericReadout.SetScaleLabel(torqueScaleLabels[i], 0, false);
+                bool visible = i < values.Length;
+                EngineHudNumericReadout.ConfigureExisting(
+                    torqueScaleLabels[i], scaleLabelFontSize, torqueFrame.gameObject.layer);
+                EngineHudNumericReadout.SetScaleLabel(
+                    torqueScaleLabels[i], visible ? values[i] : 0, visible);
             }
         }
 
         private void HideScaleLabels()
         {
-            for (int i = 0; i < torqueScaleLabels.Count; i++)
+            for (int i = 0; i < torqueScaleLabels.Length; i++)
             {
                 EngineHudNumericReadout.SetScaleLabel(torqueScaleLabels[i], 0, false);
             }

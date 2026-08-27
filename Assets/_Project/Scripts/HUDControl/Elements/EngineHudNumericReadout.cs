@@ -1,4 +1,3 @@
-using System.Collections.Generic;
 using System.Globalization;
 using TMPro;
 using UnityEngine;
@@ -12,63 +11,28 @@ namespace HUDControl.Elements
     /// </summary>
     internal static class EngineHudNumericReadout
     {
-        private const string PreferredFontResource = "CNPro/Fonts/Distance Font SDF";
         private const float DefaultFrameSize = 0.2918475f;
         private static readonly Color HudGreen = new Color(0.2f, 1f, 0.2f, 1f);
         private static readonly Color MissingDataGreen = new Color(0.2f, 1f, 0.2f, 0.46f);
 
-        public static TMP_Text Ensure(
-            Transform parent,
-            TMP_Text readout,
-            string childName,
-            Vector2 anchoredPosition,
-            float fontSize,
-            int layer)
+        /// <summary>
+        /// Configure a TextMeshPro object that was authored in the scene or
+        /// prefab. Numeric HUD objects are intentionally never instantiated at
+        /// runtime; this method only applies presentation settings to an
+        /// existing reference.
+        /// </summary>
+        public static void ConfigureExisting(TMP_Text readout, float fontSize, int layer)
         {
-            if (parent == null)
-            {
-                return readout;
-            }
-
-            bool generated = false;
-
             if (readout == null)
             {
-                Transform existing = parent.Find(childName);
-                if (existing != null)
-                {
-                    readout = existing.GetComponent<TMP_Text>();
-                }
-            }
-
-            if (readout == null)
-            {
-                GameObject readoutObject = new GameObject(childName, typeof(RectTransform));
-                readoutObject.transform.SetParent(parent, false);
-                readout = readoutObject.AddComponent<TextMeshProUGUI>();
-                generated = true;
+                return;
             }
 
             readout.gameObject.layer = layer;
-            RectTransform rect = readout.rectTransform;
-            rect.anchorMin = new Vector2(0.5f, 0.5f);
-            rect.anchorMax = new Vector2(0.5f, 0.5f);
-            rect.pivot = new Vector2(0.5f, 0.5f);
-            rect.anchoredPosition = anchoredPosition;
-            rect.sizeDelta = new Vector2(52f, 26f);
-            rect.localScale = Vector3.one * 0.0016f;
-            rect.localRotation = Quaternion.identity;
-
-            TMP_FontAsset preferredFont = Resources.Load<TMP_FontAsset>(PreferredFontResource);
-            if (generated && preferredFont != null)
+            if (readout.font == null)
             {
-                readout.font = preferredFont;
+                readout.font = TMP_Settings.defaultFontAsset;
             }
-            else if (readout.font == null)
-            {
-                readout.font = preferredFont ?? TMP_Settings.defaultFontAsset;
-            }
-
             readout.enableAutoSizing = false;
             readout.fontSize = fontSize;
             readout.fontStyle = FontStyles.Normal;
@@ -76,8 +40,6 @@ namespace HUDControl.Elements
             readout.textWrappingMode = TextWrappingModes.NoWrap;
             readout.overflowMode = TextOverflowModes.Overflow;
             readout.raycastTarget = false;
-            readout.transform.SetAsLastSibling();
-            return readout;
         }
 
         /// <summary>
@@ -89,7 +51,7 @@ namespace HUDControl.Elements
         {
             int maximum = Mathf.Max(0, Mathf.RoundToInt(maximumPercent));
             int step = Mathf.Max(1, stepPercent);
-            List<int> values = new List<int>();
+            var values = new System.Collections.Generic.List<int>();
 
             for (int value = 0; value <= maximum; value += step)
             {
