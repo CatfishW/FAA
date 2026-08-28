@@ -209,6 +209,8 @@ namespace FAA.XPlaneIntegration.Runtime
         private Glideslope[] _glideslopeHuds = Array.Empty<Glideslope>();
         private LocalizerElement[] _localizerElements = Array.Empty<LocalizerElement>();
         private GlidescopeElement[] _glidescopeElements = Array.Empty<GlidescopeElement>();
+        private AirspeedIndicatorElement[] _airspeedIndicatorElements = Array.Empty<AirspeedIndicatorElement>();
+        private AltimeterElement[] _altimeterElements = Array.Empty<AltimeterElement>();
         private TorquePanelElement[] _torquePanelElements = Array.Empty<TorquePanelElement>();
         private NRIndicatorElement[] _nrIndicatorElements = Array.Empty<NRIndicatorElement>();
 
@@ -240,7 +242,10 @@ namespace FAA.XPlaneIntegration.Runtime
             baseUrl = TangTunnelLiveApiBaseUrl;
             transportMode = TransportMode.HttpApi;
             allowExternalTrafficFallback = false;
-            publishWeatherDatarefTextureFromStream = false;
+            // Weather presentation is synthesized from the live datarefs in
+            // each coherent 4090 snapshot. This deliberately avoids pulling
+            // the native X-Plane radar PNG into the Unity HUD.
+            publishWeatherDatarefTextureFromStream = true;
 
             FindDependencies();
             if (!allowExternalTrafficFallback)
@@ -482,7 +487,17 @@ namespace FAA.XPlaneIntegration.Runtime
 
             if (weatherRadarProvider is XPlaneOriginalWeatherRadarProvider originalWeatherProvider)
             {
-                originalWeatherProvider.RadarTextureUrl = BuildUrl(GetWeatherTexturePath());
+                if (publishWeatherDatarefTextureFromStream || !originalWeatherProvider.UsesNativeTexture)
+                {
+                    // Keep the active FAA path dataref-only. In particular,
+                    // do not repopulate the legacy raster URL while refreshing
+                    // dependencies after a scene reload.
+                    originalWeatherProvider.UseProceduralDatarefTexture();
+                }
+                else
+                {
+                    originalWeatherProvider.RadarTextureUrl = BuildUrl(GetWeatherTexturePath());
+                }
             }
 
             TrafficRadarDisplay preferredTrafficDisplay = FindPreferredTrafficTextureDisplay();
@@ -520,6 +535,12 @@ namespace FAA.XPlaneIntegration.Runtime
             _glideslopeHuds = FindSceneObjects<Glideslope>();
             _localizerElements = FindSceneObjects<LocalizerElement>();
             _glidescopeElements = FindSceneObjects<GlidescopeElement>();
+            _airspeedIndicatorElements = Array.FindAll(
+                FindSceneObjects<AirspeedIndicatorElement>(),
+                element => element != null && element.enabled && element.gameObject.activeInHierarchy);
+            _altimeterElements = Array.FindAll(
+                FindSceneObjects<AltimeterElement>(),
+                element => element != null && element.enabled && element.gameObject.activeInHierarchy);
             _torquePanelElements = Array.FindAll(
                 FindSceneObjects<TorquePanelElement>(),
                 element => element != null && element.enabled && element.gameObject.activeInHierarchy);
@@ -1095,6 +1116,23 @@ namespace FAA.XPlaneIntegration.Runtime
                     LastPacketAgeSeconds = 0f;
                     ApplySnapshotEnvelope(snapshot);
                 }, suppressFailureState: true);
+                yield break;
+            }
+
+            // The local 12678 forward terminates on tang-server and reaches
+            // the 4090 xplane12_data_api. Prefer its single coherent snapshot
+            // envelope so IAS, altitude, engines, systems, weather, and
+            // traffic all come from the same websocket-origin packet. The
+            // category endpoints remain a compatibility fallback for older
+            // API builds.
+            bool receivedCoherentSnapshot = false;
+            yield return RequestJson("v1/snapshot", snapshot =>
+            {
+                ApplySnapshotEnvelope(snapshot);
+                receivedCoherentSnapshot = snapshot != null && _snapshot.Aircraft.Count > 0;
+            }, suppressFailureState: true);
+            if (receivedCoherentSnapshot)
+            {
                 yield break;
             }
 
@@ -1690,6 +1728,19 @@ namespace FAA.XPlaneIntegration.Runtime
             {
                 ForEach(_localizerElements, element => element.SetDeviation(data.courseDeviation));
                 ForEach(_glidescopeElements, element => element.SetDeviation(data.glideslopeDeviation));
+                bool airspeedValid = TryGetFinite(
+                    _snapshot.Aircraft,
+                    "sim/flightmodel/position/indicated_airspeed",
+                    out float indicatedAirspeed) &&
+                    indicatedAirspeed >= 0f;
+                bool altitudeValid = TryGetFinite(
+                    _snapshot.Aircraft,
+                    "sim/flightmodel/position/elevation",
+                    out float altitudeMeters);
+                ForEach(_airspeedIndicatorElements, element =>
+                    element.SetAirspeedData(data.indicatedAirspeed, airspeedValid));
+                ForEach(_altimeterElements, element =>
+                    element.SetAltitudeData(data.altitudeMSL, altitudeValid && IsFinite(data.altitudeMSL)));
                 ForEach(_torquePanelElements, element =>
                 {
                     element.SetEngineCount(data.engineCount);
@@ -1736,6 +1787,8 @@ namespace FAA.XPlaneIntegration.Runtime
 
         private void ClearEngineHudPointers()
         {
+            ForEach(_airspeedIndicatorElements, element => element.ClearExternalData());
+            ForEach(_altimeterElements, element => element.ClearExternalData());
             ForEach(_torquePanelElements, element => element.ClearExternalData());
             ForEach(_nrIndicatorElements, element => element.ClearExternalData());
         }
@@ -2018,7 +2071,7 @@ namespace FAA.XPlaneIntegration.Runtime
                 DestroyTexture(ref _streamWeatherTexture);
                 _streamWeatherTexture = new Texture2D(size, size, TextureFormat.RGBA32, false)
                 {
-                    name = "XPlaneStreamWeatherRadar",
+                    name = "FAAProceduralWeatherRadar",
                     filterMode = FilterMode.Bilinear,
                     wrapMode = TextureWrapMode.Clamp
                 };
@@ -2795,7 +2848,10 @@ namespace FAA.XPlaneIntegration.Runtime
         {
             while (enabled)
             {
-                if (ShouldBridgeDownloadWeatherTexture())
+                // The weather panel is fed by ApplyStreamWeatherTexture from
+                // the live snapshot. Native X-Plane raster downloads remain an
+                // explicit fallback only and are disabled for this scene.
+                if (ShouldBridgeDownloadWeatherTexture() && !publishWeatherDatarefTextureFromStream)
                 {
                     yield return DownloadTexture(GetWeatherTexturePath(), texture =>
                     {
@@ -2996,15 +3052,15 @@ namespace FAA.XPlaneIntegration.Runtime
 
         private string GetWeatherTexturePath()
         {
-            // With no range query the bridge returns the current native
-            // xplm_Tex_Radar_Pilot artifact (724x512). range_nm intentionally
-            // selects the sparse UDP RADR diagnostic renderer instead.
+            // Retained only for an explicitly opted-in legacy fallback. The
+            // configured FAA scene uses the procedural dataref texture path.
             return "v1/render/weather.png";
         }
 
         private bool ShouldBridgeDownloadWeatherTexture()
         {
-            return weatherImageTarget != null || xPlaneWeatherRadarDisplay != null || weatherRadarProvider != null;
+            return !publishWeatherDatarefTextureFromStream &&
+                   (weatherImageTarget != null || xPlaneWeatherRadarDisplay != null || weatherRadarProvider != null);
         }
 
         private IEnumerator DownloadTexture(string relativeUrl, Action<Texture2D> onSuccess)

@@ -7,19 +7,23 @@ using UnityEngine.Networking;
 namespace WeatherRadar
 {
     /// <summary>
-    /// Publishes X-Plane 12 weather radar imagery when the bridge receives an
-    /// original render texture, or a live dataref-driven weather instrument when
-    /// only the NDJSON stream is available.
+    /// Publishes a compact dataref-driven weather instrument from the X-Plane
+    /// 12 stream. A legacy HTTP raster path remains available only when an
+    /// explicit caller opts into it.
     /// </summary>
-    [AddComponentMenu("Weather Radar/Providers/X-Plane 12 Original Weather Radar Provider")]
+    [AddComponentMenu("Weather Radar/Providers/X-Plane 12 Dataref Weather Radar Provider")]
     public class XPlaneOriginalWeatherRadarProvider : WeatherRadarProviderBase
     {
-        private const string DefaultRadarTextureUrl = "http://127.0.0.1:12678/v1/render/weather.png";
+        // Kept as a compatibility endpoint only. The FAA scene publishes a
+        // procedural texture from the live X-Plane datarefs instead of
+        // downloading the native X-Plane raster.
+        private const string LegacyRadarTextureUrl = "http://127.0.0.1:12678/v1/render/weather.png";
+        private const string ProceduralTextureName = "FAAProceduralWeatherRadar";
 
-        [Header("X-Plane Original Texture")]
-        [SerializeField] private string radarTextureUrl = DefaultRadarTextureUrl;
-        [SerializeField] private bool preferNativePluginTexture = true;
-        [SerializeField] private bool allowHttpTexturePolling = true;
+        [Header("Dataref Weather Presentation")]
+        [SerializeField] private string radarTextureUrl = string.Empty;
+        [SerializeField] private bool preferNativePluginTexture = false;
+        [SerializeField] private bool allowHttpTexturePolling = false;
         [SerializeField] private float requestTimeoutSeconds = 2f;
         [SerializeField] private bool cacheBustRequests = true;
         [SerializeField] private bool acceptAllCertificates = false;
@@ -31,12 +35,18 @@ namespace WeatherRadar
         [SerializeField] private int lastHeight;
         [SerializeField] private float lastSuccessfulUpdateTime;
 
-        public override string ProviderName => "X-Plane 12 Original Weather Radar";
+        public override string ProviderName => "X-Plane 12 Dataref Weather Radar";
 
         public string RadarTextureUrl
         {
             get => radarTextureUrl;
-            set => radarTextureUrl = string.IsNullOrWhiteSpace(value) ? DefaultRadarTextureUrl : value.Trim();
+            set => radarTextureUrl = string.IsNullOrWhiteSpace(value) ? string.Empty : value.Trim();
+        }
+
+        public bool AllowHttpTexturePolling
+        {
+            get => allowHttpTexturePolling;
+            set => allowHttpTexturePolling = value;
         }
 
         public string LastStatus => lastStatus;
@@ -47,6 +57,20 @@ namespace WeatherRadar
         {
             get => preferNativePluginTexture;
             set => preferNativePluginTexture = value;
+        }
+
+        public bool UsesNativeTexture => preferNativePluginTexture && allowHttpTexturePolling;
+
+        /// <summary>
+        /// Forces the provider onto the dataref-backed procedural path. This
+        /// is used by the FAA bridge at runtime as a guard against stale scene
+        /// serialization selecting the legacy raster endpoint.
+        /// </summary>
+        public void UseProceduralDatarefTexture()
+        {
+            preferNativePluginTexture = false;
+            allowHttpTexturePolling = false;
+            radarTextureUrl = string.Empty;
         }
 
         protected override void InitializeTexture()
@@ -60,7 +84,7 @@ namespace WeatherRadar
             {
                 filterMode = FilterMode.Bilinear,
                 wrapMode = TextureWrapMode.Clamp,
-                name = "XPlaneOriginalWeatherRadar"
+                name = ProceduralTextureName
             };
             radarTexture.SetPixels(new[] { Color.black, Color.black, Color.black, Color.black });
             radarTexture.Apply(false, true);
@@ -72,7 +96,7 @@ namespace WeatherRadar
             {
                 lastStatus = lastSuccessfulUpdateTime > 0f
                     ? lastStatus
-                    : "Waiting for X-Plane stream data";
+                    : "Waiting for X-Plane datarefs";
                 if (lastSuccessfulUpdateTime <= 0f)
                 {
                     SetStatus(ProviderStatus.Connecting);
@@ -87,7 +111,7 @@ namespace WeatherRadar
                 return;
             }
 
-            StartCoroutine(DownloadOriginalTexture());
+            StartCoroutine(DownloadLegacyNativeTexture());
         }
 
         public override void RefreshData()
@@ -128,7 +152,7 @@ namespace WeatherRadar
             NotifyDataUpdated();
         }
 
-        private IEnumerator DownloadOriginalTexture()
+        private IEnumerator DownloadLegacyNativeTexture()
         {
             string url = BuildRequestUrl();
             lastStatus = $"Requesting {url}";
@@ -161,7 +185,7 @@ namespace WeatherRadar
                     yield break;
                 }
 
-                downloadedTexture.name = "XPlaneOriginalWeatherRadar";
+                downloadedTexture.name = "LegacyNativeWeatherRadar";
                 ReplaceRadarTexture(downloadedTexture);
                 lastStatus = $"Updated {lastWidth}x{lastHeight}";
                 SetStatus(ProviderStatus.Active);
@@ -171,10 +195,9 @@ namespace WeatherRadar
 
         private string BuildRequestUrl()
         {
-            string url = string.IsNullOrWhiteSpace(radarTextureUrl) ? DefaultRadarTextureUrl : radarTextureUrl.Trim();
-            // The no-query endpoint serves X-Plane's live xplm_Tex_Radar_Pilot
-            // artifact. Adding range_nm selects the older UDP point diagnostic,
-            // whose individual sample bubbles are not the aircraft radar image.
+            string url = string.IsNullOrWhiteSpace(radarTextureUrl) ? LegacyRadarTextureUrl : radarTextureUrl.Trim();
+            // This endpoint is retained only as an opt-in compatibility
+            // fallback. The FAA scene uses stream-derived weather metrics.
             if (!preferNativePluginTexture)
             {
                 url = AppendQueryParameter(url, "range_nm", Mathf.Clamp(RangeNM, 5f, 320f).ToString("0", CultureInfo.InvariantCulture));
@@ -227,7 +250,7 @@ namespace WeatherRadar
             {
                 filterMode = FilterMode.Bilinear,
                 wrapMode = TextureWrapMode.Clamp,
-                name = "XPlaneOriginalWeatherRadar"
+                name = ProceduralTextureName
             };
             copy.SetPixels32(source.GetPixels32());
             copy.Apply(false);

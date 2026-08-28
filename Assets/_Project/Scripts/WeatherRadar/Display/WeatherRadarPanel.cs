@@ -389,15 +389,11 @@ namespace WeatherRadar
                 radarDisplay.raycastTarget = false;
             }
 
-            foreach (RawImage rawImage in GetComponentsInChildren<RawImage>(true))
+            foreach (XPlaneOriginalWeatherRadarDisplay display in
+                     GetComponentsInChildren<XPlaneOriginalWeatherRadarDisplay>(true))
             {
+                RawImage rawImage = display != null ? display.TargetImage : null;
                 if (rawImage == null)
-                {
-                    continue;
-                }
-
-                string objectName = rawImage.gameObject.name;
-                if (!string.Equals(objectName, "XPlaneOriginalTexture", System.StringComparison.OrdinalIgnoreCase))
                 {
                     continue;
                 }
@@ -418,10 +414,11 @@ namespace WeatherRadar
             SetRendererObjectActive(waypointRenderer, false);
 
             RectTransform textureTransform = null;
-            foreach (RawImage rawImage in GetComponentsInChildren<RawImage>(true))
+            foreach (XPlaneOriginalWeatherRadarDisplay display in
+                     GetComponentsInChildren<XPlaneOriginalWeatherRadarDisplay>(true))
             {
-                if (rawImage == null ||
-                    !string.Equals(rawImage.gameObject.name, "XPlaneOriginalTexture", System.StringComparison.OrdinalIgnoreCase))
+                RawImage rawImage = display != null ? display.TargetImage : null;
+                if (rawImage == null)
                 {
                     continue;
                 }

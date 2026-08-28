@@ -5,10 +5,11 @@ using TMPro;
 namespace WeatherRadar
 {
     /// <summary>
-    /// Displays the source X-Plane weather radar PNG directly, preserving its aspect
-    /// ratio and avoiding any synthetic recoloring or return reconstruction.
+    /// Displays the bridge's dataref-derived weather texture with a compact
+    /// pilot-readable presentation. The same component can render a legacy
+    /// source when explicitly configured, but the FAA scene stays procedural.
     /// </summary>
-    [AddComponentMenu("Weather Radar/Display/X-Plane Original Weather Radar Display")]
+    [AddComponentMenu("Weather Radar/Display/FAA Dataref Weather Radar Display")]
     public class XPlaneOriginalWeatherRadarDisplay : MonoBehaviour
     {
         private const string SweepOverlayName = "XPlaneWeatherSweepOverlay";
@@ -83,10 +84,10 @@ namespace WeatherRadar
 
         private void Awake()
         {
-            // Existing scenes serialized this off while the overlay was still a
-            // diagnostic layer. It is now the primary aircraft reference layer;
-            // controls can still toggle it after initialization.
-            showReferenceOverlay = true;
+            // The FAA scene uses a procedural dataref radar texture. Keep the
+            // optional reference overlay off so native X-Plane raster styling
+            // is not reproduced over the custom display.
+            showReferenceOverlay = false;
             AutoFindReferences();
             ApplyInitialVisualState();
         }
@@ -636,8 +637,11 @@ namespace WeatherRadar
 
             if (sourceLabel != null)
             {
-                sourceLabel.text = weatherProvider is XPlaneOriginalWeatherRadarProvider
-                    ? "XPL WX LIVE"
+                sourceLabel.text = weatherProvider is XPlaneOriginalWeatherRadarProvider originalProvider &&
+                                   !originalProvider.UsesNativeTexture
+                    ? "XPL DATAREF WX"
+                    : weatherProvider is XPlaneOriginalWeatherRadarProvider
+                        ? "XPL WX LIVE"
                     : weatherProvider != null ? "X-PLANE WX" : "WX SOURCE";
             }
 
@@ -722,8 +726,9 @@ namespace WeatherRadar
 
             string textureName = texture.name;
             return !string.IsNullOrEmpty(textureName) &&
-                   (textureName.StartsWith("XPlaneOriginalWeatherRadar", System.StringComparison.OrdinalIgnoreCase) ||
+                   (textureName.StartsWith("FAAProceduralWeatherRadar", System.StringComparison.OrdinalIgnoreCase) ||
                     textureName.StartsWith("XPlaneStreamWeatherRadar", System.StringComparison.OrdinalIgnoreCase) ||
+                    textureName.StartsWith("XPlaneOriginalWeatherRadar", System.StringComparison.OrdinalIgnoreCase) ||
                     textureName.StartsWith("v1/render/weather", System.StringComparison.OrdinalIgnoreCase));
         }
     }

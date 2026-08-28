@@ -21,6 +21,7 @@ namespace FAA.Customization
     {
         private const string DefaultRadarControlsObjectName = "X-Plane Radar Controls";
         private const string XPlaneOriginalTextureObjectName = "XPlaneOriginalTexture";
+        private const string ProceduralWeatherTextureObjectName = "FAA Procedural Weather";
         private const float LegacyScreenFlightHudScale = 420f;
         private const float MinimumReadableScreenFlightHudScale = 520f;
         private const float DefaultScreenFlightHudScale = 540f;
@@ -1032,7 +1033,11 @@ namespace FAA.Customization
             {
                 if (display != null)
                 {
-                    display.ShowReferenceOverlay = true;
+                    // The FAA radar is rendered from live X-Plane datarefs.
+                    // Keep the legacy reference/raster treatment out of the
+                    // presentation; the procedural display owns its own
+                    // modern grid and return styling.
+                    display.ShowReferenceOverlay = false;
                     display.ConfigureHudPresentation(0.82f);
                 }
             }
@@ -1046,12 +1051,12 @@ namespace FAA.Customization
                     continue;
                 }
 
-                overlay.gameObject.SetActive(true);
-                overlay.enabled = true;
+                overlay.gameObject.SetActive(false);
+                overlay.enabled = false;
                 RawImage image = overlay.GetComponent<RawImage>();
                 if (image != null)
                 {
-                    image.enabled = true;
+                    image.enabled = false;
                     image.raycastTarget = false;
                 }
             }
@@ -2203,7 +2208,8 @@ namespace FAA.Customization
             {
                 if (rawImage == null ||
                     !IsLoadedSceneObject(rawImage.gameObject) ||
-                    !string.Equals(rawImage.gameObject.name, XPlaneOriginalTextureObjectName, System.StringComparison.OrdinalIgnoreCase) ||
+                    (!string.Equals(rawImage.gameObject.name, XPlaneOriginalTextureObjectName, System.StringComparison.OrdinalIgnoreCase) &&
+                     !string.Equals(rawImage.gameObject.name, ProceduralWeatherTextureObjectName, System.StringComparison.OrdinalIgnoreCase)) ||
                     rawImage.texture == null)
                 {
                     continue;

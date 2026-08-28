@@ -59,6 +59,12 @@ namespace FAA.Editor
         private static readonly Color HudGreen = new Color(0.2f, 1f, 0.2f, 1f);
         private static readonly Color HudGreenDim = new Color(0.2f, 1f, 0.2f, 0.74f);
         private const int ScreenFlightHudSortingOrder = 5000;
+        // These names identify the authored tape objects removed by the
+        // rollback pass. Setup never recreates them or imports a raster tape.
+        private const string AirspeedTapeObjectName = "FAA IAS Tape";
+        private const string AltimeterTapeObjectName = "FAA ALT Tape";
+        private const string LegacyAirspeedTapeObjectName = "Original IAS Tape";
+        private const string LegacyAltimeterTapeObjectName = "Original ALT Tape";
 
         [MenuItem("FAA/X-Plane 12/Configure API HUD Bridge In Experiment Scene")]
         public static void ConfigureExperimentScene()
@@ -221,7 +227,7 @@ namespace FAA.Editor
             }
 
             ConfigureHudControlStack(ownship);
-            AuthorEngineBarNumbersInPrefab();
+            RemoveEngineBarScaleLabelsInPrefab();
             XPlane12ApiHudBridge bridge = FindSceneObjects<XPlane12ApiHudBridge>()
                 .FirstOrDefault(candidate => candidate != null && candidate.gameObject.scene == scene);
             bridge?.FindDependencies();
@@ -230,7 +236,7 @@ namespace FAA.Editor
             Debug.Log("[FaaXPlane12BridgeSceneSetup] Repaired and registered live X-Plane torque and NR/N2 bars.");
         }
 
-        [MenuItem("FAA/X-Plane 12/Author Engine Bar Numbers In Scene And Prefab")]
+        [MenuItem("FAA/X-Plane 12/Remove Engine Bar Scale Numbers In Scene And Prefab")]
         public static void AuthorEngineBarNumbersInSceneAndPrefab()
         {
             Scene scene = OpenExperimentScene();
@@ -246,17 +252,43 @@ namespace FAA.Editor
                 return;
             }
 
+            RemoveEngineBarScaleLabels(legacyHudRoot);
+            // Keep the live value readouts bound to the authored objects while
+            // removing only the fixed side-number columns.
             EnsureEngineBarEditorLabels(legacyHudRoot);
-            // The labels are authored as ordinary child objects, while the
-            // live HUD elements keep serialized references to those objects.
-            // Bind both sides in the same editor pass so a fresh scene never
-            // relies on runtime discovery or instantiation.
+            RemoveLegacyInstrumentReadoutRastersInScene();
             EnsurePrimaryTorquePanelElement(legacyHudRoot);
             EnsurePrimaryNrIndicatorElement(legacyHudRoot);
             EditorSceneManager.MarkSceneDirty(scene);
             bool sceneSaved = EditorSceneManager.SaveScene(scene);
-            bool prefabSaved = AuthorEngineBarNumbersInPrefab();
-            Debug.Log($"[FaaXPlane12BridgeSceneSetup] Authored engine bar numbers in scene (saved={sceneSaved}) and reusable prefab (saved={prefabSaved}).");
+            bool prefabSaved = RemoveEngineBarScaleLabelsInPrefab();
+            Debug.Log($"[FaaXPlane12BridgeSceneSetup] Removed engine bar scale numbers from scene (saved={sceneSaved}) and reusable prefab (saved={prefabSaved}).");
+        }
+
+        [MenuItem("FAA/X-Plane 12/Roll Back Authored IAS And Altimeter Tapes")]
+        public static void RollbackAuthoredPilotScalesInSceneAndPrefab()
+        {
+            Scene scene = OpenExperimentScene();
+            if (!scene.IsValid() || !scene.isLoaded)
+            {
+                return;
+            }
+
+            GameObject legacyHudRoot = FindLegacyHudRoot();
+            if (legacyHudRoot == null)
+            {
+                Debug.LogError("[FaaXPlane12BridgeSceneSetup] Cannot roll back IAS/ALT tapes because the primary HUD root is missing.");
+                return;
+            }
+
+            RollbackAuthoredPilotTapeVisuals(legacyHudRoot);
+            EnsurePrimaryAirspeedElement(legacyHudRoot);
+            EnsurePrimaryAltimeterElement(legacyHudRoot);
+            RemoveLegacyInstrumentReadoutRastersInScene();
+            EditorSceneManager.MarkSceneDirty(scene);
+            bool sceneSaved = EditorSceneManager.SaveScene(scene);
+            bool prefabSaved = RollbackAuthoredPilotScalesInPrefab();
+            Debug.Log($"[FaaXPlane12BridgeSceneSetup] Rolled back authored IAS/ALT tapes in scene (saved={sceneSaved}) and reusable prefab (saved={prefabSaved}).");
         }
 
         [MenuItem("FAA/X-Plane 12/Apply Compact Radar Glass In Experiment Scene")]
@@ -342,9 +374,13 @@ namespace FAA.Editor
             SetBool(serializedBridge, "pollWeather", true);
             SetBool(serializedBridge, "pollSystems", true);
             SetBool(serializedBridge, "pollTraffic", true);
+            // Weather returns are generated from the live X-Plane datarefs on
+            // the 4090 stream. Do not fetch or display the native X-Plane
+            // raster artifact; keep the render loop only for non-weather
+            // manifests/traffic assets.
             SetBool(serializedBridge, "pollRenderAssets", true);
             SetFloat(serializedBridge, "renderAssetPollIntervalSeconds", 1f);
-            SetBool(serializedBridge, "publishWeatherDatarefTextureFromStream", false);
+            SetBool(serializedBridge, "publishWeatherDatarefTextureFromStream", true);
             SetFloat(serializedBridge, "streamWeatherTextureIntervalSeconds", 1f);
             SetInt(serializedBridge, "streamWeatherTextureSize", 512);
             SetObject(serializedBridge, "hudController", FindFirstSceneObject(FindType("HUDControl.Core.HUDController")));
@@ -554,9 +590,12 @@ namespace FAA.Editor
             dataProvider.SetRange(WeatherRadarDefaultRangeNM);
 
             SerializedObject providerSo = new SerializedObject(provider);
-            SetString(providerSo, "radarTextureUrl", TangTunnelXPlane12ApiBaseUrl + "/v1/render/weather.png");
-            SetBool(providerSo, "preferNativePluginTexture", true);
-            SetBool(providerSo, "allowHttpTexturePolling", true);
+            // Keep the provider as the dataref-backed weather source, but do
+            // not request the native X-Plane PNG. The bridge publishes a
+            // compact procedural radar texture from the live 4090 snapshot.
+            SetString(providerSo, "radarTextureUrl", string.Empty);
+            SetBool(providerSo, "preferNativePluginTexture", false);
+            SetBool(providerSo, "allowHttpTexturePolling", false);
             SetFloat(providerSo, "rangeNM", WeatherRadarDefaultRangeNM);
             SetFloat(providerSo, "requestTimeoutSeconds", 2f);
             SetBool(providerSo, "cacheBustRequests", true);
@@ -1279,7 +1318,8 @@ namespace FAA.Editor
                 new Color(0.004f, 0.055f, 0.04f, 0.06f));
             StretchToParent(background.rectTransform);
 
-            GameObject textureObject = EnsureChild(panelObject.transform, "XPlaneOriginalTexture");
+            RemoveChildrenByExactName(panelObject.transform, "XPlaneOriginalTexture");
+            GameObject textureObject = EnsureChild(panelObject.transform, "FAA Procedural Weather");
             RectTransform textureRect = EnsureRectTransform(textureObject);
             AspectRatioFitter aspect = textureObject.GetComponent<AspectRatioFitter>() ?? textureObject.AddComponent<AspectRatioFitter>();
             aspect.enabled = false;
@@ -1320,9 +1360,9 @@ namespace FAA.Editor
             SetFloat(originalOverlaySo, "lineWidthPixels", 1.15f);
             SetFloat(originalOverlaySo, "majorLineWidthPixels", 1.7f);
             originalOverlaySo.ApplyModifiedPropertiesWithoutUndo();
-            originalOverlay.enabled = true;
-            originalOverlayImage.enabled = true;
-            originalOverlayObject.SetActive(true);
+            originalOverlay.enabled = false;
+            originalOverlayImage.enabled = false;
+            originalOverlayObject.SetActive(false);
 
             GameObject returnsObject = EnsureChild(panelObject.transform, "RadarReturns");
             RectTransform returnsRect = EnsureCenteredSquare(returnsObject, WeatherRadarSize.x - 16f);
@@ -1403,13 +1443,13 @@ namespace FAA.Editor
             SetColor(displaySo, "staleTint", new Color(0.82f, 0.9f, 0.84f, 0.58f));
             SetColor(displaySo, "offlineTint", new Color(0.004f, 0.055f, 0.04f, 0.06f));
             SetBool(displaySo, "preserveAspectRatio", true);
-            SetBool(displaySo, "requestTextureWhenEmpty", true);
+            SetBool(displaySo, "requestTextureWhenEmpty", false);
             SetFloat(displaySo, "emptyRefreshDelaySeconds", 0.75f);
             SetFloat(displaySo, "staleRefreshDelaySeconds", 3f);
             SetBool(displaySo, "keepTextureVisibleWhenRadarOff", true);
             SetVector2(displaySo, "minimumDisplaySize", new Vector2(160f, 160f));
             SetFloat(displaySo, "displayPadding", 8f);
-            SetBool(displaySo, "showReferenceOverlay", true);
+            SetBool(displaySo, "showReferenceOverlay", false);
             displaySo.ApplyModifiedPropertiesWithoutUndo();
 
             SerializedObject panelSo = new SerializedObject(panel);
@@ -2067,6 +2107,9 @@ namespace FAA.Editor
                 return;
             }
 
+            RollbackAuthoredPilotTapeVisuals(legacyHudRoot);
+            EnsurePrimaryAirspeedElement(legacyHudRoot);
+            EnsurePrimaryAltimeterElement(legacyHudRoot);
             EnsureEngineBarEditorLabels(legacyHudRoot);
             EnsurePrimaryTorquePanelElement(legacyHudRoot);
             EnsurePrimaryNrIndicatorElement(legacyHudRoot);
@@ -2112,13 +2155,10 @@ namespace FAA.Editor
             Debug.Log($"[FaaXPlane12BridgeSceneSetup] HUDControl stack configured with {registeredElements.Count} active uGUI element(s).");
         }
 
-        private static readonly int[] TorqueScaleValues = { 0, 20, 40, 60, 80, 100, 120 };
-        private static readonly int[] NrScaleValues = { 0, 20, 40, 60, 80, 100, 110 };
-
         /// <summary>
-        /// Author the engine numbers as ordinary child UI objects. This runs
-        /// from an editor menu/setup pass, so the runtime HUD only updates
-        /// references that already exist in the scene or prefab.
+        /// Keep the live engine value readouts authored in the scene/prefab.
+        /// The fixed side-number columns are intentionally removed; the
+        /// runtime HUD only updates references that already exist.
         /// </summary>
         private static void EnsureEngineBarEditorLabels(GameObject legacyHudRoot)
         {
@@ -2130,23 +2170,9 @@ namespace FAA.Editor
             Transform torquePanel = FindChildByName(legacyHudRoot.transform, "Torque Panel");
             if (torquePanel != null)
             {
+                RemoveChildrenByNamePrefix(torquePanel, "Torque Scale ");
                 RectTransform frame = FindChildByName(torquePanel, "Torque Frame")?.GetComponent<RectTransform>();
                 int layer = frame != null ? frame.gameObject.layer : torquePanel.gameObject.layer;
-                float horizontalOffset = GetEngineScaleHorizontalOffset(frame, 0.045f);
-
-                for (int i = 0; i < TorqueScaleValues.Length; i++)
-                {
-                    Vector2 position = GetEngineScaleLabelPosition(
-                        frame, TorqueScaleValues[i], 120f, horizontalOffset, 0.004f, 0.24f);
-                    EnsureEngineNumericLabel(
-                        torquePanel,
-                        $"Torque Scale {i}",
-                        TorqueScaleValues[i].ToString(System.Globalization.CultureInfo.InvariantCulture),
-                        position,
-                        16f,
-                        layer,
-                        HudGreen);
-                }
 
                 EnsureEngineNumericLabel(
                     torquePanel, "Torque Value L", "---", new Vector2(-0.055f, -0.055f), 22f, layer, HudGreenDim);
@@ -2157,23 +2183,9 @@ namespace FAA.Editor
             Transform nrIndicator = FindChildByName(legacyHudRoot.transform, "NR/ENG Ind");
             if (nrIndicator != null)
             {
+                RemoveChildrenByNamePrefix(nrIndicator, "NR Scale ");
                 RectTransform frame = FindChildByName(nrIndicator, "NR Indicator Frame")?.GetComponent<RectTransform>();
                 int layer = frame != null ? frame.gameObject.layer : nrIndicator.gameObject.layer;
-                float horizontalOffset = GetEngineScaleHorizontalOffset(frame, 0.045f);
-
-                for (int i = 0; i < NrScaleValues.Length; i++)
-                {
-                    Vector2 position = GetEngineScaleLabelPosition(
-                        frame, NrScaleValues[i], 110f, horizontalOffset, 0.03f, 0.24f);
-                    EnsureEngineNumericLabel(
-                        nrIndicator,
-                        $"NR Scale {i}",
-                        NrScaleValues[i].ToString(System.Globalization.CultureInfo.InvariantCulture),
-                        position,
-                        16f,
-                        layer,
-                        HudGreen);
-                }
 
                 EnsureEngineNumericLabel(
                     nrIndicator, "NR Value Center", "---", new Vector2(0f, -0.055f), 20f, layer, HudGreenDim);
@@ -2181,6 +2193,281 @@ namespace FAA.Editor
                     nrIndicator, "NR Value L", "---", new Vector2(-0.11f, -0.055f), 20f, layer, HudGreenDim);
                 EnsureEngineNumericLabel(
                     nrIndicator, "NR Value R", "---", new Vector2(0.11f, -0.055f), 20f, layer, HudGreenDim);
+            }
+        }
+
+        /// <summary>
+        /// Remove only the authored IAS/ALT tape objects. The center attitude,
+        /// heading, radar, and other symbology are outside this subtree and are
+        /// left intact. The numeric text readouts remain bound to live data.
+        /// </summary>
+        private static void RollbackAuthoredPilotTapeVisuals(GameObject legacyHudRoot)
+        {
+            if (legacyHudRoot == null)
+            {
+                return;
+            }
+
+            Transform airspeed = FindChildByName(legacyHudRoot.transform, "Airspeed Indicator");
+            Transform altimeter = FindChildByName(legacyHudRoot.transform, "Altimeter");
+            RemovePilotTape(airspeed, AirspeedTapeObjectName, LegacyAirspeedTapeObjectName);
+            RemovePilotTape(altimeter, AltimeterTapeObjectName, LegacyAltimeterTapeObjectName);
+            RemoveLegacyReadoutRaster(airspeed, "Window Panel", "Airspeed Readout");
+            RemoveLegacyReadoutRaster(altimeter, "Window Panel Alt", "Alt Readout");
+        }
+
+        private static void RemovePilotTape(Transform indicator, string authoredName, string legacyName)
+        {
+            if (indicator == null)
+            {
+                return;
+            }
+
+            Transform authoredTape = FindChildByName(indicator, authoredName);
+            if (authoredTape != null)
+            {
+                UnityEngine.Object.DestroyImmediate(authoredTape.gameObject);
+            }
+
+            Transform legacyTape = FindChildByName(indicator, legacyName);
+            if (legacyTape != null)
+            {
+                UnityEngine.Object.DestroyImmediate(legacyTape.gameObject);
+            }
+
+            RemoveChildrenByNamePrefix(indicator, "IAS Scale ");
+            RemoveChildrenByNamePrefix(indicator, "ALT Scale ");
+            EditorUtility.SetDirty(indicator.gameObject);
+        }
+
+        /// <summary>
+        /// The legacy readout container carries a large baked PNG which also
+        /// contains the old side-number columns. Keep the authored TMP text
+        /// children, but remove the raster Image component so the editor HUD
+        /// is fully vector-authored and cannot reintroduce those columns.
+        /// </summary>
+        private static void RemoveLegacyReadoutRaster(
+            Transform indicator,
+            string panelName,
+            string readoutName)
+        {
+            Transform panel = FindChildByName(indicator, panelName);
+            Transform readout = FindChildByName(panel, readoutName);
+            if (readout == null)
+            {
+                return;
+            }
+
+            UnityEngine.UI.Image image = readout.GetComponent<UnityEngine.UI.Image>();
+            if (image != null)
+            {
+                UnityEngine.Object.DestroyImmediate(image);
+            }
+
+            EditorUtility.SetDirty(readout.gameObject);
+        }
+
+        private static void RemoveLegacyInstrumentReadoutRastersInScene()
+        {
+            foreach (UnityEngine.UI.Image image in FindSceneObjects<UnityEngine.UI.Image>())
+            {
+                if (image == null || image.gameObject.scene != SceneManager.GetActiveScene())
+                {
+                    continue;
+                }
+
+                string objectName = image.gameObject.name;
+                if (!string.Equals(objectName, "Airspeed Readout", StringComparison.Ordinal) &&
+                    !string.Equals(objectName, "Alt Readout", StringComparison.Ordinal))
+                {
+                    continue;
+                }
+
+                Scene scene = image.gameObject.scene;
+                UnityEngine.Object.DestroyImmediate(image);
+                EditorSceneManager.MarkSceneDirty(scene);
+            }
+        }
+
+        private static void RemoveChildrenByNamePrefix(Transform root, string prefix)
+        {
+            if (root == null || string.IsNullOrEmpty(prefix))
+            {
+                return;
+            }
+
+            Transform[] children = root.GetComponentsInChildren<Transform>(true);
+            foreach (Transform child in children)
+            {
+                if (child == null || child == root || child.name.IndexOf(prefix, StringComparison.Ordinal) != 0)
+                {
+                    continue;
+                }
+
+                UnityEngine.Object.DestroyImmediate(child.gameObject);
+            }
+        }
+
+        private static void RemoveChildrenByExactName(Transform root, string objectName)
+        {
+            if (root == null || string.IsNullOrEmpty(objectName))
+            {
+                return;
+            }
+
+            Transform[] children = root.GetComponentsInChildren<Transform>(true);
+            foreach (Transform child in children)
+            {
+                if (child == null || child == root ||
+                    !string.Equals(child.name, objectName, StringComparison.Ordinal))
+                {
+                    continue;
+                }
+
+                UnityEngine.Object.DestroyImmediate(child.gameObject);
+            }
+        }
+
+        private static void EnsurePrimaryAirspeedElement(GameObject legacyHudRoot)
+        {
+            Type elementType = FindType("HUDControl.Elements.AirspeedIndicatorElement");
+            if (elementType == null || legacyHudRoot == null)
+            {
+                return;
+            }
+
+            Transform indicator = FindChildByName(legacyHudRoot.transform, "Airspeed Indicator");
+            if (indicator == null)
+            {
+                return;
+            }
+
+            Component primary = indicator.GetComponent(elementType) ?? indicator.gameObject.AddComponent(elementType);
+            RectTransform tape = null;
+            TMP_Text readout = FindChildByName(indicator, "AirspeedReadoutText")?.GetComponent<TMP_Text>();
+            RectTransform window = FindChildByName(indicator, "Window Panel")?.GetComponent<RectTransform>();
+
+            SerializedObject serializedPrimary = new SerializedObject(primary);
+            SetObject(serializedPrimary, "speedTape", tape);
+            SetObject(serializedPrimary, "airspeedReadout", readout);
+            SetObject(serializedPrimary, "windowPanel", window);
+            SetBool(serializedPrimary, "enableTape", tape != null);
+            SetBool(serializedPrimary, "enableReadout", readout != null);
+            SetFloat(serializedPrimary, "pixelsPerKnot", 0.0018f);
+            SetFloat(serializedPrimary, "maxTapeOffsetPixels", 0.18f);
+            SetFloat(serializedPrimary, "referenceAirspeed", 100f);
+            SetString(serializedPrimary, "displayFormat", "{0:000}");
+            SetFloat(serializedPrimary, "animationSpeed", 14f);
+            SetBool(serializedPrimary, "isEnabled", tape != null || readout != null);
+            serializedPrimary.ApplyModifiedPropertiesWithoutUndo();
+
+            if (primary is Behaviour primaryBehaviour)
+            {
+                primaryBehaviour.enabled = tape != null || readout != null;
+            }
+
+            DisableDuplicateHudElementComponents(indicator, elementType, primary);
+            EditorUtility.SetDirty(primary);
+            EditorUtility.SetDirty(primary.gameObject);
+        }
+
+        private static void EnsurePrimaryAltimeterElement(GameObject legacyHudRoot)
+        {
+            Type elementType = FindType("HUDControl.Elements.AltimeterElement");
+            if (elementType == null || legacyHudRoot == null)
+            {
+                return;
+            }
+
+            Transform indicator = FindChildByName(legacyHudRoot.transform, "Altimeter");
+            if (indicator == null)
+            {
+                return;
+            }
+
+            Component primary = indicator.GetComponent(elementType) ?? indicator.gameObject.AddComponent(elementType);
+            RectTransform tape = null;
+            TMP_Text readout = FindChildByName(indicator, "AltReadoutText")?.GetComponent<TMP_Text>();
+            RectTransform window = FindChildByName(indicator, "Window Panel Alt")?.GetComponent<RectTransform>();
+
+            SerializedObject serializedPrimary = new SerializedObject(primary);
+            SetObject(serializedPrimary, "altitudeTape", tape);
+            SetObject(serializedPrimary, "altitudeReadout", readout);
+            SetObject(serializedPrimary, "windowPanel", window);
+            SetBool(serializedPrimary, "enableTape", tape != null);
+            SetBool(serializedPrimary, "enableReadout", readout != null);
+            SetFloat(serializedPrimary, "pixelsPerFoot", 0.00018f);
+            SetFloat(serializedPrimary, "maxTapeOffsetPixels", 0.18f);
+            SetFloat(serializedPrimary, "referenceAltitude", 10000f);
+            SetString(serializedPrimary, "displayFormat", "{0:00000}");
+            SetFloat(serializedPrimary, "animationSpeed", 14f);
+            SetBool(serializedPrimary, "isEnabled", tape != null || readout != null);
+            serializedPrimary.ApplyModifiedPropertiesWithoutUndo();
+
+            if (primary is Behaviour primaryBehaviour)
+            {
+                primaryBehaviour.enabled = tape != null || readout != null;
+            }
+
+            DisableDuplicateHudElementComponents(indicator, elementType, primary);
+            EditorUtility.SetDirty(primary);
+            EditorUtility.SetDirty(primary.gameObject);
+        }
+
+        private static void DisableDuplicateHudElementComponents(Transform root, Type elementType, Component primary)
+        {
+            if (root == null || elementType == null)
+            {
+                return;
+            }
+
+            foreach (Component duplicate in root.GetComponentsInChildren(elementType, true).OfType<Component>())
+            {
+                if (duplicate == null || duplicate == primary)
+                {
+                    continue;
+                }
+
+                SerializedObject serializedDuplicate = new SerializedObject(duplicate);
+                SetBool(serializedDuplicate, "isEnabled", false);
+                serializedDuplicate.ApplyModifiedPropertiesWithoutUndo();
+                if (duplicate is Behaviour duplicateBehaviour)
+                {
+                    duplicateBehaviour.enabled = false;
+                }
+
+                EditorUtility.SetDirty(duplicate);
+            }
+        }
+
+        private static bool RollbackAuthoredPilotScalesInPrefab()
+        {
+            if (!File.Exists(Path.Combine(Directory.GetCurrentDirectory(), SecondIterationGuiPrefabPath)))
+            {
+                return false;
+            }
+
+            GameObject prefabRoot = null;
+            try
+            {
+                prefabRoot = PrefabUtility.LoadPrefabContents(SecondIterationGuiPrefabPath);
+                RollbackAuthoredPilotTapeVisuals(prefabRoot);
+                EnsurePrimaryAirspeedElement(prefabRoot);
+                EnsurePrimaryAltimeterElement(prefabRoot);
+                EditorUtility.SetDirty(prefabRoot);
+                return PrefabUtility.SaveAsPrefabAsset(prefabRoot, SecondIterationGuiPrefabPath) != null;
+            }
+            catch (Exception exception)
+            {
+                Debug.LogError($"[FaaXPlane12BridgeSceneSetup] Failed to roll back authored IAS/ALT tapes in prefab: {exception.Message}");
+                return false;
+            }
+            finally
+            {
+                if (prefabRoot != null)
+                {
+                    PrefabUtility.UnloadPrefabContents(prefabRoot);
+                }
             }
         }
 
@@ -2195,6 +2482,7 @@ namespace FAA.Editor
             try
             {
                 prefabRoot = PrefabUtility.LoadPrefabContents(SecondIterationGuiPrefabPath);
+                RemoveEngineBarScaleLabels(prefabRoot);
                 EnsureEngineBarEditorLabels(prefabRoot);
                 EditorUtility.SetDirty(prefabRoot);
                 return PrefabUtility.SaveAsPrefabAsset(prefabRoot, SecondIterationGuiPrefabPath) != null;
@@ -2211,6 +2499,51 @@ namespace FAA.Editor
                     PrefabUtility.UnloadPrefabContents(prefabRoot);
                 }
             }
+        }
+
+        private static bool RemoveEngineBarScaleLabelsInPrefab()
+        {
+            if (!File.Exists(Path.Combine(Directory.GetCurrentDirectory(), SecondIterationGuiPrefabPath)))
+            {
+                return false;
+            }
+
+            GameObject prefabRoot = null;
+            try
+            {
+                prefabRoot = PrefabUtility.LoadPrefabContents(SecondIterationGuiPrefabPath);
+                RemoveEngineBarScaleLabels(prefabRoot);
+                EnsurePrimaryTorquePanelElement(prefabRoot);
+                EnsurePrimaryNrIndicatorElement(prefabRoot);
+                EditorUtility.SetDirty(prefabRoot);
+                return PrefabUtility.SaveAsPrefabAsset(prefabRoot, SecondIterationGuiPrefabPath) != null;
+            }
+            catch (Exception exception)
+            {
+                Debug.LogError($"[FaaXPlane12BridgeSceneSetup] Failed to remove engine bar scale labels from prefab: {exception.Message}");
+                return false;
+            }
+            finally
+            {
+                if (prefabRoot != null)
+                {
+                    PrefabUtility.UnloadPrefabContents(prefabRoot);
+                }
+            }
+        }
+
+        private static void RemoveEngineBarScaleLabels(GameObject legacyHudRoot)
+        {
+            if (legacyHudRoot == null)
+            {
+                return;
+            }
+
+            Transform torquePanel = FindChildByName(legacyHudRoot.transform, "Torque Panel");
+            RemoveChildrenByNamePrefix(torquePanel, "Torque Scale ");
+
+            Transform nrIndicator = FindChildByName(legacyHudRoot.transform, "NR/ENG Ind");
+            RemoveChildrenByNamePrefix(nrIndicator, "NR Scale ");
         }
 
         private static List<Component> FindEngineScaleLabels(Transform parent, string prefix, int count)
@@ -2329,7 +2662,9 @@ namespace FAA.Editor
             SetFloat(serializedPrimary, "pointerTravelY", 0.24f);
             SetFloat(serializedPrimary, "maxTorquePercent", 120f);
             SetBool(serializedPrimary, "showNumericReadouts", true);
-            SetBool(serializedPrimary, "showScaleLabels", true);
+            // Scale labels are intentionally omitted from the compact pilot
+            // layout; the bars and live value readouts remain visible.
+            SetBool(serializedPrimary, "showScaleLabels", false);
             SetInt(serializedPrimary, "scaleLabelStepPercent", 20);
             SetFloat(serializedPrimary, "scaleLabelFontSize", 16f);
             SetFloat(serializedPrimary, "scaleLabelGap", 0.045f);
@@ -2406,7 +2741,9 @@ namespace FAA.Editor
             SetFloat(serializedPrimary, "pointerTravelY", 0.24f);
             SetFloat(serializedPrimary, "maxRPMPercent", 110f);
             SetBool(serializedPrimary, "showNumericReadouts", true);
-            SetBool(serializedPrimary, "showScaleLabels", true);
+            // Scale labels are intentionally omitted from the compact pilot
+            // layout; the bars and live value readouts remain visible.
+            SetBool(serializedPrimary, "showScaleLabels", false);
             SetInt(serializedPrimary, "scaleLabelStepPercent", 20);
             SetFloat(serializedPrimary, "scaleLabelFontSize", 16f);
             SetFloat(serializedPrimary, "scaleLabelGap", 0.045f);

@@ -103,7 +103,11 @@ namespace FAA.Customization
         private TMP_Text _trafficExpandText;
         private TMP_Text _trafficAdvancedText;
         private TMP_Text _trafficSizeText;
-        private bool _weatherOverlayVisible = true;
+        // The weather panel is procedural/dataref-backed. Start with the
+        // legacy reference overlay hidden so it cannot mimic the native
+        // X-Plane raster presentation; pilots can still opt into vector
+        // guidance through the control surface when needed.
+        private bool _weatherOverlayVisible = false;
         private bool _weatherExpanded;
         private bool _trafficExpanded;
         private bool _weatherConfigurationVisible;
