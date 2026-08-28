@@ -272,12 +272,13 @@ public class TrafficRadarSetupEditor : EditorWindow
             displayRect.anchorMax = new Vector2(0, 0);
             displayRect.pivot = new Vector2(0, 0);
             displayRect.anchoredPosition = new Vector2(20, 20);
-            displayRect.sizeDelta = new Vector2(350, 350);
+            displayRect.sizeDelta = new Vector2(296, 296);
             
             // Background
             Image bg = displayContainer.AddComponent<Image>();
-            bg.color = new Color(0.05f, 0.1f, 0.15f, 0.95f);
-            displayContainer.AddComponent<Mask>().showMaskGraphic = true;
+            bg.color = new Color(0.004f, 0.055f, 0.06f, 0f);
+            bg.raycastTarget = false;
+            displayContainer.AddComponent<Mask>().showMaskGraphic = false;
             
             // Chart background
             GameObject chartBgGO = new GameObject("Chart Background");
@@ -288,7 +289,7 @@ public class TrafficRadarSetupEditor : EditorWindow
             chartRect.sizeDelta = Vector2.zero;
             chartRect.anchoredPosition = Vector2.zero;
             RawImage chartImage = chartBgGO.AddComponent<RawImage>();
-            chartImage.color = new Color(1, 1, 1, 0.4f);
+            chartImage.color = new Color(1f, 1f, 1f, 0.28f);
             
             // Radar image
             GameObject radarImgGO = new GameObject("Radar Image");
@@ -299,6 +300,8 @@ public class TrafficRadarSetupEditor : EditorWindow
             radarRect.sizeDelta = Vector2.zero;
             radarRect.anchoredPosition = Vector2.zero;
             RawImage radarImage = radarImgGO.AddComponent<RawImage>();
+            radarImage.color = Color.clear;
+            radarImage.raycastTarget = false;
             
             // Range label
             GameObject rangeLabelGO = new GameObject("Range Label");
@@ -313,7 +316,7 @@ public class TrafficRadarSetupEditor : EditorWindow
             rangeLabel.text = "40 NM";
             rangeLabel.alignment = TextAlignmentOptions.Center;
             rangeLabel.fontSize = 14;
-            rangeLabel.color = new Color(0.8f, 0.9f, 1f);
+            rangeLabel.color = new Color(0.74f, 1f, 0.95f, 0.9f);
             
             // Compass labels
             string[] directions = { "N", "E", "S", "W" };
@@ -338,7 +341,7 @@ public class TrafficRadarSetupEditor : EditorWindow
                 compassText.alignment = TextAlignmentOptions.Center;
                 compassText.fontSize = 16;
                 compassText.fontStyle = FontStyles.Bold;
-                compassText.color = new Color(0.7f, 0.8f, 0.9f);
+                compassText.color = new Color(0.74f, 1f, 0.95f, 0.88f);
             }
             
             // Add display component
@@ -350,8 +353,15 @@ public class TrafficRadarSetupEditor : EditorWindow
             displaySO.FindProperty("rangeLabel").objectReferenceValue = rangeLabel;
             displaySO.FindProperty("radarController").objectReferenceValue = controller;
             displaySO.FindProperty("showRadarBackground").boolValue = true;
-            displaySO.FindProperty("chartOpacity").floatValue = 0.78f;
-            displaySO.FindProperty("backgroundColor").colorValue = new Color(0f, 0f, 0f, 0.96f);
+            displaySO.FindProperty("showChartBackground").boolValue = false;
+            displaySO.FindProperty("chartOpacity").floatValue = 0.28f;
+            displaySO.FindProperty("enforceReadablePanelBackground").boolValue = false;
+            displaySO.FindProperty("minimumPanelBackgroundOpacity").floatValue = 0f;
+            displaySO.FindProperty("minimumChartBackgroundOpacity").floatValue = 0f;
+            displaySO.FindProperty("backgroundColor").colorValue = new Color(0.004f, 0.055f, 0.06f, 0.34f);
+            displaySO.FindProperty("rangeRingColor").colorValue = new Color(0.18f, 0.9f, 0.84f, 0.58f);
+            displaySO.FindProperty("compassMarkingsColor").colorValue = new Color(0.74f, 1f, 0.95f, 0.88f);
+            displaySO.FindProperty("ownAircraftColor").colorValue = new Color(0.35f, 1f, 0.55f, 1f);
             displaySO.ApplyModifiedProperties();
             
             // Create chart provider

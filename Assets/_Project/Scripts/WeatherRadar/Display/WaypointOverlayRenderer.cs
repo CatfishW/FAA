@@ -28,7 +28,7 @@ namespace WeatherRadar
         private WeatherRadarConfig config;
         private WeatherRadarDataProvider dataProvider;
         private Dictionary<string, WaypointMarker> activeMarkers = new Dictionary<string, WaypointMarker>();
-        private float currentRange = 40f;
+        private float currentRange = 160f;
 
         private class WaypointMarker
         {

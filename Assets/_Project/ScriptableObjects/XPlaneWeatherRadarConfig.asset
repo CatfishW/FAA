@@ -33,7 +33,7 @@ MonoBehaviour:
   vorColor: {r: 0.8, g: 0.8, b: 1, a: 1}
   airportColor: {r: 1, g: 1, b: 1, a: 1}
   waypointFontSize: 10
-  backgroundColor: {r: 0, g: 0, b: 0, a: 1}
+  backgroundColor: {r: 0.004, g: 0.055, b: 0.04, a: 0.06}
   groundClutterColor: {r: 0.3, g: 0.2, b: 0, a: 0.5}
   minTilt: -15
   maxTilt: 15

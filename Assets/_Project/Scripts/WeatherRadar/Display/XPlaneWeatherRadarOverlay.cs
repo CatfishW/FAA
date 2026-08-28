@@ -10,30 +10,43 @@ namespace WeatherRadar
     [AddComponentMenu("Weather Radar/Display/X-Plane Weather Radar Overlay")]
     public class XPlaneWeatherRadarOverlay : MonoBehaviour
     {
+        private const int NativeTextureWidth = 724;
+        private const int NativeTextureHeight = 512;
+        private const int OverlaySupersample = 2;
+        private const int BearingLabelScale = 5;
+        private const int InnerRangeLabelScale = 4;
+
         [Header("References")]
         [SerializeField] private RawImage overlayImage;
         [SerializeField] private WeatherRadarDataProvider dataProvider;
 
         [Header("Texture")]
-        [SerializeField] private int textureWidth = 724;
-        [SerializeField] private int textureHeight = 512;
+        [SerializeField] private int textureWidth = NativeTextureWidth * OverlaySupersample;
+        [SerializeField] private int textureHeight = NativeTextureHeight * OverlaySupersample;
 
         [Header("Symbology")]
         [SerializeField] private int rangeRingCount = 4;
-        [SerializeField] private float sectorHalfAngleDegrees = 64f;
-        [SerializeField] private float originHeightRatio = 0.078f;
-        [SerializeField] private float lineWidthPixels = 0.62f;
-        [SerializeField] private float majorLineWidthPixels = 0.92f;
-        [SerializeField] private Color rangeLineColor = new Color(0.2f, 1f, 0.25f, 0.26f);
-        [SerializeField] private Color majorLineColor = new Color(0.58f, 1f, 0.6f, 0.58f);
-        [SerializeField] private Color tickColor = new Color(0.55f, 1f, 0.58f, 0.42f);
-        [SerializeField] private Color textColor = new Color(0.66f, 1f, 0.68f, 0.72f);
+        [SerializeField] private float sectorHalfAngleDegrees = 55f;
+        [SerializeField] private float originHeightRatio = 0.07f;
+        [SerializeField] private float lineWidthPixels = 1.9f;
+        [SerializeField] private float majorLineWidthPixels = 2.65f;
+        [SerializeField] private Color rangeLineColor = new Color(0.82f, 0.95f, 0.84f, 0.72f);
+        [SerializeField] private Color majorLineColor = new Color(0.94f, 1f, 0.95f, 1f);
+        [SerializeField] private Color tickColor = new Color(0.7f, 1f, 0.74f, 0.82f);
+        [SerializeField] private Color textColor = new Color(0.72f, 1f, 0.75f, 1f);
         [SerializeField] private bool drawRangeLabels = true;
         [SerializeField] private bool drawCardinalLabels = true;
 
         private Texture2D _overlayTexture;
         private Color32[] _pixels;
         private float _lastRange = -1f;
+        private float _lastHeading = float.NaN;
+        private float _renderScale = OverlaySupersample;
+
+        public Vector2Int TextureResolution => _overlayTexture != null
+            ? new Vector2Int(_overlayTexture.width, _overlayTexture.height)
+            : new Vector2Int(textureWidth, textureHeight);
+        public float RenderScale => _renderScale;
 
         private void Awake()
         {
@@ -97,68 +110,75 @@ namespace WeatherRadar
 
             int width = Mathf.Clamp(textureWidth, 128, 2048);
             int height = Mathf.Clamp(textureHeight, 128, 2048);
+            _renderScale = CalculateRenderScale(width, height);
             EnsureTexture(width, height);
             Clear();
 
             WeatherRadarData radarData = dataProvider != null ? dataProvider.RadarData : null;
-            float range = radarData != null ? radarData.currentRange : 40f;
+            float range = radarData != null ? radarData.currentRange : 160f;
             float tilt = radarData != null ? radarData.tiltAngle : 0f;
+            float heading = radarData != null ? radarData.heading : 0f;
             RadarMode mode = radarData != null ? radarData.currentMode : RadarMode.WX;
             _lastRange = range;
+            _lastHeading = heading;
 
             int originX = width / 2;
             int originY = Mathf.RoundToInt(height * Mathf.Clamp01(originHeightRatio));
-            float radius = Mathf.Min(height - originY - 8f, width * 0.535f);
+            float radius = Mathf.Min(height - originY - ScalePixels(18f), width * 0.608f);
             float halfAngle = Mathf.Clamp(sectorHalfAngleDegrees, 35f, 85f);
             int rings = Mathf.Clamp(rangeRingCount, 2, 6);
-
-            DrawBorder(width, height);
 
             for (int i = 1; i <= rings; i++)
             {
                 float ringRadius = radius * i / rings;
                 DrawSectorArc(originX, originY, ringRadius, -halfAngle, halfAngle, rangeLineColor, lineWidthPixels);
-                if (drawRangeLabels)
+                if (drawRangeLabels && i < rings)
                 {
-                    DrawRangeLabel(originX, originY, ringRadius, range * i / rings, i == rings);
+                    DrawRangeLabel(originX, originY, ringRadius, range * i / rings);
                 }
             }
 
             DrawBearingSpoke(originX, originY, radius, 0f, majorLineColor, majorLineWidthPixels);
-            DrawBearingSpoke(originX, originY, radius, -15f, rangeLineColor, lineWidthPixels * 0.72f);
-            DrawBearingSpoke(originX, originY, radius, 15f, rangeLineColor, lineWidthPixels * 0.72f);
-            DrawBearingSpoke(originX, originY, radius, -30f, rangeLineColor, lineWidthPixels);
-            DrawBearingSpoke(originX, originY, radius, 30f, rangeLineColor, lineWidthPixels);
-            DrawBearingSpoke(originX, originY, radius, -60f, rangeLineColor, lineWidthPixels);
-            DrawBearingSpoke(originX, originY, radius, 60f, rangeLineColor, lineWidthPixels);
+            DrawBearingSpoke(originX, originY, radius, -30f, rangeLineColor, lineWidthPixels * 0.7f);
+            DrawBearingSpoke(originX, originY, radius, 30f, rangeLineColor, lineWidthPixels * 0.7f);
+            DrawBearingSpoke(originX, originY, radius, -halfAngle, rangeLineColor, lineWidthPixels);
+            DrawBearingSpoke(originX, originY, radius, halfAngle, rangeLineColor, lineWidthPixels);
 
-            DrawOuterBearingTicks(originX, originY, radius, halfAngle);
-            DrawCrossRangeScale(originX, originY, radius);
+            DrawOuterBearingTicks(originX, originY, radius, halfAngle, heading);
             DrawAircraftReference(originX, originY);
-            DrawRangeScaleTicks(originX, originY, radius, rings);
-            DrawAzimuthGrid(originX, originY, radius, halfAngle);
-            DrawWeatherRadarScanRails(originX, originY, radius, halfAngle);
-            DrawWeatherRadarCourseBox(originX, originY, radius);
-            DrawModeLegend(width, height, range, tilt, mode);
+            // Mode/range/tilt/source are rendered by the panel's high-resolution
+            // TextMesh Pro readouts. Avoid drawing a second tiny bitmap legend.
 
             Apply();
         }
 
         private void ApplyRequestedOverlayDefaults()
         {
-            textureWidth = Mathf.Clamp(textureWidth, 724, 724);
-            textureHeight = Mathf.Clamp(textureHeight, 512, 512);
+            textureWidth = NativeTextureWidth * OverlaySupersample;
+            textureHeight = NativeTextureHeight * OverlaySupersample;
             rangeRingCount = Mathf.Clamp(rangeRingCount, 4, 4);
-            sectorHalfAngleDegrees = 64f;
-            originHeightRatio = 0.078f;
-            lineWidthPixels = 0.62f;
-            majorLineWidthPixels = 0.92f;
-            rangeLineColor = new Color(0.2f, 1f, 0.25f, 0.26f);
-            majorLineColor = new Color(0.58f, 1f, 0.6f, 0.58f);
-            tickColor = new Color(0.55f, 1f, 0.58f, 0.42f);
-            textColor = new Color(0.66f, 1f, 0.68f, 0.72f);
+            sectorHalfAngleDegrees = 55f;
+            originHeightRatio = 0.07f;
+            lineWidthPixels = 1.9f;
+            majorLineWidthPixels = 2.65f;
+            rangeLineColor = new Color(0.82f, 0.95f, 0.84f, 0.72f);
+            majorLineColor = new Color(0.94f, 1f, 0.95f, 1f);
+            tickColor = new Color(0.7f, 1f, 0.74f, 0.82f);
+            textColor = new Color(0.72f, 1f, 0.75f, 1f);
             drawRangeLabels = true;
             drawCardinalLabels = true;
+        }
+
+        public static float CalculateRenderScale(int width, int height)
+        {
+            float widthScale = Mathf.Max(1, width) / (float)NativeTextureWidth;
+            float heightScale = Mathf.Max(1, height) / (float)NativeTextureHeight;
+            return Mathf.Max(0.25f, Mathf.Min(widthScale, heightScale));
+        }
+
+        private float ScalePixels(float value)
+        {
+            return value * _renderScale;
         }
 
         private void Update()
@@ -169,7 +189,10 @@ namespace WeatherRadar
             }
 
             float range = dataProvider.RadarData.currentRange;
-            if (!Mathf.Approximately(range, _lastRange))
+            float heading = dataProvider.RadarData.heading;
+            if (!Mathf.Approximately(range, _lastRange) ||
+                float.IsNaN(_lastHeading) ||
+                Mathf.Abs(Mathf.DeltaAngle(_lastHeading, heading)) >= 0.5f)
             {
                 Redraw();
             }
@@ -233,10 +256,7 @@ namespace WeatherRadar
 
         private void OnModeChanged(RadarMode mode)
         {
-            if (overlayImage != null)
-            {
-                overlayImage.enabled = true;
-            }
+            Redraw();
         }
 
         private void EnsureTexture(int width, int height)
@@ -305,14 +325,16 @@ namespace WeatherRadar
 
         private void DrawBorder(int width, int height)
         {
-            DrawLine(1f, 1f, width - 2f, 1f, rangeLineColor, lineWidthPixels * 0.75f);
-            DrawLine(1f, height - 2f, width - 2f, height - 2f, rangeLineColor, lineWidthPixels * 0.75f);
-            DrawLine(1f, 1f, 1f, height - 2f, rangeLineColor, lineWidthPixels * 0.75f);
-            DrawLine(width - 2f, 1f, width - 2f, height - 2f, rangeLineColor, lineWidthPixels * 0.75f);
+            float edge = ScalePixels(1f);
+            float inset = ScalePixels(2f);
+            DrawLine(edge, edge, width - inset, edge, rangeLineColor, lineWidthPixels * 0.75f);
+            DrawLine(edge, height - inset, width - inset, height - inset, rangeLineColor, lineWidthPixels * 0.75f);
+            DrawLine(edge, edge, edge, height - inset, rangeLineColor, lineWidthPixels * 0.75f);
+            DrawLine(width - inset, edge, width - inset, height - inset, rangeLineColor, lineWidthPixels * 0.75f);
 
             float corner = Mathf.Min(width, height) * 0.045f;
-            DrawLine(1f, corner, corner, 1f, majorLineColor, lineWidthPixels);
-            DrawLine(width - corner, 1f, width - 2f, corner, majorLineColor, lineWidthPixels);
+            DrawLine(edge, corner, corner, edge, majorLineColor, lineWidthPixels);
+            DrawLine(width - corner, edge, width - inset, corner, majorLineColor, lineWidthPixels);
         }
 
         private void DrawSectorArc(float cx, float cy, float radius, float fromDegrees, float toDegrees, Color color, float width)
@@ -352,29 +374,42 @@ namespace WeatherRadar
             }
         }
 
-        private void DrawOuterBearingTicks(float cx, float cy, float radius, float halfAngle)
+        private void DrawOuterBearingTicks(float cx, float cy, float radius, float halfAngle, float heading)
         {
-            for (float bearing = -60f; bearing <= 60f; bearing += 10f)
+            float firstBearing = Mathf.Ceil(-halfAngle / 10f) * 10f;
+            float lastBearing = Mathf.Floor(halfAngle / 10f) * 10f;
+            for (float bearing = firstBearing; bearing <= lastBearing; bearing += 10f)
             {
-                bool major = Mathf.Approximately(Mathf.Repeat(Mathf.Abs(bearing), 30f), 0f);
-                float tickLength = major ? 18f : 9f;
+                bool major = Mathf.Approximately(bearing, 0f) ||
+                             Mathf.Approximately(Mathf.Repeat(Mathf.Abs(bearing), 30f), 0f);
+                float tickLength = ScalePixels(major ? 18f : 11f);
                 Vector2 outer = PointOnBearing(cx, cy, radius, bearing);
                 Vector2 inner = PointOnBearing(cx, cy, radius - tickLength, bearing);
                 DrawLine(inner.x, inner.y, outer.x, outer.y, tickColor, major ? majorLineWidthPixels : lineWidthPixels);
 
-                if (drawCardinalLabels && major)
+                // Keep ten-degree tick precision, but label only the major bearings.
+                // The full label set becomes unreadable once the HUD radar is reduced
+                // to its compact, view-preserving presentation size.
+                if (drawCardinalLabels && major && !Mathf.Approximately(bearing, 0f))
                 {
-                    Vector2 labelPoint = PointOnBearing(cx, cy, radius - tickLength - 18f, bearing);
-                    DrawTinyText(labelPoint.x - 8f, labelPoint.y - 4f, FormatBearingLabel(bearing), textColor, 1);
+                    string label = FormatHeadingLabel(heading, bearing);
+                    Vector2 labelPoint = PointOnBearing(cx, cy, radius - tickLength - ScalePixels(18f), bearing);
+                    const int labelScale = BearingLabelScale;
+                    DrawTinyText(
+                        labelPoint.x - MeasureTinyTextWidth(label, labelScale) * 0.5f,
+                        labelPoint.y - MeasureTinyTextHeight(labelScale) * 0.5f,
+                        label,
+                        textColor,
+                        labelScale);
                 }
             }
 
             Vector2 leftEdge = PointOnBearing(cx, cy, radius, -halfAngle);
-            Vector2 leftInner = PointOnBearing(cx, cy, radius - 26f, -halfAngle);
+            Vector2 leftInner = PointOnBearing(cx, cy, radius - ScalePixels(26f), -halfAngle);
             DrawLine(leftInner.x, leftInner.y, leftEdge.x, leftEdge.y, majorLineColor, majorLineWidthPixels);
 
             Vector2 rightEdge = PointOnBearing(cx, cy, radius, halfAngle);
-            Vector2 rightInner = PointOnBearing(cx, cy, radius - 26f, halfAngle);
+            Vector2 rightInner = PointOnBearing(cx, cy, radius - ScalePixels(26f), halfAngle);
             DrawLine(rightInner.x, rightInner.y, rightEdge.x, rightEdge.y, majorLineColor, majorLineWidthPixels);
         }
 
@@ -383,16 +418,16 @@ namespace WeatherRadar
             for (int i = 1; i <= rings; i++)
             {
                 float y = cy + radius * i / rings;
-                DrawLine(cx - 8f, y, cx + 8f, y, majorLineColor, lineWidthPixels);
+                DrawLine(cx - ScalePixels(8f), y, cx + ScalePixels(8f), y, majorLineColor, lineWidthPixels);
             }
         }
 
         private void DrawAircraftReference(float cx, float cy)
         {
-            DrawLine(cx, cy + 21f, cx - 10f, cy + 2f, majorLineColor, majorLineWidthPixels);
-            DrawLine(cx, cy + 21f, cx + 10f, cy + 2f, majorLineColor, majorLineWidthPixels);
-            DrawLine(cx - 17f, cy, cx + 17f, cy, majorLineColor, majorLineWidthPixels);
-            DrawLine(cx, cy - 3f, cx, cy - 18f, tickColor, lineWidthPixels);
+            DrawLine(cx, cy + ScalePixels(21f), cx - ScalePixels(10f), cy + ScalePixels(2f), majorLineColor, majorLineWidthPixels);
+            DrawLine(cx, cy + ScalePixels(21f), cx + ScalePixels(10f), cy + ScalePixels(2f), majorLineColor, majorLineWidthPixels);
+            DrawLine(cx - ScalePixels(17f), cy, cx + ScalePixels(17f), cy, majorLineColor, majorLineWidthPixels);
+            DrawLine(cx, cy - ScalePixels(3f), cx, cy - ScalePixels(18f), tickColor, lineWidthPixels);
         }
 
         private void DrawCrossRangeScale(float cx, float cy, float radius)
@@ -405,7 +440,7 @@ namespace WeatherRadar
                 }
 
                 float x = cx + radius * i / 4f;
-                DrawLine(x, cy - 5f, x, cy + 5f, tickColor, lineWidthPixels * 0.75f);
+                DrawLine(x, cy - ScalePixels(5f), x, cy + ScalePixels(5f), tickColor, lineWidthPixels * 0.75f);
             }
         }
 
@@ -429,12 +464,12 @@ namespace WeatherRadar
                 }
 
                 float x = cx + halfChord * i * 0.22f;
-                DrawLine(x, midY - 4f, x, midY + 4f, tickColor, lineWidthPixels * 0.55f);
+                DrawLine(x, midY - ScalePixels(4f), x, midY + ScalePixels(4f), tickColor, lineWidthPixels * 0.55f);
             }
 
-            DrawTinyText(cx - 12f, innerY - 13f, "1/4", textColor, 0);
-            DrawTinyText(cx - 12f, midY - 13f, "1/2", textColor, 0);
-            DrawTinyText(cx - 12f, outerY - 13f, "3/4", textColor, 0);
+            DrawTinyText(cx - ScalePixels(15f), innerY - ScalePixels(16f), "1/4", textColor, 1);
+            DrawTinyText(cx - ScalePixels(15f), midY - ScalePixels(16f), "1/2", textColor, 1);
+            DrawTinyText(cx - ScalePixels(15f), outerY - ScalePixels(16f), "3/4", textColor, 1);
         }
 
         private void DrawWeatherRadarCourseBox(float cx, float cy, float radius)
@@ -451,26 +486,49 @@ namespace WeatherRadar
             DrawDashedLine(cx - boxHalfWidth, boxTop, cx + boxHalfWidth, boxTop, bracketColor, lineWidthPixels * 0.48f, 9f, 12f);
             DrawLine(cx, boxBottom, cx, boxTop, centerColor, lineWidthPixels * 0.7f);
 
-            float notch = 14f;
+            float notch = ScalePixels(14f);
             DrawLine(cx - notch, boxTop - notch, cx, boxTop, centerColor, lineWidthPixels * 0.72f);
             DrawLine(cx + notch, boxTop - notch, cx, boxTop, centerColor, lineWidthPixels * 0.72f);
         }
 
-        private void DrawRangeLabel(float cx, float cy, float ringRadius, float rangeNm, bool outer)
+        private void DrawRangeLabel(float cx, float cy, float ringRadius, float rangeNm)
         {
-            float labelX = cx + 10f;
-            float labelY = cy + ringRadius - 6f;
-            string label = outer ? $"{Mathf.RoundToInt(rangeNm)}NM" : Mathf.RoundToInt(rangeNm).ToString();
-            DrawTinyText(labelX, labelY, label, outer ? majorLineColor : textColor, outer ? 1 : 0);
+            const int labelScale = InnerRangeLabelScale;
+            float labelX = cx + ScalePixels(10f);
+            float labelY = cy + ringRadius - MeasureTinyTextHeight(labelScale) - ScalePixels(7f);
+            string label = Mathf.RoundToInt(rangeNm).ToString();
+            DrawTinyText(labelX, labelY, label, textColor, labelScale);
         }
 
-        private void DrawModeLegend(int width, int height, float rangeNm, float tiltDegrees, RadarMode mode)
+        private void DrawModeLegend(int width, int height, float rangeNm, float tiltDegrees, float heading, RadarMode mode)
         {
-            DrawTinyText(9f, height - 16f, "X-PLANE WX", majorLineColor, 1);
-            DrawTinyText(width * 0.48f, height - 16f, GetModeDisplay(mode), majorLineColor, 1);
+            const int legendScale = 2;
+            string sourceLabel = "X-PLANE";
+            string headingLabel = $"HDG {Mathf.RoundToInt(Mathf.Repeat(heading, 360f)):000}";
+            string modeLabel = GetModeDisplay(mode);
+            float topY = height - MeasureTinyTextHeight(legendScale) - ScalePixels(7f);
+            DrawTinyText(ScalePixels(10f), topY, sourceLabel, majorLineColor, legendScale);
+            DrawTinyText(
+                width * 0.5f - MeasureTinyTextWidth(headingLabel, legendScale) * 0.5f,
+                topY,
+                headingLabel,
+                majorLineColor,
+                legendScale);
+            DrawTinyText(
+                width - MeasureTinyTextWidth(modeLabel, legendScale) - ScalePixels(10f),
+                topY,
+                modeLabel,
+                majorLineColor,
+                legendScale);
             string sign = tiltDegrees >= 0f ? "+" : string.Empty;
-            DrawTinyText(width - 74f, 10f, $"TLT {sign}{tiltDegrees:0.0}", textColor, 0);
-            DrawTinyText(width - 74f, height - 16f, $"{Mathf.RoundToInt(rangeNm)}NM", textColor, 1);
+            string tiltLabel = $"TLT {sign}{tiltDegrees:0.0}";
+            DrawTinyText(
+                width - MeasureTinyTextWidth(tiltLabel, legendScale) - ScalePixels(10f),
+                ScalePixels(9f),
+                tiltLabel,
+                textColor,
+                legendScale);
+            DrawTinyText(ScalePixels(10f), ScalePixels(9f), $"RNG {Mathf.RoundToInt(rangeNm)}NM", textColor, legendScale);
         }
 
         private static string GetModeDisplay(RadarMode mode)
@@ -485,14 +543,18 @@ namespace WeatherRadar
             }
         }
 
-        private static string FormatBearingLabel(float relativeBearing)
+        public static string FormatHeadingLabel(float heading, float relativeBearing)
         {
-            if (Mathf.Approximately(relativeBearing, 0f))
+            int degrees = Mathf.RoundToInt(Mathf.Repeat(heading + relativeBearing, 360f) / 10f) * 10;
+            degrees %= 360;
+            switch (degrees)
             {
-                return "N";
+                case 0: return "N";
+                case 90: return "E";
+                case 180: return "S";
+                case 270: return "W";
+                default: return (degrees / 10).ToString("00");
             }
-
-            return relativeBearing > 0f ? $"+{Mathf.RoundToInt(relativeBearing)}" : Mathf.RoundToInt(relativeBearing).ToString();
         }
 
         private static Vector2 PointOnBearing(float cx, float cy, float radius, float bearingDegrees)
@@ -505,13 +567,14 @@ namespace WeatherRadar
 
         private void DrawLine(float x0, float y0, float x1, float y1, Color color, float width)
         {
+            float scaledWidth = Mathf.Max(0.75f, ScalePixels(width));
             int steps = Mathf.Max(1, Mathf.CeilToInt(Vector2.Distance(new Vector2(x0, y0), new Vector2(x1, y1))));
             for (int i = 0; i <= steps; i++)
             {
                 float t = i / (float)steps;
                 float x = Mathf.Lerp(x0, x1, t);
                 float y = Mathf.Lerp(y0, y1, t);
-                DrawBrush(x, y, color, width);
+                DrawBrush(x, y, color, scaledWidth);
             }
         }
 
@@ -519,11 +582,14 @@ namespace WeatherRadar
         {
             float distance = Vector2.Distance(new Vector2(x0, y0), new Vector2(x1, y1));
             int steps = Mathf.Max(1, Mathf.CeilToInt(distance));
-            float cycle = Mathf.Max(1f, dashLength + gapLength);
+            float scaledDash = ScalePixels(dashLength);
+            float scaledGap = ScalePixels(gapLength);
+            float scaledWidth = Mathf.Max(0.75f, ScalePixels(width));
+            float cycle = Mathf.Max(1f, scaledDash + scaledGap);
             for (int i = 0; i <= steps; i++)
             {
                 float travelled = distance * i / steps;
-                if (Mathf.Repeat(travelled, cycle) > dashLength)
+                if (Mathf.Repeat(travelled, cycle) > scaledDash)
                 {
                     continue;
                 }
@@ -531,7 +597,7 @@ namespace WeatherRadar
                 float t = i / (float)steps;
                 float x = Mathf.Lerp(x0, x1, t);
                 float y = Mathf.Lerp(y0, y1, t);
-                DrawBrush(x, y, color, width);
+                DrawBrush(x, y, color, scaledWidth);
             }
         }
 
@@ -581,13 +647,28 @@ namespace WeatherRadar
 
             int cursor = Mathf.RoundToInt(x);
             int baseline = Mathf.RoundToInt(y);
-            int pixelScale = Mathf.Clamp(scale + 1, 1, 3);
+            int pixelScale = ResolveTinyTextPixelScale(scale);
             string upper = text.ToUpperInvariant();
             for (int i = 0; i < upper.Length; i++)
             {
                 DrawGlyph(cursor, baseline, upper[i], color, pixelScale);
                 cursor += 4 * pixelScale;
             }
+        }
+
+        private int ResolveTinyTextPixelScale(int scale)
+        {
+            return Mathf.Clamp(Mathf.RoundToInt((scale + 1) * _renderScale), 1, 16);
+        }
+
+        private float MeasureTinyTextWidth(string text, int scale)
+        {
+            return string.IsNullOrEmpty(text) ? 0f : text.Length * 4f * ResolveTinyTextPixelScale(scale);
+        }
+
+        private float MeasureTinyTextHeight(int scale)
+        {
+            return 5f * ResolveTinyTextPixelScale(scale);
         }
 
         private void DrawGlyph(int x, int y, char glyph, Color color, int scale)
@@ -635,8 +716,10 @@ namespace WeatherRadar
                 case '9': return new[] { "111", "101", "111", "001", "111" };
                 case 'A': return new[] { "111", "101", "111", "101", "101" };
                 case 'B': return new[] { "110", "101", "110", "101", "110" };
+                case 'D': return new[] { "110", "101", "101", "101", "110" };
                 case 'E': return new[] { "111", "100", "111", "100", "111" };
                 case 'G': return new[] { "111", "100", "101", "101", "111" };
+                case 'H': return new[] { "101", "101", "111", "101", "101" };
                 case 'I': return new[] { "111", "010", "010", "010", "111" };
                 case 'L': return new[] { "100", "100", "100", "100", "111" };
                 case 'M': return new[] { "101", "111", "111", "101", "101" };

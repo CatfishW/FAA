@@ -19,7 +19,8 @@ namespace FAA.Editor
         private const string SetupDismissed = "MCPForUnity.SetupDismissed";
         private const string ProjectScopedToolsLocalHttp = "MCPForUnity.ProjectScopedTools.LocalHttp";
         private const string ResumeHttpAfterReload = "MCPForUnity.ResumeHttpAfterReload";
-        internal const string ExperimentScenePath = "Assets/_Project/Scenes/ExperimentScene.unity";
+        private const string AutoLoadMainScene = "FAA.MCPBootstrap.AutoLoadMainScene";
+        internal const string MainScenePath = "Assets/_Project/Scenes/Main.unity";
 
         private static bool reloadQueued;
 
@@ -33,8 +34,11 @@ namespace FAA.Editor
             ConfigurePrefs();
             ConfigureAssetRefresh();
             EditorApplication.delayCall += StartBridge;
-            EditorApplication.delayCall += QueueExperimentSceneReload;
-            EditorApplication.update += ReloadExperimentSceneWhenIdle;
+            if (EditorPrefs.GetBool(AutoLoadMainScene, false))
+            {
+                EditorApplication.delayCall += QueueMainSceneReload;
+            }
+            EditorApplication.update += ReloadMainSceneWhenIdle;
         }
 
         private static bool IsAssetImportWorker()
@@ -103,12 +107,17 @@ namespace FAA.Editor
             }
         }
 
-        internal static void QueueExperimentSceneReload()
+        internal static void QueueMainSceneReload()
         {
+            if (!EditorPrefs.GetBool(AutoLoadMainScene, false))
+            {
+                return;
+            }
+
             reloadQueued = true;
         }
 
-        private static void ReloadExperimentSceneWhenIdle()
+        private static void ReloadMainSceneWhenIdle()
         {
             if (EditorApplication.isPlayingOrWillChangePlaymode ||
                 EditorApplication.isCompiling ||
@@ -127,19 +136,19 @@ namespace FAA.Editor
             ConfigureAssetRefresh();
 
             Scene activeScene = SceneManager.GetActiveScene();
-            if (activeScene.path == ExperimentScenePath || !System.IO.File.Exists(System.IO.Path.Combine(System.IO.Directory.GetCurrentDirectory(), ExperimentScenePath)))
+            if (activeScene.path == MainScenePath || !System.IO.File.Exists(System.IO.Path.Combine(System.IO.Directory.GetCurrentDirectory(), MainScenePath)))
             {
                 return;
             }
 
             try
             {
-                EditorSceneManager.OpenScene(ExperimentScenePath, OpenSceneMode.Single);
-                Debug.Log("[FaaMcpBootstrap] Loaded ExperimentScene after editor refresh.");
+                EditorSceneManager.OpenScene(MainScenePath, OpenSceneMode.Single);
+                Debug.Log("[FaaMcpBootstrap] Loaded Main scene after editor refresh.");
             }
             catch (Exception ex)
             {
-                Debug.LogWarning("[FaaMcpBootstrap] Failed to load ExperimentScene after refresh: " + ex.Message);
+                Debug.LogWarning("[FaaMcpBootstrap] Failed to load Main scene after refresh: " + ex.Message);
             }
         }
     }
@@ -154,9 +163,9 @@ namespace FAA.Editor
         {
             foreach (string asset in importedAssets)
             {
-                if (asset == FaaMcpBootstrap.ExperimentScenePath)
+                if (asset == FaaMcpBootstrap.MainScenePath)
                 {
-                    FaaMcpBootstrap.QueueExperimentSceneReload();
+                    FaaMcpBootstrap.QueueMainSceneReload();
                     break;
                 }
             }

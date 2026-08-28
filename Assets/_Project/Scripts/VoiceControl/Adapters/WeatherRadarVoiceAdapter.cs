@@ -15,6 +15,8 @@ namespace VoiceControl.Adapters
     [AddComponentMenu("Voice Control/Weather Radar Voice Adapter")]
     public class WeatherRadarVoiceAdapter : MonoBehaviour, IVoiceCommandTarget
     {
+        private const string DedicatedRadarCanvasName = "XPlaneWeatherRadarCanvas";
+
         [Header("Target Components")]
         [SerializeField] private RadarControlPanel controlPanel;
         [SerializeField] private WeatherRadarDataProvider dataProvider;
@@ -29,6 +31,14 @@ namespace VoiceControl.Adapters
         public string DisplayName => "Weather Radar";
         
         private VoiceCommandInfo[] _commands;
+        private Canvas _resolvedRadarCanvas;
+        private CanvasGroup _resolvedRadarCanvasGroup;
+        private bool _hasCapturedVisibleCanvasGroupState;
+        private float _visibleCanvasGroupAlpha = 1f;
+        private bool _visibleCanvasGroupInteractable = true;
+        private bool _visibleCanvasGroupBlocksRaycasts = true;
+        private bool _hasVisibilityRequest;
+        private bool _requestedVisible = true;
         
         private void Awake()
         {
@@ -248,13 +258,28 @@ namespace VoiceControl.Adapters
             var root = ResolveRadarRoot();
             if (root != null)
             {
-                root.SetActive(active);
+                Canvas canvas = root.GetComponent<Canvas>();
+                if (canvas != null)
+                {
+                    SetCanvasVisible(canvas, active);
+                }
+                else
+                {
+                    // Compatibility fallback for older scenes whose radar was not
+                    // placed on the dedicated X-Plane overlay canvas.
+                    root.SetActive(active);
+                }
+
+                _hasVisibilityRequest = true;
+                _requestedVisible = active;
                 return true;
             }
 
             if (controlPanel != null)
             {
                 controlPanel.gameObject.SetActive(active);
+                _hasVisibilityRequest = true;
+                _requestedVisible = active;
                 return true;
             }
 
@@ -266,8 +291,10 @@ namespace VoiceControl.Adapters
             var root = ResolveRadarRoot();
             if (root != null)
             {
-                root.SetActive(!root.activeSelf);
-                return true;
+                bool visible = _hasVisibilityRequest
+                    ? _requestedVisible
+                    : IsRadarRootVisible(root);
+                return SetRadarRootActive(!visible);
             }
 
             if (controlPanel != null)
@@ -281,6 +308,14 @@ namespace VoiceControl.Adapters
 
         private GameObject ResolveRadarRoot()
         {
+            // The scene still contains serialized references to legacy weather
+            // radar objects.  The live X-Plane display and its control strip are
+            // siblings on this dedicated canvas, so it must win over that stale
+            // reference.
+            Canvas dedicatedCanvas = ResolveDedicatedRadarCanvas();
+            if (dedicatedCanvas != null)
+                return dedicatedCanvas.gameObject;
+
             if (radarRoot != null)
                 return radarRoot;
 
@@ -306,6 +341,154 @@ namespace VoiceControl.Adapters
             }
 
             return radarRoot;
+        }
+
+        private Canvas ResolveDedicatedRadarCanvas()
+        {
+            if (IsLoadedSceneCanvas(_resolvedRadarCanvas))
+                return _resolvedRadarCanvas;
+
+            Canvas relatedCanvas = FindDedicatedParentCanvas(controlPanel != null ? controlPanel.transform : null);
+            if (relatedCanvas == null)
+            {
+                relatedCanvas = FindDedicatedParentCanvas(dataProvider != null ? dataProvider.transform : null);
+            }
+
+            if (relatedCanvas != null)
+            {
+                _resolvedRadarCanvas = relatedCanvas;
+                return _resolvedRadarCanvas;
+            }
+
+            Canvas best = null;
+            int bestScore = int.MinValue;
+            foreach (Canvas candidate in FindObjectsByType<Canvas>(FindObjectsInactive.Include))
+            {
+                if (!IsLoadedSceneCanvas(candidate) ||
+                    !string.Equals(candidate.gameObject.name, DedicatedRadarCanvasName, System.StringComparison.Ordinal))
+                {
+                    continue;
+                }
+
+                int score = 0;
+                if (candidate.gameObject.activeInHierarchy) score += 100;
+                if (candidate.enabled) score += 20;
+                if (Contains(candidate.transform, controlPanel != null ? controlPanel.transform : null)) score += 40;
+                if (Contains(candidate.transform, dataProvider != null ? dataProvider.transform : null)) score += 40;
+                if (score > bestScore)
+                {
+                    best = candidate;
+                    bestScore = score;
+                }
+            }
+
+            _resolvedRadarCanvas = best;
+            return _resolvedRadarCanvas;
+        }
+
+        private static Canvas FindDedicatedParentCanvas(Transform source)
+        {
+            if (source == null)
+                return null;
+
+            foreach (Canvas canvas in source.GetComponentsInParent<Canvas>(true))
+            {
+                if (IsLoadedSceneCanvas(canvas) &&
+                    string.Equals(canvas.gameObject.name, DedicatedRadarCanvasName, System.StringComparison.Ordinal))
+                {
+                    return canvas;
+                }
+            }
+
+            return null;
+        }
+
+        private static bool Contains(Transform root, Transform candidate)
+        {
+            return root != null && candidate != null &&
+                   (candidate == root || candidate.IsChildOf(root));
+        }
+
+        private static bool IsLoadedSceneCanvas(Canvas canvas)
+        {
+            if (canvas == null)
+                return false;
+
+            var scene = canvas.gameObject.scene;
+            return scene.IsValid() && scene.isLoaded;
+        }
+
+        private void SetCanvasVisible(Canvas canvas, bool visible)
+        {
+            if (canvas == null)
+                return;
+
+            CanvasGroup group = ResolveCanvasGroup(canvas);
+            if (visible)
+            {
+                // Showing is allowed to reactivate a canvas that an older scene
+                // serialized as inactive. Hiding never deactivates the GameObject,
+                // so providers and radar-control scripts continue updating.
+                if (!canvas.gameObject.activeSelf)
+                {
+                    canvas.gameObject.SetActive(true);
+                }
+
+                canvas.enabled = true;
+                group.alpha = _visibleCanvasGroupAlpha;
+                group.interactable = _visibleCanvasGroupInteractable;
+                group.blocksRaycasts = _visibleCanvasGroupBlocksRaycasts;
+            }
+            else
+            {
+                group.alpha = 0f;
+                group.interactable = false;
+                group.blocksRaycasts = false;
+                canvas.enabled = false;
+            }
+        }
+
+        private CanvasGroup ResolveCanvasGroup(Canvas canvas)
+        {
+            if (_resolvedRadarCanvasGroup != null &&
+                _resolvedRadarCanvasGroup.gameObject == canvas.gameObject)
+            {
+                return _resolvedRadarCanvasGroup;
+            }
+
+            _resolvedRadarCanvasGroup = canvas.GetComponent<CanvasGroup>();
+            if (_resolvedRadarCanvasGroup == null)
+            {
+                _resolvedRadarCanvasGroup = canvas.gameObject.AddComponent<CanvasGroup>();
+            }
+
+            _hasCapturedVisibleCanvasGroupState = false;
+            CaptureVisibleCanvasGroupState(_resolvedRadarCanvasGroup);
+            return _resolvedRadarCanvasGroup;
+        }
+
+        private void CaptureVisibleCanvasGroupState(CanvasGroup group)
+        {
+            if (_hasCapturedVisibleCanvasGroupState || group == null)
+                return;
+
+            _visibleCanvasGroupAlpha = group.alpha > 0.001f ? group.alpha : 1f;
+            _visibleCanvasGroupInteractable = group.interactable;
+            _visibleCanvasGroupBlocksRaycasts = group.blocksRaycasts;
+            _hasCapturedVisibleCanvasGroupState = true;
+        }
+
+        private bool IsRadarRootVisible(GameObject root)
+        {
+            if (root == null || !root.activeInHierarchy)
+                return false;
+
+            Canvas canvas = root.GetComponent<Canvas>();
+            if (canvas == null)
+                return root.activeSelf;
+
+            CanvasGroup group = canvas.GetComponent<CanvasGroup>();
+            return canvas.enabled && (group == null || group.alpha > 0.001f);
         }
 
         private GameObject FindRootByName(string containsName)

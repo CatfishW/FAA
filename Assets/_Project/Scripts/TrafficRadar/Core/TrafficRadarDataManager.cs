@@ -69,6 +69,7 @@ namespace TrafficRadar
         [Range(0.5f, 300f)]
         [SerializeField] private float updateInterval = 30f;
         [SerializeField] public bool autoStartFetching = true;
+        [SerializeField] private bool suppressAutoStartDisabledWarning = false;
         [Range(1, 10)]
         [SerializeField] private int maxConsecutiveFailures = 3;
 
@@ -138,7 +139,7 @@ namespace TrafficRadar
             {
                 StartFetching();
             }
-            else
+            else if (!suppressAutoStartDisabledWarning)
             {
                 Debug.LogWarning("[TrafficRadarDataManager] Auto-start fetching is DISABLED. Enable it in Inspector or call StartFetching().");
             }
