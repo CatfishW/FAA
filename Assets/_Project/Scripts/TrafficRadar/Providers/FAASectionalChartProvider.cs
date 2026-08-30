@@ -41,6 +41,11 @@ namespace TrafficRadar
     /// </summary>
     public class FAASectionalChartProvider : MonoBehaviour
     {
+        private const string LegacyTerminalAreaUrl = "https://tiles.arcgis.com/tiles/ssFJjBXIUyZDrSYZ/arcgis/rest/services/VFR_Terminal_Area_Chart/MapServer";
+        private const string LegacyWorldAeronauticalUrl = "https://tiles.arcgis.com/tiles/ssFJjBXIUyZDrSYZ/arcgis/rest/services/World_Aeronautical_Chart/MapServer";
+        private const string DefaultTerminalAreaUrl = "https://tiles.arcgis.com/tiles/ssFJjBXIUyZDrSYZ/arcgis/rest/services/VFR_Terminal/MapServer";
+        private const string DefaultWorldAeronauticalUrl = "https://services.arcgisonline.com/ArcGIS/rest/services/Specialty/World_Navigation_Charts/MapServer";
+
         [Header("Service Settings")]
         [Tooltip("FAA ArcGIS MapServer URL for sectional charts")]
         [SerializeField] private string tileServerUrl = "https://tiles.arcgis.com/tiles/ssFJjBXIUyZDrSYZ/arcgis/rest/services/VFR_Sectional/MapServer";
@@ -50,7 +55,7 @@ namespace TrafficRadar
         [SerializeField] private FAAChartMapSource mapSource = FAAChartMapSource.Sectional;
 
         [Tooltip("FAA ArcGIS MapServer URL for terminal-area charts.")]
-        [SerializeField] private string terminalAreaTileServerUrl = "https://tiles.arcgis.com/tiles/ssFJjBXIUyZDrSYZ/arcgis/rest/services/VFR_Terminal_Area_Chart/MapServer";
+        [SerializeField] private string terminalAreaTileServerUrl = "https://tiles.arcgis.com/tiles/ssFJjBXIUyZDrSYZ/arcgis/rest/services/VFR_Terminal/MapServer";
 
         [Tooltip("FAA ArcGIS MapServer URL for world aeronautical charts.")]
         [SerializeField] private string worldAeronauticalTileServerUrl = "https://services.arcgisonline.com/ArcGIS/rest/services/Specialty/World_Navigation_Charts/MapServer";
@@ -194,6 +199,7 @@ namespace TrafficRadar
 
         private void Awake()
         {
+            NormalizeBuiltInSourceUrls();
             CreateCompositeTexture();
         }
 
@@ -348,10 +354,43 @@ namespace TrafficRadar
         /// </summary>
         public void SetCustomTileUrlTemplate(string template, bool selectSource = true)
         {
-            customTileUrlTemplate = template ?? string.Empty;
+            string nextTemplate = template ?? string.Empty;
+            bool changed = !string.Equals(customTileUrlTemplate, nextTemplate, System.StringComparison.Ordinal);
+            customTileUrlTemplate = nextTemplate;
             if (selectSource)
             {
-                SetMapSource(FAAChartMapSource.Custom);
+                if (mapSource != FAAChartMapSource.Custom)
+                {
+                    SetMapSource(FAAChartMapSource.Custom);
+                }
+                else if (changed)
+                {
+                    // SetMapSource intentionally returns for an unchanged
+                    // enum value.  A custom URL can change without changing
+                    // that value, so explicitly invalidate/refetch it here.
+                    ClearCache();
+                    try
+                    {
+                        OnMapSourceChanged?.Invoke(mapSource);
+                    }
+                    catch (System.Exception exception)
+                    {
+                        Debug.LogException(exception, this);
+                    }
+
+                    if (isActiveAndEnabled && IsValidFetchPosition(lastFetchLat, lastFetchLon))
+                    {
+                        FetchChartTiles(lastFetchLat, lastFetchLon, lastFetchRangeNM);
+                    }
+                }
+            }
+            else if (changed && mapSource == FAAChartMapSource.Custom)
+            {
+                ClearCache();
+                if (isActiveAndEnabled && IsValidFetchPosition(lastFetchLat, lastFetchLon))
+                {
+                    FetchChartTiles(lastFetchLat, lastFetchLon, lastFetchRangeNM);
+                }
             }
         }
 
@@ -559,21 +598,85 @@ namespace TrafficRadar
                     yield break;
                 }
 
-                if (request.result == UnityWebRequest.Result.Success)
+                Texture2D decodedTexture = TryDecodeTile(request);
+                if (decodedTexture != null)
                 {
-                    Texture2D tex = DownloadHandlerTexture.GetContent(request);
-                    callback?.Invoke(tex);
+                    callback?.Invoke(decodedTexture);
                 }
                 else
                 {
                     string error = string.IsNullOrEmpty(request.error)
                         ? "Chart tile request failed."
                         : request.error;
-                    Debug.LogWarning($"[FAASectionalChartProvider] Failed to fetch tile: {error}");
+                    int byteCount = request.downloadHandler != null && request.downloadHandler.data != null
+                        ? request.downloadHandler.data.Length
+                        : 0;
+                    // Keep diagnostics useful without echoing a custom URL
+                    // that may contain an access token or other query secret.
+                    Debug.LogWarning($"[FAASectionalChartProvider] Failed to fetch tile: {error} (HTTP {request.responseCode}, {byteCount} bytes, source {mapSource})");
                     RecordLoadError(error, true);
                     callback?.Invoke(null);
                 }
             }
+        }
+
+        private Texture2D TryDecodeTile(UnityWebRequest request)
+        {
+            if (request == null)
+            {
+                return null;
+            }
+
+            // DownloadHandlerTexture is the fast path and preserves the old
+            // behavior for FAA ArcGIS tiles. Some public XYZ/ArcGIS mirrors
+            // return a generic content type or trigger Unity's native texture
+            // decoder to report DataProcessingError even though the response
+            // body is a valid PNG/JPEG. Fall back to LoadImage so switching
+            // basemaps remains useful on those endpoints.
+            if (request.result == UnityWebRequest.Result.Success)
+            {
+                try
+                {
+                    Texture2D texture = DownloadHandlerTexture.GetContent(request);
+                    if (texture != null)
+                    {
+                        return texture;
+                    }
+                }
+                catch (System.Exception exception)
+                {
+                    Debug.LogWarning($"[FAASectionalChartProvider] Native tile decode failed: {exception.Message}");
+                }
+            }
+
+            byte[] bytes = request.downloadHandler != null ? request.downloadHandler.data : null;
+            if (bytes == null || bytes.Length < 16 ||
+                (request.responseCode < 200 || request.responseCode >= 300))
+            {
+                return null;
+            }
+
+            Texture2D fallback = new Texture2D(2, 2, TextureFormat.RGBA32, false);
+            bool loaded;
+            try
+            {
+                loaded = fallback.LoadImage(bytes, false);
+            }
+            catch (System.Exception exception)
+            {
+                Debug.LogWarning($"[FAASectionalChartProvider] Managed tile decode failed: {exception.Message}");
+                loaded = false;
+            }
+
+            if (!loaded)
+            {
+                Destroy(fallback);
+                return null;
+            }
+
+            fallback.wrapMode = TextureWrapMode.Clamp;
+            fallback.filterMode = FilterMode.Bilinear;
+            return fallback;
         }
 
         private string BuildTileUrl(int x, int y, int zoom)
@@ -602,6 +705,7 @@ namespace TrafficRadar
 
         private string ResolveMapSourceTemplate()
         {
+            NormalizeBuiltInSourceUrls();
             switch (mapSource)
             {
                 case FAAChartMapSource.TerminalArea:
@@ -615,6 +719,25 @@ namespace TrafficRadar
                 case FAAChartMapSource.Sectional:
                 default:
                     return tileServerUrl;
+            }
+        }
+
+        private void NormalizeBuiltInSourceUrls()
+        {
+            // Existing scene instances may have been serialized while the
+            // initial prototype used placeholder service names. Preserve
+            // user-provided custom URLs, but transparently migrate those two
+            // known built-in values to endpoints that serve real tiles.
+            if (string.Equals(terminalAreaTileServerUrl, LegacyTerminalAreaUrl,
+                    System.StringComparison.OrdinalIgnoreCase))
+            {
+                terminalAreaTileServerUrl = DefaultTerminalAreaUrl;
+            }
+
+            if (string.Equals(worldAeronauticalTileServerUrl, LegacyWorldAeronauticalUrl,
+                    System.StringComparison.OrdinalIgnoreCase))
+            {
+                worldAeronauticalTileServerUrl = DefaultWorldAeronauticalUrl;
             }
         }
 
