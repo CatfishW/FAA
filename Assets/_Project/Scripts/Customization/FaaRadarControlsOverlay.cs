@@ -1,3 +1,4 @@
+using System.Collections;
 using System.Collections.Generic;
 using TMPro;
 using FAA.XPlaneIntegration.Runtime;
@@ -25,6 +26,7 @@ namespace FAA.Customization
         private const float TrafficCollapsedWidth = 292f;
         private const float TrafficCompactWidth = 382f;
         private const float TrafficAdvancedWidth = 408f;
+        private const float TrafficFocusToolbarWidth = 430f;
         private const float ThreeRowStripHeight = 140f;
         private const float EditorPointerRightMargin = 96f;
         private const string WeatherSizePreferenceKey = "FAA.HUD.WeatherRadarSize";
@@ -68,6 +70,26 @@ namespace FAA.Customization
         [SerializeField] private bool suppressLegacyRadarControlPanels = true;
         [SerializeField] private bool suppressInlineWeatherLabels = true;
 
+        [Header("Pilot Focus Presentation")]
+        [Tooltip("Fade unrelated flight/HUD overlays while the traffic map is maximized. The traffic canvas and REST strip remain visible.")]
+        [SerializeField] private bool hideOtherHudInTrafficFullscreen = true;
+        [Tooltip("Duration of the fade used when entering or leaving traffic pilot-focus mode.")]
+        [Min(0f)]
+        [SerializeField] private float trafficFullscreenHudFadeDuration = 0.18f;
+        [Tooltip("Root object names that are hidden during traffic pilot-focus mode. Keep the traffic canvas out of this list so REST remains reachable.")]
+        [SerializeField] private string[] trafficFullscreenHideObjectNames =
+        {
+            "FAASymbologyCanvas",
+            "FAASymbologyCanvasWorldSpace",
+            "XPlaneWeatherRadarCanvas",
+            "XPlaneWeatherIndicatorCanvas",
+            "VoiceCommandCanvas",
+            "FAAHeadingTapeCanvas",
+            "IndicatorCanvas",
+            "XR Interaction Simulator UI(Clone)",
+            "Second Interation GUI"
+        };
+
         private Transform _weatherRoot;
         private Transform _trafficRoot;
         private WeatherRadarDataProvider _weatherDataProvider;
@@ -109,6 +131,9 @@ namespace FAA.Customization
         private TMP_Text _trafficSizeDownText;
         private TMP_Text _trafficSizeUpText;
         private TMP_Text _trafficFullscreenText;
+        private TMP_Text _trafficFocusSourceText;
+        private TMP_Text _trafficFocusOpacityText;
+        private TMP_Text _trafficFocusRangeText;
         // The weather panel is procedural/dataref-backed. Start with the
         // legacy reference overlay hidden so it cannot mimic the native
         // X-Plane raster presentation; pilots can still opt into vector
@@ -126,6 +151,23 @@ namespace FAA.Customization
         private Transform _weatherSizedRoot;
         private Transform _trafficSizedRoot;
         private TrafficRadarDisplay _subscribedTrafficDisplay;
+
+        // Pilot-focus presentation state. We keep the exact authored state of
+        // each unrelated HUD root (including CanvasGroup input flags) so REST,
+        // scene reloads, and XR mode switches can restore it without guessing.
+        private sealed class TrafficFocusVisibilityState
+        {
+            public GameObject gameObject;
+            public CanvasGroup canvasGroup;
+            public float alpha;
+            public bool interactable;
+            public bool blocksRaycasts;
+        }
+
+        private readonly List<TrafficFocusVisibilityState> _trafficFocusStates =
+            new List<TrafficFocusVisibilityState>();
+        private Coroutine _trafficFocusFade;
+        private bool _trafficFocusPresentationActive;
 
         public void Configure(Transform weatherRoot, Transform trafficRoot)
         {
@@ -147,6 +189,13 @@ namespace FAA.Customization
             EnsureRadarSizesInitialized();
             EnsureControlStrips();
             SetVisible(showOnStart);
+            if (_trafficDisplay != null && _trafficDisplay.IsFullscreen)
+            {
+                // If this overlay was enabled after the display entered focus
+                // (for example during an XR canvas handoff), replay the visual
+                // presentation without requiring another FULL press.
+                ApplyTrafficFocusPresentation(true);
+            }
         }
 
         private void OnEnable()
@@ -157,6 +206,10 @@ namespace FAA.Customization
             EnsureRadarSizesInitialized();
             EnsureControlStrips();
             SetVisible(showOnStart);
+            if (_trafficDisplay != null && _trafficDisplay.IsFullscreen)
+            {
+                ApplyTrafficFocusPresentation(true);
+            }
         }
 
         private void Start()
@@ -173,6 +226,11 @@ namespace FAA.Customization
 
         private void OnDisable()
         {
+            // A scene reload or XR mode switch can disable this overlay before
+            // the radar display sends its REST notification. Restore any HUD
+            // roots we faded so the next enable pass starts from authored state.
+            RestoreTrafficFocusPresentationImmediate();
+
             if (_weatherConditionsStrip != null)
             {
                 _weatherConditionsStrip.ExpandedChanged -= OnWeatherConditionsExpandedChanged;
@@ -480,6 +538,26 @@ namespace FAA.Customization
             UpdateLabels();
         }
 
+        /// <summary>
+        /// Cycle the active FAA/XYZ basemap from the compact fullscreen toolbar.
+        /// The provider keeps the last good composite visible while new tiles
+        /// load, so switching sources does not flash an empty map.
+        /// </summary>
+        public void CycleTrafficMapSource()
+        {
+            _trafficDisplay?.CycleMapSource();
+            UpdateLabels();
+        }
+
+        /// <summary>
+        /// Recenter the map's chart layer after a drag gesture.
+        /// </summary>
+        public void RecenterTrafficMap()
+        {
+            _trafficDisplay?.ResetMapPan(false);
+            UpdateLabels();
+        }
+
         public void ToggleTrafficBackground()
         {
             _trafficDisplay?.ToggleRadarBackground();
@@ -732,17 +810,290 @@ namespace FAA.Customization
                 if (_subscribedTrafficDisplay != null)
                 {
                     _subscribedTrafficDisplay.FullscreenChanged += OnTrafficFullscreenChanged;
+                    // The display can already be focused when this overlay is
+                    // enabled after an XR scene/domain reload.  Apply the
+                    // presentation immediately instead of waiting for a
+                    // second fullscreen toggle.
+                    if (_subscribedTrafficDisplay.IsFullscreen)
+                    {
+                        ApplyTrafficFocusPresentation(true);
+                    }
                 }
             }
         }
 
         private void OnTrafficFullscreenChanged(bool _)
         {
+            bool focused = _trafficDisplay != null && _trafficDisplay.IsFullscreen;
+            if (focused)
+            {
+                // Never carry an open advanced drawer into pilot-focus mode;
+                // the focused row is the intentionally small command surface.
+                _trafficConfigurationVisible = false;
+            }
+
+            ApplyTrafficFocusPresentation(focused);
+
             // Re-dock the strip in the same frame the display completes its
             // transition, so REST/FULL never lingers in the old position until
             // the periodic refresh tick.
             EnsureControlStrips();
             UpdateLabels();
+        }
+
+        /// <summary>
+        /// Presents a clean pilot-focus map by fading unrelated HUD roots while
+        /// leaving the traffic canvas and its REST escape strip untouched. The
+        /// authored alpha/input state is captured once and restored exactly on
+        /// exit, which is important when a headset switches between simulator
+        /// and native XR canvases at runtime.
+        /// </summary>
+        private void ApplyTrafficFocusPresentation(bool focused)
+        {
+            if (!hideOtherHudInTrafficFullscreen)
+            {
+                if (!focused)
+                {
+                    RestoreTrafficFocusPresentationImmediate();
+                }
+
+                return;
+            }
+
+            if (focused)
+            {
+                if (_trafficFocusPresentationActive)
+                {
+                    return;
+                }
+
+                CaptureTrafficFocusStates();
+                if (_trafficFocusStates.Count == 0)
+                {
+                    return;
+                }
+
+                _trafficFocusPresentationActive = true;
+                StopTrafficFocusFade();
+                if (!Application.isPlaying || trafficFullscreenHudFadeDuration <= 0.001f)
+                {
+                    SetTrafficFocusStateVisibility(true);
+                    return;
+                }
+
+                _trafficFocusFade = StartCoroutine(AnimateTrafficFocusVisibility(true));
+                return;
+            }
+
+            if (!_trafficFocusPresentationActive && _trafficFocusStates.Count == 0)
+            {
+                return;
+            }
+
+            _trafficFocusPresentationActive = false;
+            StopTrafficFocusFade();
+            if (!Application.isPlaying || trafficFullscreenHudFadeDuration <= 0.001f)
+            {
+                RestoreTrafficFocusPresentationImmediate();
+                return;
+            }
+
+            _trafficFocusFade = StartCoroutine(AnimateTrafficFocusVisibility(false));
+        }
+
+        private void CaptureTrafficFocusStates()
+        {
+            if (_trafficFocusStates.Count > 0)
+            {
+                return;
+            }
+
+            HashSet<Transform> capturedTransforms = new HashSet<Transform>();
+            Transform[] transforms = FindObjectsByType<Transform>(FindObjectsInactive.Include, FindObjectsSortMode.None);
+            for (int i = 0; i < transforms.Length; i++)
+            {
+                Transform candidate = transforms[i];
+                if (!IsTrafficFocusHideTarget(candidate) || !capturedTransforms.Add(candidate))
+                {
+                    continue;
+                }
+
+                CanvasGroup group = candidate.GetComponent<CanvasGroup>();
+                if (group == null)
+                {
+                    // Use the Type overload here rather than relying on a
+                    // generic AddComponent result. Unity's runtime compiler
+                    // can return a transient null for the generic overload
+                    // while a Canvas is being reloaded during XR startup.
+                    group = candidate.gameObject.AddComponent(typeof(CanvasGroup)) as CanvasGroup;
+                }
+
+                if (group == null)
+                {
+                    continue;
+                }
+                _trafficFocusStates.Add(new TrafficFocusVisibilityState
+                {
+                    gameObject = candidate.gameObject,
+                    canvasGroup = group,
+                    alpha = group.alpha,
+                    interactable = group.interactable,
+                    blocksRaycasts = group.blocksRaycasts
+                });
+            }
+        }
+
+        private bool IsTrafficFocusHideTarget(Transform candidate)
+        {
+            if (candidate == null || !candidate.gameObject.scene.IsValid() ||
+                !candidate.gameObject.scene.isLoaded ||
+                !MatchesTrafficFocusHideName(candidate.name))
+            {
+                return false;
+            }
+
+            // Never fade the radar itself (or a shared ancestor that contains
+            // it). Some legacy scenes nest both HUD and traffic under one
+            // canvas; hiding that ancestor would also hide the REST escape.
+            if (_trafficRoot != null &&
+                (_trafficRoot == candidate || _trafficRoot.IsChildOf(candidate) || candidate.IsChildOf(_trafficRoot)))
+            {
+                return false;
+            }
+
+            // The generated traffic strip is reparented to the traffic canvas
+            // (a sibling of this script's authored weather host), so fading the
+            // weather canvas cannot hide REST/source controls.  Only skip the
+            // component object itself in case a scene author adds that exact
+            // name to the configurable list.
+            if (candidate == transform)
+            {
+                return false;
+            }
+
+            // If a configured target is nested below another configured target,
+            // capture only the outer group to avoid multiplying alpha values.
+            for (Transform parent = candidate.parent; parent != null; parent = parent.parent)
+            {
+                if (MatchesTrafficFocusHideName(parent.name))
+                {
+                    return false;
+                }
+            }
+
+            return true;
+        }
+
+        private bool MatchesTrafficFocusHideName(string objectName)
+        {
+            if (string.IsNullOrWhiteSpace(objectName) || trafficFullscreenHideObjectNames == null)
+            {
+                return false;
+            }
+
+            for (int i = 0; i < trafficFullscreenHideObjectNames.Length; i++)
+            {
+                if (string.Equals(objectName, trafficFullscreenHideObjectNames[i],
+                        System.StringComparison.OrdinalIgnoreCase))
+                {
+                    return true;
+                }
+            }
+
+            return false;
+        }
+
+        private IEnumerator AnimateTrafficFocusVisibility(bool hide)
+        {
+            float duration = Mathf.Max(0.001f, trafficFullscreenHudFadeDuration);
+            float elapsed = 0f;
+            Dictionary<TrafficFocusVisibilityState, float> startAlphas =
+                new Dictionary<TrafficFocusVisibilityState, float>();
+
+            for (int i = 0; i < _trafficFocusStates.Count; i++)
+            {
+                TrafficFocusVisibilityState state = _trafficFocusStates[i];
+                if (state == null || state.canvasGroup == null)
+                {
+                    continue;
+                }
+
+                startAlphas[state] = state.canvasGroup.alpha;
+                if (hide)
+                {
+                    state.canvasGroup.interactable = false;
+                    state.canvasGroup.blocksRaycasts = false;
+                }
+            }
+
+            while (elapsed < duration)
+            {
+                elapsed += Time.unscaledDeltaTime;
+                float progress = Mathf.Clamp01(elapsed / duration);
+                float eased = progress * progress * (3f - 2f * progress);
+                for (int i = 0; i < _trafficFocusStates.Count; i++)
+                {
+                    TrafficFocusVisibilityState state = _trafficFocusStates[i];
+                    if (state == null || state.canvasGroup == null || !startAlphas.ContainsKey(state))
+                    {
+                        continue;
+                    }
+
+                    float target = hide ? 0f : state.alpha;
+                    state.canvasGroup.alpha = Mathf.Lerp(startAlphas[state], target, eased);
+                }
+
+                yield return null;
+            }
+
+            SetTrafficFocusStateVisibility(hide);
+            _trafficFocusFade = null;
+            if (!hide)
+            {
+                ClearTrafficFocusStates();
+            }
+        }
+
+        private void SetTrafficFocusStateVisibility(bool hidden)
+        {
+            for (int i = 0; i < _trafficFocusStates.Count; i++)
+            {
+                TrafficFocusVisibilityState state = _trafficFocusStates[i];
+                if (state == null || state.canvasGroup == null)
+                {
+                    continue;
+                }
+
+                state.canvasGroup.alpha = hidden ? 0f : state.alpha;
+                state.canvasGroup.interactable = hidden ? false : state.interactable;
+                state.canvasGroup.blocksRaycasts = hidden ? false : state.blocksRaycasts;
+            }
+
+            if (!hidden)
+            {
+                ClearTrafficFocusStates();
+            }
+        }
+
+        private void RestoreTrafficFocusPresentationImmediate()
+        {
+            StopTrafficFocusFade();
+            SetTrafficFocusStateVisibility(false);
+            _trafficFocusPresentationActive = false;
+        }
+
+        private void ClearTrafficFocusStates()
+        {
+            _trafficFocusStates.Clear();
+        }
+
+        private void StopTrafficFocusFade()
+        {
+            if (_trafficFocusFade != null)
+            {
+                StopCoroutine(_trafficFocusFade);
+                _trafficFocusFade = null;
+            }
         }
 
         private void EnsureControlStrips()
@@ -868,7 +1219,7 @@ namespace FAA.Customization
             ApplyDrawerState(
                 _trafficStrip,
                 _trafficDrawer,
-                trafficEnabled && _trafficConfigurationVisible,
+                trafficEnabled && !trafficFocus && _trafficConfigurationVisible,
                 trafficEnabled,
                 immediate);
 
@@ -1034,6 +1385,7 @@ namespace FAA.Customization
             RectTransform primaryRow = EnsureRow(strip, "TrafficControlRowPrimary");
             RectTransform secondaryRow = EnsureRow(strip, "TrafficControlRowSecondary");
             RectTransform tertiaryRow = EnsureRow(strip, "TrafficControlRowTertiary");
+            RectTransform focusRow = EnsureRow(strip, "TrafficControlRowFocus");
             HideDirectControlChildren(strip, primaryRow, secondaryRow, tertiaryRow);
 
             if (_trafficExpanded)
@@ -1096,6 +1448,48 @@ namespace FAA.Customization
                 "TCASOpacityDown", "TCASOpacityUp", "TCASSizeDown", "TCASSizeValue", "TCASSizeUp", "TCASRefresh");
             secondaryRow.gameObject.SetActive(_trafficExpanded && _showTrafficAdvancedControls);
             tertiaryRow.gameObject.SetActive(_trafficExpanded && _showTrafficAdvancedControls);
+
+            EnsureTrafficFocusToolbar(focusRow);
+            bool focused = _trafficDisplay != null && _trafficDisplay.IsFullscreen;
+            // Replace the regular rows with one compact focus row. Keeping a
+            // single active row preserves the original strip height, so the
+            // display's reserved control band remains valid during transition.
+            primaryRow.gameObject.SetActive(!focused);
+            if (focused)
+            {
+                secondaryRow.gameObject.SetActive(false);
+                tertiaryRow.gameObject.SetActive(false);
+            }
+        }
+
+        private void EnsureTrafficFocusToolbar(RectTransform row)
+        {
+            if (row == null)
+            {
+                return;
+            }
+
+            _trafficFocusSourceText = GetButtonLabel(EnsureButton(
+                row,
+                "TCASFocusSource",
+                "SEC",
+                CycleTrafficMapSource,
+                58f));
+            EnsureButton(row, "TCASFocusOpacityDown", "O-", TrafficOpacityDown, 34f);
+            _trafficFocusOpacityText = EnsureLabel(row, "TCASFocusOpacityValue", "28%", 48f);
+            EnsureButton(row, "TCASFocusOpacityUp", "O+", TrafficOpacityUp, 34f);
+            EnsureButton(row, "TCASFocusZoomDown", "-", TrafficSizeDown, 30f);
+            _trafficFocusRangeText = EnsureLabel(row, "TCASFocusRangeValue", "40NM", 56f);
+            EnsureButton(row, "TCASFocusZoomUp", "+", TrafficSizeUp, 30f);
+            EnsureButton(row, "TCASFocusRecenter", "CTR", RecenterTrafficMap, 48f);
+            GetButtonLabel(EnsureButton(row, "TCASFocusRestore", "REST", ToggleTrafficFullscreen, 50f));
+            HideUnexpectedRowChildren(
+                row,
+                "TCASFocusSource", "TCASFocusOpacityDown", "TCASFocusOpacityValue", "TCASFocusOpacityUp",
+                "TCASFocusZoomDown", "TCASFocusRangeValue", "TCASFocusZoomUp", "TCASFocusRecenter", "TCASFocusRestore");
+
+            bool focused = _trafficDisplay != null && _trafficDisplay.IsFullscreen;
+            row.gameObject.SetActive(focused);
         }
 
         private RectTransform EnsureRow(RectTransform strip, string rowName)
@@ -1259,6 +1653,9 @@ namespace FAA.Customization
                 SetText(_trafficSizeDownText, _trafficDisplay.IsFullscreen ? "Z-" : "S-");
                 SetText(_trafficSizeUpText, _trafficDisplay.IsFullscreen ? "Z+" : "S+");
                 SetText(_trafficFullscreenText, _trafficDisplay.IsFullscreen ? "REST" : "FULL");
+                SetText(_trafficFocusSourceText, CompactMapSourceName(_trafficDisplay.MapSourceName));
+                SetText(_trafficFocusOpacityText, $"{Mathf.RoundToInt(_trafficDisplay.ChartOpacity * 100f)}%");
+                SetText(_trafficFocusRangeText, $"{_trafficDisplay.RangeNM:0}NM");
             }
 
             RectTransform weatherRect = _weatherRoot as RectTransform ?? _weatherRoot?.GetComponent<RectTransform>();
@@ -1360,6 +1757,52 @@ namespace FAA.Customization
             }
         }
 
+        private static string CompactMapSourceName(string sourceName)
+        {
+            if (string.IsNullOrWhiteSpace(sourceName))
+            {
+                return "MAP";
+            }
+
+            string compact = sourceName.Trim().ToUpperInvariant();
+            if (compact == "SECTIONAL")
+            {
+                return "SEC";
+            }
+
+            if (compact == "TERMINAL AREA")
+            {
+                return "TAC";
+            }
+
+            if (compact == "TERMINAL")
+            {
+                return "TAC";
+            }
+
+            if (compact == "WORLD AERONAUTICAL")
+            {
+                return "WAC";
+            }
+
+            if (compact == "STREET")
+            {
+                return "OSM";
+            }
+
+            if (compact == "CUSTOM")
+            {
+                return "CUST";
+            }
+
+            if (compact.Length > 7)
+            {
+                compact = compact.Substring(0, 7);
+            }
+
+            return compact;
+        }
+
         private static void SetButtonActive(TMP_Text label, bool active)
         {
             if (label == null)
@@ -1388,6 +1831,17 @@ namespace FAA.Customization
 
         private Vector2 GetTrafficStripSize()
         {
+            if (_trafficDisplay != null && _trafficDisplay.IsFullscreen)
+            {
+                // The focused toolbar is intentionally the only extra row in
+                // pilot-focus mode: REST, map source, chart opacity, range,
+                // and recenter remain reachable without reopening the full
+                // configuration drawer.
+                return new Vector2(
+                    Mathf.Max(trafficStripSize.x, TrafficFocusToolbarWidth),
+                    CompactStripHeight);
+            }
+
             return _showTrafficAdvancedControls
                 ? new Vector2(Mathf.Max(trafficStripSize.x, TrafficAdvancedWidth), Mathf.Max(trafficStripSize.y, ThreeRowStripHeight))
                 : new Vector2(_trafficExpanded ? TrafficCompactWidth : TrafficCollapsedWidth, CompactStripHeight);

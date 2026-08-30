@@ -246,8 +246,6 @@ namespace FAA.Customization
         private TrafficRadarDisplay _trafficDisplay;
         private float _visualProgress;
 
-        private const float DragThresholdPixels = 4f;
-
         public FaaRadarKind RadarKind => radarKind;
         public bool IsOpen => _open;
 
@@ -323,6 +321,20 @@ namespace FAA.Customization
                 return;
             }
 
+            // In pilot-focus mode the glass is a navigation surface rather
+            // than a drawer toggle.  The compact focus toolbar owns REST and
+            // the map controls, so a simple click should not reopen the hidden
+            // advanced rows while the pilot is inspecting the chart.
+            if (radarKind == FaaRadarKind.Traffic)
+            {
+                ResolveTrafficDisplay();
+                if (_trafficDisplay != null && _trafficDisplay.IsFullscreen)
+                {
+                    eventData.Use();
+                    return;
+                }
+            }
+
             owner?.ToggleRadarConfiguration(radarKind);
             eventData.Use();
         }
@@ -368,7 +380,7 @@ namespace FAA.Customization
 
             ResolveTrafficDisplay();
             if (_trafficDisplay == null || !_trafficDisplay.IsFullscreen ||
-                ! _trafficDisplay.MapPanningEnabled)
+                !_trafficDisplay.MapPanningEnabled)
             {
                 return;
             }
@@ -386,7 +398,7 @@ namespace FAA.Customization
             }
 
             Vector2 delta = eventData.delta;
-            if (delta.sqrMagnitude < DragThresholdPixels * DragThresholdPixels)
+            if (delta.sqrMagnitude < 0.0001f)
             {
                 return;
             }

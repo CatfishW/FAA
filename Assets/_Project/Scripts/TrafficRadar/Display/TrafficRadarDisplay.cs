@@ -218,7 +218,10 @@ namespace TrafficRadar
         private Vector2 _mapPan;
         private Vector2 _mapPanTarget;
         private Vector2 _chartBaseAnchoredPosition;
+        private Vector2 _chartBaseSizeDelta;
+        private RectTransform _chartBaseRect;
         private bool _chartBaseLayoutStored;
+        private const float MapCoverageSafetyPixels = 8f;
 
         // Pilot focus/fullscreen layout state.  The radar root stays in the
         // scene hierarchy (rather than cloning or reparenting the display), so
@@ -2018,6 +2021,7 @@ namespace TrafficRadar
 
             SetGeneratedOverlayVisibility(!preferXPlaneTrafficTexture || !hideGeneratedOverlaysWithXPlaneTexture);
             SetLocalMaskEnabled(!preferXPlaneTrafficTexture);
+            DisableVisualRaycasts();
             ApplyMapPanVisual(true);
         }
 
@@ -2194,6 +2198,24 @@ namespace TrafficRadar
             }
         }
 
+        /// <summary>
+        /// Keep the radar artwork passive so the sibling interaction surface
+        /// receives both mouse/XR pointer and drag events.  The display has no
+        /// interactive child graphics; all pilot actions are exposed by the
+        /// generated control strip and glass surface.
+        /// </summary>
+        private void DisableVisualRaycasts()
+        {
+            foreach (Graphic graphic in GetComponentsInChildren<Graphic>(true))
+            {
+                if (graphic != null &&
+                    graphic.gameObject.name.IndexOf("InteractionSurface", StringComparison.OrdinalIgnoreCase) < 0)
+                {
+                    graphic.raycastTarget = false;
+                }
+            }
+        }
+
         private void SetLocalMaskEnabled(bool enabled)
         {
             foreach (Mask mask in GetComponents<Mask>())
@@ -2255,20 +2277,35 @@ namespace TrafficRadar
                 ? rectTransform.rect.height
                 : displaySize;
             float fraction = Mathf.Clamp(maxMapPanFraction, 0.05f, 0.9f);
-            return new Vector2(
-                Mathf.Clamp(value.x, -width * fraction, width * fraction),
-                Mathf.Clamp(value.y, -height * fraction, height * fraction));
+            // The chart is circularly masked. A pair of independent axis
+            // clamps permits a diagonal offset larger than the chart's
+            // coverage margin, which can expose a transparent wedge at the
+            // opposite corner. Treat the limit as a radial travel budget so
+            // every reachable offset remains covered while still allowing the
+            // full configured distance in any cardinal direction.
+            float maxDistance = Mathf.Min(width, height) * fraction;
+            if (maxDistance <= 0.001f || value.sqrMagnitude <= maxDistance * maxDistance)
+            {
+                return value;
+            }
+
+            return value.normalized * maxDistance;
         }
 
         private void StoreChartBaseLayout(RectTransform chartRect)
         {
-            if (_chartBaseLayoutStored || chartRect == null)
+            if (chartRect == null)
             {
                 return;
             }
 
-            _chartBaseAnchoredPosition = chartRect.anchoredPosition;
-            _chartBaseLayoutStored = true;
+            if (!_chartBaseLayoutStored || _chartBaseRect != chartRect)
+            {
+                _chartBaseAnchoredPosition = chartRect.anchoredPosition;
+                _chartBaseSizeDelta = chartRect.sizeDelta;
+                _chartBaseRect = chartRect;
+                _chartBaseLayoutStored = true;
+            }
         }
 
         private void ApplyMapPanVisual(bool immediate)
@@ -2286,6 +2323,34 @@ namespace TrafficRadar
 
             StoreChartBaseLayout(chartRect);
             Vector2 offset = immediate ? _mapPanTarget : _mapPan;
+
+            // The interaction surface allows a pilot to drag the chart while
+            // the circular radar mask stays fixed.  A stretched chart that is
+            // exactly the size of the mask would reveal transparent corners as
+            // soon as it moved.  Give the chart a deterministic safety margin
+            // on all four sides so the full masked footprint remains covered
+            // at the configured pan limit.  The authored sizeDelta is restored
+            // when panning is disabled, preserving existing scene layouts.
+            if (enableMapPanning)
+            {
+                RectTransform parentRect = chartRect.parent as RectTransform;
+                float parentWidth = parentRect != null && parentRect.rect.width > 1f
+                    ? parentRect.rect.width
+                    : (rectTransform != null && rectTransform.rect.width > 1f ? rectTransform.rect.width : displaySize);
+                float parentHeight = parentRect != null && parentRect.rect.height > 1f
+                    ? parentRect.rect.height
+                    : (rectTransform != null && rectTransform.rect.height > 1f ? rectTransform.rect.height : displaySize);
+                float fraction = Mathf.Clamp(maxMapPanFraction, 0.05f, 0.9f);
+                Vector2 coverageMargin = new Vector2(
+                    parentWidth * fraction * 2f + MapCoverageSafetyPixels,
+                    parentHeight * fraction * 2f + MapCoverageSafetyPixels);
+                chartRect.sizeDelta = _chartBaseSizeDelta + coverageMargin;
+            }
+            else
+            {
+                chartRect.sizeDelta = _chartBaseSizeDelta;
+            }
+
             chartRect.anchoredPosition = _chartBaseAnchoredPosition + offset;
         }
 
