@@ -49,6 +49,18 @@ namespace TrafficRadar
         [Min(0.1f)]
         [SerializeField] private float chartPositionRetrySeconds = 0.75f;
 
+        [Header("Map Interaction")]
+        [Tooltip("Allow pilots to drag the sectional/chart layer while the map is focused.")]
+        [SerializeField] private bool enableMapPanning = true;
+
+        [Tooltip("Maximum map drag distance as a fraction of the radar footprint.")]
+        [Range(0.05f, 0.9f)]
+        [SerializeField] private float maxMapPanFraction = 0.36f;
+
+        [Tooltip("Smooth map drag settling speed. Set to zero for immediate movement.")]
+        [Min(0f)]
+        [SerializeField] private float mapPanSmoothing = 22f;
+
         [Header("Pilot Focus Mode")]
         [Tooltip("Allow the traffic radar to expand into a centered, immersive map view.")]
         [SerializeField] private bool enableFullscreenMode = true;
@@ -198,6 +210,16 @@ namespace TrafficRadar
         private float _lastChartRequestLon = float.NaN;
         private float _lastChartRequestRange = float.NaN;
 
+        // Pilot-focus map interaction state.  The chart is moved relative to
+        // the fixed traffic scope so dragging never displaces the REST/FULL
+        // affordance or clips the circular mask.  Keeping target/current
+        // values separate gives pointer and XR drags a polished, low-jitter
+        // settle without blocking input.
+        private Vector2 _mapPan;
+        private Vector2 _mapPanTarget;
+        private Vector2 _chartBaseAnchoredPosition;
+        private bool _chartBaseLayoutStored;
+
         // Pilot focus/fullscreen layout state.  The radar root stays in the
         // scene hierarchy (rather than cloning or reparenting the display), so
         // controller, chart provider, and XR interaction references remain
@@ -261,8 +283,13 @@ namespace TrafficRadar
             get => chartOpacity;
             set
             {
+                float previous = chartOpacity;
                 chartOpacity = Mathf.Clamp01(value);
                 BeginChartFade(showChartBackground && !preferXPlaneTrafficTexture ? chartOpacity : 0f, true);
+                if (!Mathf.Approximately(previous, chartOpacity))
+                {
+                    ChartOpacityChanged?.Invoke(chartOpacity);
+                }
             }
         }
 
@@ -302,6 +329,21 @@ namespace TrafficRadar
         public int RangeRingCount => rangeRingCount;
 
         /// <summary>
+        /// Current chart drag offset in display-local pixels.
+        /// </summary>
+        public Vector2 MapPan => _mapPanTarget;
+
+        public bool MapPanningEnabled => enableMapPanning;
+
+        public FAAChartMapSource MapSource => chartProvider != null
+            ? chartProvider.MapSource
+            : FAAChartMapSource.Sectional;
+
+        public string MapSourceName => chartProvider != null
+            ? chartProvider.MapSourceName
+            : "SECTIONAL";
+
+        /// <summary>
         /// Whether the traffic radar is currently in the centered pilot-focus view.
         /// The map remains the same scene object, so chart, traffic, and XR pointer
         /// references continue to work while it is maximized.
@@ -312,6 +354,21 @@ namespace TrafficRadar
         /// Raised after the radar enters or leaves pilot-focus view.
         /// </summary>
         public event Action<bool> FullscreenChanged;
+
+        /// <summary>
+        /// Raised when the chart opacity target changes.
+        /// </summary>
+        public event Action<float> ChartOpacityChanged;
+
+        /// <summary>
+        /// Raised when the map source changes.
+        /// </summary>
+        public event Action<FAAChartMapSource> MapSourceChanged;
+
+        /// <summary>
+        /// Raised when a drag/pan settles at a new map offset.
+        /// </summary>
+        public event Action<Vector2> MapPanChanged;
 
         /// <summary>
         /// Gets or sets the radar background color.
@@ -483,6 +540,7 @@ namespace TrafficRadar
             CreateRadarTexture();
             EnsureRadarImageReference();
             EnsureChartImageReference();
+            ApplyMapPanVisual(true);
         }
 
         private void OnEnable()
@@ -505,6 +563,7 @@ namespace TrafficRadar
             }
 
             SubscribeToChartProvider();
+            ApplyMapPanVisual(true);
         }
 
         private void OnDisable()
@@ -524,6 +583,7 @@ namespace TrafficRadar
             if (chartProvider != null)
             {
                 chartProvider.OnChartTileLoaded -= OnChartLoaded;
+                chartProvider.OnMapSourceChanged -= OnChartMapSourceChanged;
             }
         }
 
@@ -635,6 +695,8 @@ namespace TrafficRadar
                 // subscribed twice when the component was already enabled.
                 chartProvider.OnChartTileLoaded -= OnChartLoaded;
                 chartProvider.OnChartTileLoaded += OnChartLoaded;
+                chartProvider.OnMapSourceChanged -= OnChartMapSourceChanged;
+                chartProvider.OnMapSourceChanged += OnChartMapSourceChanged;
             }
         }
 
@@ -678,6 +740,7 @@ namespace TrafficRadar
                 // do nothing in the XR-3 simulator scene.
                 chartBackgroundImage.gameObject.SetActive(true);
                 chartBackgroundImage.raycastTarget = false;
+                StoreChartBaseLayout(chartBackgroundImage.rectTransform);
             }
         }
 
@@ -848,6 +911,7 @@ namespace TrafficRadar
             }
             
             DrawRadarIfNeeded();
+            UpdateMapPan();
         }
 
         private void NormalizePanelReadability()
@@ -1684,6 +1748,98 @@ namespace TrafficRadar
         }
 
         /// <summary>
+        /// Move the chart by a display-local pixel delta.  Positive X moves
+        /// east/right and positive Y moves north/up in the UI.  The offset is
+        /// clamped to keep the composite covering the circular radar mask.
+        /// </summary>
+        public void PanMap(Vector2 deltaPixels)
+        {
+            if (!enableMapPanning || deltaPixels.sqrMagnitude < 0.0001f)
+            {
+                return;
+            }
+
+            _mapPanTarget = ClampMapPan(_mapPanTarget + deltaPixels);
+            if (mapPanSmoothing <= 0.001f)
+            {
+                _mapPan = _mapPanTarget;
+                ApplyMapPanVisual(true);
+            }
+
+            MapPanChanged?.Invoke(_mapPanTarget);
+        }
+
+        /// <summary>
+        /// Set an absolute chart offset in display-local pixels.
+        /// </summary>
+        public void SetMapPan(Vector2 panPixels, bool immediate = false)
+        {
+            Vector2 clamped = ClampMapPan(panPixels);
+            bool changed = (_mapPanTarget - clamped).sqrMagnitude > 0.0001f;
+            _mapPanTarget = clamped;
+            if (immediate || mapPanSmoothing <= 0.001f)
+            {
+                _mapPan = clamped;
+                ApplyMapPanVisual(true);
+            }
+
+            if (changed)
+            {
+                MapPanChanged?.Invoke(_mapPanTarget);
+            }
+        }
+
+        /// <summary>
+        /// Return the chart to the own-ship-centered position.
+        /// </summary>
+        public void ResetMapPan(bool immediate = false)
+        {
+            SetMapPan(Vector2.zero, immediate);
+        }
+
+        /// <summary>
+        /// Select a chart/basemap source and refresh its tiles.
+        /// </summary>
+        public void SetMapSource(FAAChartMapSource source)
+        {
+            if (chartProvider == null)
+            {
+                return;
+            }
+
+            chartProvider.SetMapSource(source);
+        }
+
+        /// <summary>
+        /// Cycle through the provider's available basemap sources.
+        /// </summary>
+        public void CycleMapSource()
+        {
+            chartProvider?.CycleMapSource();
+        }
+
+        /// <summary>
+        /// Alias for compact UnityEvent/voice bindings.
+        /// </summary>
+        public void ToggleMapSource()
+        {
+            CycleMapSource();
+        }
+
+        /// <summary>
+        /// UnityEvent-friendly source setter for generated UI buttons.
+        /// </summary>
+        public void SetMapSource(int sourceIndex)
+        {
+            chartProvider?.SetMapSource(sourceIndex);
+        }
+
+        public void SetCustomMapSource(string tileUrlTemplate)
+        {
+            chartProvider?.SetCustomTileUrlTemplate(tileUrlTemplate, true);
+        }
+
+        /// <summary>
         /// Refresh the chart background.
         /// </summary>
         public void RefreshChart()
@@ -1862,6 +2018,7 @@ namespace TrafficRadar
 
             SetGeneratedOverlayVisibility(!preferXPlaneTrafficTexture || !hideGeneratedOverlaysWithXPlaneTexture);
             SetLocalMaskEnabled(!preferXPlaneTrafficTexture);
+            ApplyMapPanVisual(true);
         }
 
         private void EnsureRadarImageReference()
@@ -2066,6 +2223,72 @@ namespace TrafficRadar
             ApplyChartVisualOpacity();
         }
 
+        private void UpdateMapPan()
+        {
+            if (!enableMapPanning)
+            {
+                if (_mapPan.sqrMagnitude > 0.001f || _mapPanTarget.sqrMagnitude > 0.001f)
+                {
+                    _mapPan = Vector2.zero;
+                    _mapPanTarget = Vector2.zero;
+                    ApplyMapPanVisual(true);
+                }
+
+                return;
+            }
+
+            if (mapPanSmoothing > 0.001f && (_mapPan - _mapPanTarget).sqrMagnitude > 0.001f)
+            {
+                float blend = 1f - Mathf.Exp(-mapPanSmoothing * Time.unscaledDeltaTime);
+                _mapPan = Vector2.Lerp(_mapPan, _mapPanTarget, blend);
+            }
+
+            ApplyMapPanVisual(false);
+        }
+
+        private Vector2 ClampMapPan(Vector2 value)
+        {
+            float width = rectTransform != null && rectTransform.rect.width > 1f
+                ? rectTransform.rect.width
+                : displaySize;
+            float height = rectTransform != null && rectTransform.rect.height > 1f
+                ? rectTransform.rect.height
+                : displaySize;
+            float fraction = Mathf.Clamp(maxMapPanFraction, 0.05f, 0.9f);
+            return new Vector2(
+                Mathf.Clamp(value.x, -width * fraction, width * fraction),
+                Mathf.Clamp(value.y, -height * fraction, height * fraction));
+        }
+
+        private void StoreChartBaseLayout(RectTransform chartRect)
+        {
+            if (_chartBaseLayoutStored || chartRect == null)
+            {
+                return;
+            }
+
+            _chartBaseAnchoredPosition = chartRect.anchoredPosition;
+            _chartBaseLayoutStored = true;
+        }
+
+        private void ApplyMapPanVisual(bool immediate)
+        {
+            if (chartBackgroundImage == null)
+            {
+                return;
+            }
+
+            RectTransform chartRect = chartBackgroundImage.rectTransform;
+            if (chartRect == null)
+            {
+                return;
+            }
+
+            StoreChartBaseLayout(chartRect);
+            Vector2 offset = immediate ? _mapPanTarget : _mapPan;
+            chartRect.anchoredPosition = _chartBaseAnchoredPosition + offset;
+        }
+
         private void ApplyChartVisualOpacity()
         {
             float visualOpacity = Mathf.Clamp01(_chartVisualOpacity);
@@ -2158,6 +2381,14 @@ namespace TrafficRadar
                     BeginChartFade(chartOpacity, true);
                 }
             }
+        }
+
+        private void OnChartMapSourceChanged(FAAChartMapSource source)
+        {
+            // A source switch changes the projection/style beneath the scope;
+            // clear the old drag offset so the new composite starts centered.
+            ResetMapPan(true);
+            MapSourceChanged?.Invoke(source);
         }
 
         private void DrawRadarIfNeeded()

@@ -6,6 +6,21 @@ using UnityEngine.Networking;
 namespace TrafficRadar
 {
     /// <summary>
+    /// Basemap choices exposed by the pilot-focus traffic map.  The FAA
+    /// sources use ArcGIS tile endpoints while StreetMap uses a standard
+    /// XYZ template.  URLs remain serialized/configurable so an operator can
+    /// point the provider at an approved mirror without changing code.
+    /// </summary>
+    public enum FAAChartMapSource
+    {
+        Sectional,
+        TerminalArea,
+        WorldAeronautical,
+        StreetMap,
+        Custom
+    }
+
+    /// <summary>
     /// Current state of a sectional-chart request.  <see cref="Error"/> does
     /// not imply that the displayed texture is unusable: when available, the
     /// last successful composite remains on screen while the provider retries.
@@ -29,6 +44,22 @@ namespace TrafficRadar
         [Header("Service Settings")]
         [Tooltip("FAA ArcGIS MapServer URL for sectional charts")]
         [SerializeField] private string tileServerUrl = "https://tiles.arcgis.com/tiles/ssFJjBXIUyZDrSYZ/arcgis/rest/services/VFR_Sectional/MapServer";
+
+        [Header("Map Source")]
+        [Tooltip("Basemap used behind the traffic symbols. Sectional is the FAA VFR sectional chart.")]
+        [SerializeField] private FAAChartMapSource mapSource = FAAChartMapSource.Sectional;
+
+        [Tooltip("FAA ArcGIS MapServer URL for terminal-area charts.")]
+        [SerializeField] private string terminalAreaTileServerUrl = "https://tiles.arcgis.com/tiles/ssFJjBXIUyZDrSYZ/arcgis/rest/services/VFR_Terminal_Area_Chart/MapServer";
+
+        [Tooltip("FAA ArcGIS MapServer URL for world aeronautical charts.")]
+        [SerializeField] private string worldAeronauticalTileServerUrl = "https://tiles.arcgis.com/tiles/ssFJjBXIUyZDrSYZ/arcgis/rest/services/World_Aeronautical_Chart/MapServer";
+
+        [Tooltip("XYZ tile URL template for the StreetMap source. Use {z}, {x}, and {y} tokens.")]
+        [SerializeField] private string streetMapTileUrlTemplate = "https://tile.openstreetmap.org/{z}/{x}/{y}.png";
+
+        [Tooltip("Optional custom XYZ/ArcGIS tile URL template. Use {z}, {x}, and {y} tokens, or an ArcGIS MapServer base URL.")]
+        [SerializeField] private string customTileUrlTemplate = string.Empty;
         
         [Tooltip("Tile request timeout in seconds")]
         [SerializeField] private float requestTimeout = 15f;
@@ -122,12 +153,34 @@ namespace TrafficRadar
         /// for a small non-blocking HUD status indicator instead of polling.
         /// </summary>
         public event System.Action<ChartLoadStatus> OnStatusChanged;
+
+        /// <summary>
+        /// Raised after the active basemap changes.  The display and controls
+        /// use this to refresh a compact source label without polling.
+        /// </summary>
+        public event System.Action<FAAChartMapSource> OnMapSourceChanged;
         
         public int ZoomLevel
         {
             get => zoomLevel;
             set => zoomLevel = Mathf.Clamp(value, 4, 12);
         }
+
+        /// <summary>
+        /// Currently selected basemap source.
+        /// </summary>
+        public FAAChartMapSource MapSource
+        {
+            get => mapSource;
+            set => SetMapSource(value);
+        }
+
+        /// <summary>
+        /// Human-readable source name suitable for a small HUD label.
+        /// </summary>
+        public string MapSourceName => GetMapSourceDisplayName(mapSource);
+
+        public int MapSourceCount => 5;
 
         #endregion
 
@@ -221,6 +274,86 @@ namespace TrafficRadar
             {
                 SetStatus(ChartLoadStatus.Loading);
             }
+        }
+
+        /// <summary>
+        /// Select a basemap and refresh the current location.  The previous
+        /// composite remains visible while the replacement tiles load, so a
+        /// source switch never flashes an empty panel in the headset.
+        /// </summary>
+        public void SetMapSource(FAAChartMapSource source)
+        {
+            if (mapSource == source)
+            {
+                return;
+            }
+
+            mapSource = source;
+            ClearCache();
+            try
+            {
+                OnMapSourceChanged?.Invoke(mapSource);
+            }
+            catch (System.Exception exception)
+            {
+                Debug.LogException(exception, this);
+            }
+
+            if (isActiveAndEnabled && IsValidFetchPosition(lastFetchLat, lastFetchLon))
+            {
+                FetchChartTiles(lastFetchLat, lastFetchLon, lastFetchRangeNM);
+            }
+        }
+
+        /// <summary>
+        /// Cycle to the next configured source.  Custom is included only when
+        /// a custom template has been supplied; otherwise it is skipped.
+        /// </summary>
+        public void CycleMapSource()
+        {
+            int sourceCount = MapSourceCount;
+            int next = (int)mapSource;
+            for (int i = 0; i < sourceCount; i++)
+            {
+                next = (next + 1) % sourceCount;
+                FAAChartMapSource candidate = (FAAChartMapSource)next;
+                if (candidate != FAAChartMapSource.Custom || !string.IsNullOrWhiteSpace(customTileUrlTemplate))
+                {
+                    SetMapSource(candidate);
+                    return;
+                }
+            }
+        }
+
+        /// <summary>
+        /// UnityEvent-friendly source setter for generated control strips.
+        /// Values outside the enum range are clamped to the nearest source.
+        /// </summary>
+        public void SetMapSource(int sourceIndex)
+        {
+            int clamped = Mathf.Clamp(sourceIndex, 0, MapSourceCount - 1);
+            SetMapSource((FAAChartMapSource)clamped);
+        }
+
+        /// <summary>
+        /// Configure a custom XYZ or ArcGIS tile endpoint at runtime.  The
+        /// template accepts {z}, {x}, and {y}; an ArcGIS MapServer base URL is
+        /// also accepted and receives /tile/{z}/{y}/{x}.
+        /// </summary>
+        public void SetCustomTileUrlTemplate(string template, bool selectSource = true)
+        {
+            customTileUrlTemplate = template ?? string.Empty;
+            if (selectSource)
+            {
+                SetMapSource(FAAChartMapSource.Custom);
+            }
+        }
+
+        private static bool IsValidFetchPosition(float latitude, float longitude)
+        {
+            return !float.IsNaN(latitude) && !float.IsInfinity(latitude) &&
+                   !float.IsNaN(longitude) && !float.IsInfinity(longitude) &&
+                   (Mathf.Abs(latitude) > 0.00001f || Mathf.Abs(longitude) > 0.00001f);
         }
 
         /// <summary>
@@ -408,8 +541,7 @@ namespace TrafficRadar
             int requestGeneration,
             System.Action<Texture2D> callback)
         {
-            // FAA ArcGIS tile URL format
-            string url = $"{tileServerUrl}/tile/{requestZoom}/{y}/{x}";
+            string url = BuildTileUrl(x, y, requestZoom);
 
             using (var request = UnityWebRequestTexture.GetTexture(url))
             {
@@ -435,6 +567,66 @@ namespace TrafficRadar
                     RecordLoadError(error, true);
                     callback?.Invoke(null);
                 }
+            }
+        }
+
+        private string BuildTileUrl(int x, int y, int zoom)
+        {
+            string template = ResolveMapSourceTemplate();
+            if (string.IsNullOrWhiteSpace(template))
+            {
+                template = tileServerUrl;
+            }
+
+            template = template.Trim();
+            if (template.IndexOf("{z}", System.StringComparison.OrdinalIgnoreCase) >= 0 ||
+                template.IndexOf("{x}", System.StringComparison.OrdinalIgnoreCase) >= 0 ||
+                template.IndexOf("{y}", System.StringComparison.OrdinalIgnoreCase) >= 0)
+            {
+                return template
+                    .Replace("{z}", zoom.ToString(System.Globalization.CultureInfo.InvariantCulture))
+                    .Replace("{x}", x.ToString(System.Globalization.CultureInfo.InvariantCulture))
+                    .Replace("{y}", y.ToString(System.Globalization.CultureInfo.InvariantCulture));
+            }
+
+            // ArcGIS MapServer endpoints use z/y/x ordering.  Keep the old
+            // default URL behavior exactly intact for existing scenes.
+            return template.TrimEnd('/') + $"/tile/{zoom}/{y}/{x}";
+        }
+
+        private string ResolveMapSourceTemplate()
+        {
+            switch (mapSource)
+            {
+                case FAAChartMapSource.TerminalArea:
+                    return terminalAreaTileServerUrl;
+                case FAAChartMapSource.WorldAeronautical:
+                    return worldAeronauticalTileServerUrl;
+                case FAAChartMapSource.StreetMap:
+                    return streetMapTileUrlTemplate;
+                case FAAChartMapSource.Custom:
+                    return customTileUrlTemplate;
+                case FAAChartMapSource.Sectional:
+                default:
+                    return tileServerUrl;
+            }
+        }
+
+        private static string GetMapSourceDisplayName(FAAChartMapSource source)
+        {
+            switch (source)
+            {
+                case FAAChartMapSource.TerminalArea:
+                    return "TERMINAL";
+                case FAAChartMapSource.WorldAeronautical:
+                    return "WAC";
+                case FAAChartMapSource.StreetMap:
+                    return "STREET";
+                case FAAChartMapSource.Custom:
+                    return "CUSTOM";
+                case FAAChartMapSource.Sectional:
+                default:
+                    return "SECTIONAL";
             }
         }
 

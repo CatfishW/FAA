@@ -1,5 +1,6 @@
 using TMPro;
 using System.Collections.Generic;
+using TrafficRadar;
 using UnityEngine;
 using UnityEngine.EventSystems;
 using UnityEngine.UI;
@@ -217,6 +218,9 @@ namespace FAA.Customization
         IPointerExitHandler,
         IPointerDownHandler,
         IPointerUpHandler,
+        IBeginDragHandler,
+        IDragHandler,
+        IEndDragHandler,
         IScrollHandler
     {
         public const string WeatherObjectName = "FAAWeatherRadarInteractionSurface";
@@ -237,7 +241,12 @@ namespace FAA.Customization
         private bool _pressed;
         private bool _open;
         private bool _interactionEnabled = true;
+        private bool _dragging;
+        private bool _suppressClick;
+        private TrafficRadarDisplay _trafficDisplay;
         private float _visualProgress;
+
+        private const float DragThresholdPixels = 4f;
 
         public FaaRadarKind RadarKind => radarKind;
         public bool IsOpen => _open;
@@ -308,8 +317,9 @@ namespace FAA.Customization
 
         public void OnPointerClick(PointerEventData eventData)
         {
-            if (!_interactionEnabled || eventData.button != PointerEventData.InputButton.Left)
+            if (!_interactionEnabled || _suppressClick || eventData.button != PointerEventData.InputButton.Left)
             {
+                _suppressClick = false;
                 return;
             }
 
@@ -338,11 +348,61 @@ namespace FAA.Customization
             if (_interactionEnabled && eventData.button == PointerEventData.InputButton.Left)
             {
                 _pressed = true;
+                _dragging = false;
+                _suppressClick = false;
             }
         }
 
         public void OnPointerUp(PointerEventData eventData)
         {
+            _pressed = false;
+        }
+
+        public void OnBeginDrag(PointerEventData eventData)
+        {
+            if (!_interactionEnabled || radarKind != FaaRadarKind.Traffic ||
+                eventData.button != PointerEventData.InputButton.Left)
+            {
+                return;
+            }
+
+            ResolveTrafficDisplay();
+            if (_trafficDisplay == null || !_trafficDisplay.IsFullscreen ||
+                ! _trafficDisplay.MapPanningEnabled)
+            {
+                return;
+            }
+
+            _dragging = true;
+            _suppressClick = true;
+            eventData.Use();
+        }
+
+        public void OnDrag(PointerEventData eventData)
+        {
+            if (!_interactionEnabled || !_dragging || _trafficDisplay == null)
+            {
+                return;
+            }
+
+            Vector2 delta = eventData.delta;
+            if (delta.sqrMagnitude < DragThresholdPixels * DragThresholdPixels)
+            {
+                return;
+            }
+
+            _trafficDisplay.PanMap(delta);
+            eventData.Use();
+        }
+
+        public void OnEndDrag(PointerEventData eventData)
+        {
+            if (_dragging)
+            {
+                eventData.Use();
+            }
+
+            _dragging = false;
             _pressed = false;
         }
 
@@ -355,6 +415,28 @@ namespace FAA.Customization
 
             owner?.AdjustRadarSize(radarKind, eventData.scrollDelta.y);
             eventData.Use();
+        }
+
+        private void ResolveTrafficDisplay()
+        {
+            if (_trafficDisplay != null)
+            {
+                return;
+            }
+
+            // The interaction surface is a sibling of Radar Display beneath
+            // the same Traffic Radar System root.  Resolving locally avoids
+            // accidentally binding to the hidden legacy radar duplicate.
+            Transform systemRoot = transform.parent;
+            if (systemRoot != null)
+            {
+                _trafficDisplay = systemRoot.GetComponentInChildren<TrafficRadarDisplay>(true);
+            }
+
+            if (_trafficDisplay == null)
+            {
+                _trafficDisplay = FindAnyObjectByType<TrafficRadarDisplay>(FindObjectsInactive.Include);
+            }
         }
 
         private void EnsureVisualTree()
