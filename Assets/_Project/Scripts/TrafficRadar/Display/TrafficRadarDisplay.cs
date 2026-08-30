@@ -217,6 +217,11 @@ namespace TrafficRadar
         // settle without blocking input.
         private Vector2 _mapPan;
         private Vector2 _mapPanTarget;
+        // While a pilot is inspecting the chart, the own-ship glyph is a
+        // moving reference that obscures the map beneath the scope. Keep the
+        // suppression transient so the normal centered radar presentation is
+        // restored as soon as the drag is released.
+        private bool _mapDragActive;
         private Vector2 _chartBaseAnchoredPosition;
         private Vector2 _chartBaseSizeDelta;
         private RectTransform _chartBaseRect;
@@ -338,6 +343,20 @@ namespace TrafficRadar
         /// Current chart drag offset in display-local pixels.
         /// </summary>
         public Vector2 MapPan => _mapPanTarget;
+
+        /// <summary>
+        /// Whether a pilot is currently dragging the chart in the focused
+        /// traffic radar.  This is intentionally runtime-only state; it must
+        /// never persist into the compact HUD or a scene reload.
+        /// </summary>
+        public bool IsMapDragging => _mapDragActive;
+
+        /// <summary>
+        /// Whether own-ship symbology is currently painted into the generated
+        /// radar texture. It is false only for the transient chart-drag
+        /// interval (or while the component is disabled).
+        /// </summary>
+        public bool OwnAircraftOverlayVisible => !_mapDragActive;
 
         public bool MapPanningEnabled => enableMapPanning;
 
@@ -579,6 +598,12 @@ namespace TrafficRadar
             // Do not force canvases or rebuild textures while Unity is tearing
             // down the hierarchy; defer the restore if the parent is inactive.
             RestoreFullscreenLayout(false, false, true);
+
+            // Pointer cancellation and XR mode switches can disable the
+            // display without delivering IEndDrag to the sibling surface.
+            // Clear the transient suppression so a subsequent enable always
+            // redraws the own-ship glyph.
+            _mapDragActive = false;
 
             // Unsubscribe from controller
             if (radarController != null)
@@ -1491,6 +1516,15 @@ namespace TrafficRadar
                 return;
             }
 
+            // REST can be invoked by the compact toolbar while a pointer/XR
+            // drag is still captured. Treat that transition as a cancelled
+            // drag so the chart is centered and the own-ship glyph is restored
+            // before the root starts shrinking.
+            if (_mapDragActive)
+            {
+                EndMapDrag();
+            }
+
             if (_fullscreenTransition != null)
             {
                 StopCoroutine(_fullscreenTransition);
@@ -1791,6 +1825,57 @@ namespace TrafficRadar
             }
 
             MapPanChanged?.Invoke(_mapPanTarget);
+        }
+
+        /// <summary>
+        /// Mark the beginning of a focused chart drag.  The chart remains the
+        /// only moving layer; own-ship symbology is omitted until
+        /// <see cref="EndMapDrag"/> recenters the map.
+        /// </summary>
+        public void BeginMapDrag()
+        {
+            if (!enableMapPanning || _mapDragActive)
+            {
+                return;
+            }
+
+            _mapDragActive = true;
+            MarkRadarDirty();
+        }
+
+        /// <summary>
+        /// Finish a focused chart drag and immediately return the chart to the
+        /// own-ship-centered position.  Immediate reset avoids a frame where
+        /// the restored own-ship glyph is offset from the aircraft position.
+        /// </summary>
+        public void EndMapDrag()
+        {
+            bool wasDragging = _mapDragActive;
+            _mapDragActive = false;
+
+            // Always reset, even if the pointer was cancelled after the last
+            // drag event.  ResetMapPan is idempotent when already centered.
+            ResetMapPan(true);
+            if (wasDragging)
+            {
+                MarkRadarDirty();
+            }
+        }
+
+        /// <summary>
+        /// Convenience setter for XR/input adapters that expose a single drag
+        /// state callback.
+        /// </summary>
+        public void SetMapDragState(bool dragging)
+        {
+            if (dragging)
+            {
+                BeginMapDrag();
+            }
+            else
+            {
+                EndMapDrag();
+            }
         }
 
         /// <summary>
@@ -2588,8 +2673,15 @@ namespace TrafficRadar
             // Draw traffic symbols
             DrawTrafficSymbols(centerX, centerY, radius);
 
-            // Draw own aircraft at center
-            DrawOwnAircraft(centerX, centerY);
+            // Draw own aircraft at center unless the pilot is temporarily
+            // inspecting a panned chart.  Keeping this in the generated
+            // texture means the traffic targets/range rings remain useful
+            // during a drag while the own-ship marker cannot obscure chart
+            // details underneath it.
+            if (!_mapDragActive)
+            {
+                DrawOwnAircraft(centerX, centerY);
+            }
 
             // Apply texture changes
             radarTexture.SetPixels32(drawPixels);

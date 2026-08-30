@@ -98,7 +98,13 @@ namespace TrafficRadar
         // Cache
         private Dictionary<string, CachedTile> tileCache = new Dictionary<string, CachedTile>();
         private Texture2D currentCompositeTexture;
-        private int compositeSize = 512;
+        // Keep the chart composite at a native enough resolution for the
+        // enlarged XR-3/focus view.  The previous 512px texture was routinely
+        // up-scaled to an 800-1600px circular scope, making chart labels and
+        // symbology appear soft even when the source tiles were available.
+        // 1024px keeps the same 3x3 tile layout and memory footprint modest
+        // (4 MiB for RGBA32) while providing a much sharper presentation.
+        private int compositeSize = 1024;
 
         // State
         private bool isLoading;

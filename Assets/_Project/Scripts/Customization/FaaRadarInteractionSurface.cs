@@ -266,6 +266,15 @@ namespace FAA.Customization
 
         public void SetInteractionEnabled(bool value)
         {
+            if (!value)
+            {
+                // Disabling the surface (for example while leaving XR focus)
+                // is equivalent to cancelling the pointer gesture. Unity may
+                // not emit IEndDrag in that path, so explicitly restore the
+                // chart and own-ship overlay before clearing local state.
+                FinishTrafficMapDrag(null);
+            }
+
             _interactionEnabled = value;
             Image hitArea = GetComponent<Image>();
             if (hitArea != null)
@@ -286,6 +295,15 @@ namespace FAA.Customization
         private void Awake()
         {
             EnsureVisualTree();
+        }
+
+        private void OnDisable()
+        {
+            // Pointer cancellation, scene reloads, and XR canvas mode changes
+            // can disable this component without a matching pointer-up event.
+            // Never leave the traffic chart panned or its own-ship glyph
+            // suppressed across that lifecycle boundary.
+            FinishTrafficMapDrag(null);
         }
 
         private void Update()
@@ -368,6 +386,12 @@ namespace FAA.Customization
         public void OnPointerUp(PointerEventData eventData)
         {
             _pressed = false;
+            // OnPointerUp is a safety net for input modules that do not send
+            // IEndDrag after the pointer leaves the interaction surface.
+            if (_dragging)
+            {
+                FinishTrafficMapDrag(eventData);
+            }
         }
 
         public void OnBeginDrag(PointerEventData eventData)
@@ -387,6 +411,7 @@ namespace FAA.Customization
 
             _dragging = true;
             _suppressClick = true;
+            _trafficDisplay.BeginMapDrag();
             eventData.Use();
         }
 
@@ -409,13 +434,23 @@ namespace FAA.Customization
 
         public void OnEndDrag(PointerEventData eventData)
         {
-            if (_dragging)
-            {
-                eventData.Use();
-            }
+            FinishTrafficMapDrag(eventData);
+        }
 
+        private void FinishTrafficMapDrag(PointerEventData eventData)
+        {
+            bool wasDragging = _dragging;
             _dragging = false;
             _pressed = false;
+
+            if (wasDragging)
+            {
+                // EndMapDrag recenters immediately, then redraws the own-ship
+                // glyph. This keeps the restored marker aligned with the
+                // aircraft instead of briefly showing it over a stale pan.
+                _trafficDisplay?.EndMapDrag();
+                eventData?.Use();
+            }
         }
 
         public void OnScroll(PointerEventData eventData)

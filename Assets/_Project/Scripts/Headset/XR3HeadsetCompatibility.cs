@@ -34,6 +34,10 @@ namespace FAA.Headset
 
         private const string RuntimeObjectName = "FAA XR-3 Headset Compatibility";
         private const string SimulatorResourcePath = "FAA/XR3/XR Interaction Simulator";
+        private const string SimulatorUiName = "XR Interaction Simulator UI";
+        private const string SimulatorPlayModeMenuName = "PlayModeMenu";
+        private const string SimulatorInputSelectionWindowName = "InputSelectionWindow";
+        private const string SimulatorInputSelectionClosedWindowName = "InputSelectionClosedWindow";
 
         [Header("Activation")]
         [SerializeField] private ActivationMode activationMode = ActivationMode.Auto;
@@ -51,6 +55,11 @@ namespace FAA.Headset
         [SerializeField] private bool useScreenSpaceOverlayForSimulator = true;
         [Tooltip("Keep the desktop pointer available for FAA's screen-space controls while the Unity XR simulator is running in the Editor. Disable this only when testing controller point-and-click input with a camera-space XR UI.")]
         [SerializeField] private bool preferEditorPointerInput = true;
+        [Header("Simulator UI Layout")]
+        [Tooltip("Move the XR Interaction Simulator input-selection menu to the upper-left safe area so it does not cover the FAA weather/traffic radar pair.")]
+        [SerializeField] private bool repositionSimulatorInputSelection = true;
+        [Tooltip("Margin in simulator canvas reference pixels from the upper-left safe area.")]
+        [SerializeField] private Vector2 simulatorInputSelectionMargin = new Vector2(18f, 18f);
         [SerializeField] private string[] overlayCanvasNames =
         {
             "FAASymbologyCanvas",
@@ -84,6 +93,7 @@ namespace FAA.Headset
         private bool _existingTrackedPoseDriverStateCaptured;
         private bool _active;
         private ActivationMode _activeMode;
+        private bool _simulatorInputSelectionLayoutConfigured;
         private int _nativeDetectionFrames;
         private bool _reportedUnavailable;
 
@@ -147,6 +157,17 @@ namespace FAA.Headset
                     Activate(ActivationMode.VarjoXR3, false);
                 }
             }
+
+            // The simulator UI is instantiated by XRI one frame after the
+            // simulator root in some editor versions. Retry only until the
+            // two input-selection windows have been positioned, rather than
+            // walking the full UI hierarchy every frame for the rest of the
+            // session.
+            if (_active && _activeMode == ActivationMode.UnitySimulator &&
+                !_simulatorInputSelectionLayoutConfigured)
+            {
+                ConfigureSimulatorInputSelectionLayout();
+            }
         }
 
         private void OnDestroy()
@@ -163,6 +184,7 @@ namespace FAA.Headset
         {
             if (_active)
             {
+                _simulatorInputSelectionLayoutConfigured = false;
                 if (suspendLegacySa147WhileActive)
                 {
                     SuspendLegacySa147();
@@ -245,6 +267,7 @@ namespace FAA.Headset
             {
                 ConfigureSimulatorWeatherFallback(false);
                 RestoreCanvases();
+                _simulatorInputSelectionLayoutConfigured = false;
             }
 
             bool wasActive = _active && _activeMode == mode;
@@ -265,9 +288,11 @@ namespace FAA.Headset
             {
                 EnsureSimulator();
                 ConfigureSimulatorPointerInput();
+                ConfigureSimulatorInputSelectionLayout();
             }
             else
             {
+                _simulatorInputSelectionLayoutConfigured = false;
                 DestroySimulator();
             }
 
@@ -739,6 +764,163 @@ namespace FAA.Headset
                 useScreenSpaceOverlayForSimulator &&
                 preferEditorPointerInput;
             simulator.usePointAndClick = useEditorPointer ? false : _simulatorOriginalPointAndClick;
+        }
+
+        /// <summary>
+        /// XRI's sample UI places its input-selection strip at the lower-left
+        /// corner by default. FAA uses both lower corners for the weather and
+        /// traffic radar displays, so the strip can obscure the radar image
+        /// and intercept its pointer events. Keep the XRI menu functional but
+        /// move both its collapsed and expanded windows into the upper-left
+        /// safe area. The windows are children of a VerticalLayoutGroup; an
+        /// ignored LayoutElement is required so that group's next rebuild does
+        /// not snap them back to the lower-left position.
+        /// </summary>
+        private void ConfigureSimulatorInputSelectionLayout()
+        {
+            if (!repositionSimulatorInputSelection)
+            {
+                // Avoid a per-frame retry loop when a project deliberately
+                // opts out of the safe-area relocation.
+                _simulatorInputSelectionLayoutConfigured = true;
+                return;
+            }
+
+            if (_simulatorInstance == null || _activeMode != ActivationMode.UnitySimulator)
+            {
+                return;
+            }
+
+            Transform simulatorUi = FindSimulatorUiTransform();
+            if (simulatorUi == null)
+            {
+                return;
+            }
+
+            Transform playModeMenu = FindDescendantByName(simulatorUi, SimulatorPlayModeMenuName);
+            if (playModeMenu == null)
+            {
+                return;
+            }
+
+            RectTransform menuRect = playModeMenu as RectTransform;
+            if (menuRect == null)
+            {
+                menuRect = playModeMenu.GetComponent<RectTransform>();
+            }
+
+            bool configured = false;
+            configured |= PositionSimulatorInputSelectionWindow(
+                FindDescendantByName(playModeMenu, SimulatorInputSelectionClosedWindowName),
+                menuRect);
+            configured |= PositionSimulatorInputSelectionWindow(
+                FindDescendantByName(playModeMenu, SimulatorInputSelectionWindowName),
+                menuRect);
+
+            if (configured)
+            {
+                _simulatorInputSelectionLayoutConfigured = true;
+            }
+        }
+
+        private Transform FindSimulatorUiTransform()
+        {
+            if (_simulatorInstance != null)
+            {
+                Transform[] descendants = _simulatorInstance.GetComponentsInChildren<Transform>(true);
+                for (int i = 0; i < descendants.Length; i++)
+                {
+                    Transform candidate = descendants[i];
+                    if (candidate != null && IsSimulatorUiName(candidate.name))
+                    {
+                        return candidate;
+                    }
+                }
+            }
+
+            // A nested UI prefab can be promoted out of the simulator root by
+            // XRI's DontDestroyOnLoad handling. Fall back to a global lookup so
+            // the layout still applies after a scene transition.
+            Transform[] allTransforms = FindObjectsByType<Transform>(FindObjectsInactive.Include, FindObjectsSortMode.None);
+            for (int i = 0; i < allTransforms.Length; i++)
+            {
+                Transform candidate = allTransforms[i];
+                if (candidate != null && IsSimulatorUiName(candidate.name))
+                {
+                    return candidate;
+                }
+            }
+
+            return null;
+        }
+
+        private static bool IsSimulatorUiName(string objectName)
+        {
+            return !string.IsNullOrEmpty(objectName) &&
+                objectName.StartsWith(SimulatorUiName, StringComparison.OrdinalIgnoreCase);
+        }
+
+        private static Transform FindDescendantByName(Transform root, string objectName)
+        {
+            if (root == null || string.IsNullOrEmpty(objectName))
+            {
+                return null;
+            }
+
+            Transform[] descendants = root.GetComponentsInChildren<Transform>(true);
+            for (int i = 0; i < descendants.Length; i++)
+            {
+                Transform candidate = descendants[i];
+                if (candidate != null && string.Equals(candidate.name, objectName, StringComparison.Ordinal))
+                {
+                    return candidate;
+                }
+            }
+
+            return null;
+        }
+
+        private bool PositionSimulatorInputSelectionWindow(Transform window, RectTransform menuRect)
+        {
+            if (window == null)
+            {
+                return false;
+            }
+
+            RectTransform rect = window as RectTransform;
+            if (rect == null)
+            {
+                rect = window.GetComponent<RectTransform>();
+            }
+
+            if (rect == null)
+            {
+                return false;
+            }
+
+            LayoutElement layoutElement = window.GetComponent<LayoutElement>();
+            if (layoutElement == null)
+            {
+                layoutElement = window.gameObject.AddComponent<LayoutElement>();
+            }
+
+            layoutElement.ignoreLayout = true;
+            rect.anchorMin = new Vector2(0f, 1f);
+            rect.anchorMax = new Vector2(0f, 1f);
+            rect.pivot = new Vector2(0f, 1f);
+            rect.anchoredPosition = new Vector2(
+                Mathf.Max(0f, simulatorInputSelectionMargin.x),
+                -Mathf.Max(0f, simulatorInputSelectionMargin.y));
+
+            // Keep the menu above other simulator controls while preserving
+            // XRI's own interaction and active-state toggling.
+            rect.SetAsLastSibling();
+            if (menuRect != null)
+            {
+                LayoutRebuilder.MarkLayoutForRebuild(menuRect);
+            }
+
+            return true;
         }
 
         private void RestoreSimulatorPointerInput()
