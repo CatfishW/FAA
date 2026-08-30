@@ -661,9 +661,15 @@ namespace FAA.Editor
                 NormalizeTrafficRadarDisplayRoot(root, display);
                 SerializedObject displaySo = new SerializedObject(display);
                 SetObject(displaySo, "radarController", controller);
-                SetBool(displaySo, "showChartBackground", false);
+                // The sectional chart is presented as a masked, low-opacity
+                // context layer in the XR-3 traffic radar.  TrafficRadarDisplay
+                // still lets the pilot hide it with CHT/voice controls.
+                SetBool(displaySo, "showChartBackground", true);
                 SetFloat(displaySo, "chartOpacity", 0.28f);
                 SetFloat(displaySo, "chartEdgeSoftness", 0.035f);
+                SetBool(displaySo, "enableChartFadeAnimation", true);
+                SetFloat(displaySo, "chartFadeDuration", 0.24f);
+                SetFloat(displaySo, "chartPositionRetrySeconds", 0.75f);
                 SetBool(displaySo, "showRadarBackground", true);
                 SetBool(displaySo, "enforceReadablePanelBackground", false);
                 SetFloat(displaySo, "minimumPanelBackgroundOpacity", 0f);
@@ -679,6 +685,7 @@ namespace FAA.Editor
                 SetColor(displaySo, "compassMarkingsColor", new Color(0.74f, 1f, 0.95f, 0.88f));
                 SetColor(displaySo, "ownAircraftColor", new Color(0.35f, 1f, 0.55f, 1f));
                 SetObject(displaySo, "radarImage", EnsureTrafficRadarImage(display));
+                SetObject(displaySo, "chartBackgroundImage", EnsureTrafficChartImage(display));
                 displaySo.ApplyModifiedPropertiesWithoutUndo();
                 EditorUtility.SetDirty(display);
             }
@@ -755,6 +762,42 @@ namespace FAA.Editor
 
             EditorUtility.SetDirty(image);
             EditorUtility.SetDirty(image.gameObject);
+            EditorUtility.SetDirty(imageRect);
+            return image;
+        }
+
+        private static RawImage EnsureTrafficChartImage(global::TrafficRadar.TrafficRadarDisplay display)
+        {
+            if (display == null)
+            {
+                return null;
+            }
+
+            Transform existing = FindChildRecursive(display.transform, "Chart Background");
+            GameObject imageObject = existing != null
+                ? existing.gameObject
+                : new GameObject("Chart Background", typeof(RectTransform), typeof(CanvasRenderer), typeof(RawImage));
+            imageObject.transform.SetParent(display.transform, false);
+            imageObject.name = "Chart Background";
+            imageObject.SetActive(true);
+
+            RawImage image = imageObject.GetComponent<RawImage>() ?? imageObject.AddComponent<RawImage>();
+            image.enabled = true;
+            image.texture = null;
+            image.color = Color.white;
+            image.raycastTarget = false;
+
+            RectTransform imageRect = EnsureRectTransform(imageObject);
+            imageRect.anchorMin = Vector2.zero;
+            imageRect.anchorMax = Vector2.one;
+            imageRect.pivot = new Vector2(0.5f, 0.5f);
+            imageRect.anchoredPosition = Vector2.zero;
+            imageRect.sizeDelta = Vector2.zero;
+            imageRect.localScale = Vector3.one;
+            imageRect.localRotation = Quaternion.identity;
+
+            EditorUtility.SetDirty(image);
+            EditorUtility.SetDirty(imageObject);
             EditorUtility.SetDirty(imageRect);
             return image;
         }

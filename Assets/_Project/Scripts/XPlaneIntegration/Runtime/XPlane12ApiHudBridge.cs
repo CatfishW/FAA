@@ -1843,6 +1843,7 @@ namespace FAA.XPlaneIntegration.Runtime
 
             double ownLat = Get(_snapshot.Aircraft, "sim/flightmodel/position/latitude", 0d);
             double ownLon = Get(_snapshot.Aircraft, "sim/flightmodel/position/longitude", 0d);
+            ResolveTrafficRadarPosition(ref ownLat, ref ownLon);
             BuildTrafficRows(_snapshot.Traffic, ownLat, ownLon, _trafficRows);
             TrafficCount = _trafficRows.Count;
 
@@ -1869,12 +1870,15 @@ namespace FAA.XPlaneIntegration.Runtime
                 trafficRadarDataManager.aircraftList.Add(row);
             }
 
-            if (trafficRadarController != null)
+            if (trafficRadarController != null && IsValidGeoPosition(ownLat, ownLon))
             {
                 trafficRadarController.SetOwnPosition(ownLat, ownLon, data.altitudeMSL / MetersToFeet, data.heading);
             }
 
-            trafficRadarDataManager.SetReferencePosition((float)ownLat, (float)ownLon);
+            if (IsValidGeoPosition(ownLat, ownLon))
+            {
+                trafficRadarDataManager.SetReferencePosition((float)ownLat, (float)ownLon);
+            }
             trafficRadarDataManager.onDataUpdated?.Invoke(_trafficRows);
         }
 
@@ -1931,15 +1935,60 @@ namespace FAA.XPlaneIntegration.Runtime
 
         private void ClearTrafficRadarRows(double ownLat, double ownLon, AviationFlightData data)
         {
+            ResolveTrafficRadarPosition(ref ownLat, ref ownLon);
             trafficRadarDataManager.aircraftMap.Clear();
             trafficRadarDataManager.aircraftList.Clear();
-            trafficRadarDataManager.SetReferencePosition((float)ownLat, (float)ownLon);
+            bool hasValidPosition = IsValidGeoPosition(ownLat, ownLon);
+            if (hasValidPosition)
+            {
+                trafficRadarDataManager.SetReferencePosition((float)ownLat, (float)ownLon);
+            }
             trafficRadarDataManager.onDataUpdated?.Invoke(_trafficRows);
 
-            if (trafficRadarController != null)
+            if (trafficRadarController != null && hasValidPosition)
             {
-                trafficRadarController.SetOwnPosition(ownLat, ownLon, data.altitudeMSL / MetersToFeet, data.heading);
+                float altitudeMeters = data != null ? data.altitudeMSL / MetersToFeet : 0f;
+                float heading = data != null ? data.heading : trafficRadarController.OwnPosition.HeadingDegrees;
+                trafficRadarController.SetOwnPosition(ownLat, ownLon, altitudeMeters, heading);
             }
+        }
+
+        private void ResolveTrafficRadarPosition(ref double latitude, ref double longitude)
+        {
+            if (IsValidGeoPosition(latitude, longitude))
+            {
+                return;
+            }
+
+            // X-Plane can briefly omit the own-ship datarefs in the simulator
+            // stream.  Never replace a valid chart/radar center with (0, 0):
+            // preserve the controller's last position first, then the data
+            // manager's authored/reference airport location.
+            if (trafficRadarController != null && IsValidGeoPosition(
+                    trafficRadarController.OwnPosition.Latitude,
+                    trafficRadarController.OwnPosition.Longitude))
+            {
+                latitude = trafficRadarController.OwnPosition.Latitude;
+                longitude = trafficRadarController.OwnPosition.Longitude;
+                return;
+            }
+
+            if (trafficRadarDataManager != null && IsValidGeoPosition(
+                    trafficRadarDataManager.referenceLatitude,
+                    trafficRadarDataManager.referenceLongitude))
+            {
+                latitude = trafficRadarDataManager.referenceLatitude;
+                longitude = trafficRadarDataManager.referenceLongitude;
+            }
+        }
+
+        private static bool IsValidGeoPosition(double latitude, double longitude)
+        {
+            return !double.IsNaN(latitude) && !double.IsInfinity(latitude) &&
+                   !double.IsNaN(longitude) && !double.IsInfinity(longitude) &&
+                   latitude >= -90d && latitude <= 90d &&
+                   longitude >= -180d && longitude <= 180d &&
+                   (Math.Abs(latitude) > 0.00001d || Math.Abs(longitude) > 0.00001d);
         }
 
         private void BuildTrafficRows(

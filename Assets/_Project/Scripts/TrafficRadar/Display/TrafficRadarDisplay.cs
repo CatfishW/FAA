@@ -1,3 +1,4 @@
+using System.Collections;
 using System.Collections.Generic;
 using System;
 using UnityEngine;
@@ -17,7 +18,7 @@ namespace TrafficRadar
         [Header("Controller")]
         [Tooltip("Traffic Radar Controller - manages data and events")]
         [SerializeField] private TrafficRadarController radarController;
-        
+
         [Header("Chart Provider")]
         [SerializeField] private FAASectionalChartProvider chartProvider;
 
@@ -35,6 +36,33 @@ namespace TrafficRadar
         [Tooltip("Edge softness for circular chart mask (0 = hard edge, 0.1 = soft edge)")]
         [Range(0f, 0.1f)]
         [SerializeField] private float chartEdgeSoftness = 0.035f;
+
+        [Header("Chart Presentation")]
+        [Tooltip("Fade the sectional chart in and out so a pilot never loses the traffic picture abruptly.")]
+        [SerializeField] private bool enableChartFadeAnimation = true;
+
+        [Tooltip("Duration of the sectional chart fade in seconds.")]
+        [Min(0f)]
+        [SerializeField] private float chartFadeDuration = 0.24f;
+
+        [Tooltip("How often to retry chart positioning while the simulator is still publishing own-ship coordinates.")]
+        [Min(0.1f)]
+        [SerializeField] private float chartPositionRetrySeconds = 0.75f;
+
+        [Header("Pilot Focus Mode")]
+        [Tooltip("Allow the traffic radar to expand into a centered, immersive map view.")]
+        [SerializeField] private bool enableFullscreenMode = true;
+
+        [Tooltip("Inset from the edge of the XR-3 view while the radar is maximized.")]
+        [Min(0f)]
+        [SerializeField] private float fullscreenMargin = 42f;
+
+        [Tooltip("Animate the radar into and out of the maximized view.")]
+        [SerializeField] private bool animateFullscreenTransition = true;
+
+        [Tooltip("Duration of the maximized-view transition in seconds.")]
+        [Min(0f)]
+        [SerializeField] private float fullscreenTransitionDuration = 0.24f;
 
         [Header("Range Settings")]
         [Tooltip("Current radar range in nautical miles")]
@@ -155,6 +183,43 @@ namespace TrafficRadar
         private bool _radarTextureDirty = true;
         private float _lastDrawnHeadingRotation = float.NaN;
 
+        // Sectional chart presentation/fetch state.  The chart child remains
+        // active in the hierarchy so CHT can be used at runtime even when the
+        // authored RawImage was disabled in the scene.  Its graphic is faded
+        // independently of the traffic symbols to preserve legibility.
+        private float _chartVisualOpacity;
+        private float _chartFadeFromOpacity;
+        private float _chartFadeToOpacity;
+        private float _chartFadeStartTime;
+        private bool _chartFadeAnimating;
+        private float _nextChartPositionRetryTime;
+        private bool _chartFetchRequested;
+        private float _lastChartRequestLat = float.NaN;
+        private float _lastChartRequestLon = float.NaN;
+        private float _lastChartRequestRange = float.NaN;
+
+        // Pilot focus/fullscreen layout state.  The radar root stays in the
+        // scene hierarchy (rather than cloning or reparenting the display), so
+        // controller, chart provider, and XR interaction references remain
+        // valid while the map is maximized.
+        private bool _isFullscreen;
+        private RectTransform _fullscreenRoot;
+        private Transform _fullscreenOriginalParent;
+        private int _fullscreenOriginalSiblingIndex;
+        private Vector2 _fullscreenOriginalAnchorMin;
+        private Vector2 _fullscreenOriginalAnchorMax;
+        private Vector2 _fullscreenOriginalPivot;
+        private Vector2 _fullscreenOriginalAnchoredPosition;
+        private Vector2 _fullscreenOriginalSizeDelta;
+        private Vector3 _fullscreenOriginalLocalPosition;
+        private Quaternion _fullscreenOriginalLocalRotation;
+        private Vector3 _fullscreenOriginalScale;
+        private bool _fullscreenLayoutStored;
+        private bool _fullscreenRestorePending;
+        private Coroutine _fullscreenTransition;
+        private bool _fullscreenTransitionIsExit;
+        private bool _updatingFullscreenLayout;
+
         #region Properties
 
         public float RangeNM
@@ -172,7 +237,7 @@ namespace TrafficRadar
                 }
             }
         }
-        
+
         /// <summary>
         /// Minimum zoom range in nautical miles.
         /// </summary>
@@ -197,10 +262,10 @@ namespace TrafficRadar
             set
             {
                 chartOpacity = Mathf.Clamp01(value);
-                UpdateChartOpacity();
+                BeginChartFade(showChartBackground && !preferXPlaneTrafficTexture ? chartOpacity : 0f, true);
             }
         }
-        
+
         /// <summary>
         /// Gets or sets the circular mask edge softness (0 = hard edge, 0.1 = soft edge).
         /// </summary>
@@ -233,8 +298,21 @@ namespace TrafficRadar
         }
 
         public bool ChartBackgroundVisible => showChartBackground;
+        public FAASectionalChartProvider ChartProvider => chartProvider;
         public int RangeRingCount => rangeRingCount;
-        
+
+        /// <summary>
+        /// Whether the traffic radar is currently in the centered pilot-focus view.
+        /// The map remains the same scene object, so chart, traffic, and XR pointer
+        /// references continue to work while it is maximized.
+        /// </summary>
+        public bool IsFullscreen => _isFullscreen;
+
+        /// <summary>
+        /// Raised after the radar enters or leaves pilot-focus view.
+        /// </summary>
+        public event Action<bool> FullscreenChanged;
+
         /// <summary>
         /// Gets or sets the radar background color.
         /// </summary>
@@ -369,7 +447,7 @@ namespace TrafficRadar
             compassMarkingsColor = new Color(0.74f, 1f, 0.95f, 0.88f);
             ownAircraftColor = new Color(0.35f, 1f, 0.55f, 1f);
             ClearRectangularMaskPlate();
-            UpdateChartOpacity();
+            BeginChartFade(showChartBackground && !preferXPlaneTrafficTexture ? chartOpacity : 0f, false);
             MarkRadarDirty();
         }
 
@@ -400,13 +478,23 @@ namespace TrafficRadar
         private void Awake()
         {
             rectTransform = GetComponent<RectTransform>();
+            _chartVisualOpacity = showChartBackground ? Mathf.Clamp01(chartOpacity) : 0f;
             NormalizePanelReadability();
             CreateRadarTexture();
             EnsureRadarImageReference();
+            EnsureChartImageReference();
         }
 
         private void OnEnable()
         {
+            // If the radar was disabled while its parent Canvas was also being
+            // deactivated, the original layout is restored on the first safe
+            // enable pass instead of touching an inactive hierarchy.
+            if (_fullscreenRestorePending)
+            {
+                RestoreFullscreenLayout(false, true, false);
+            }
+
             NormalizePanelReadability();
             EnsureRuntimeDisplayReady();
 
@@ -416,14 +504,17 @@ namespace TrafficRadar
                 radarController.OnTargetsUpdated.AddListener(OnControllerTargetsUpdated);
             }
 
-            if (chartProvider != null)
-            {
-                chartProvider.OnChartTileLoaded += OnChartLoaded;
-            }
+            SubscribeToChartProvider();
         }
 
         private void OnDisable()
         {
+            // A scene reload, prefab disable, or XR mode switch must never leave
+            // the shared radar root in its transient focus layout.
+            // Do not force canvases or rebuild textures while Unity is tearing
+            // down the hierarchy; defer the restore if the parent is inactive.
+            RestoreFullscreenLayout(false, false, true);
+
             // Unsubscribe from controller
             if (radarController != null)
             {
@@ -445,6 +536,8 @@ namespace TrafficRadar
             if (chartProvider == null)
                 chartProvider = FindAnyObjectByType<FAASectionalChartProvider>();
 
+            SubscribeToChartProvider();
+
             // Re-subscribe to controller if found in Start
             if (radarController != null)
             {
@@ -456,15 +549,10 @@ namespace TrafficRadar
             // Setup UI
             SetupDisplay();
             UpdateRangeLabel();
-
-            // Initial chart fetch
-            if (showChartBackground && chartProvider != null && radarController != null)
-            {
-                float lat = (float)radarController.OwnPosition.Latitude;
-                float lon = (float)radarController.OwnPosition.Longitude;
-                if (lat != 0 && lon != 0)
-                    chartProvider.FetchChartTiles(lat, lon, rangeNM);
-            }
+            // Initial chart fetch.  The X-Plane bridge may publish own-ship
+            // coordinates one or two frames after Start, so this method also
+            // retries from Update until a valid position is available.
+            TryFetchChartForCurrentPosition(true);
             
             // Auto-discover compass labels if not assigned
             if (compassLabels == null || compassLabels.Length == 0)
@@ -539,8 +627,190 @@ namespace TrafficRadar
             }
         }
 
+        private void SubscribeToChartProvider()
+        {
+            if (chartProvider != null)
+            {
+                // Remove first so a provider discovered in Start cannot be
+                // subscribed twice when the component was already enabled.
+                chartProvider.OnChartTileLoaded -= OnChartLoaded;
+                chartProvider.OnChartTileLoaded += OnChartLoaded;
+            }
+        }
+
+        private void EnsureChartImageReference()
+        {
+            if (chartBackgroundImage == null)
+            {
+                foreach (RawImage image in GetComponentsInChildren<RawImage>(true))
+                {
+                    if (image == null || image == radarImage)
+                    {
+                        continue;
+                    }
+
+                    string imageName = image.gameObject.name;
+                    if (imageName.IndexOf("chart", StringComparison.OrdinalIgnoreCase) >= 0 ||
+                        imageName.IndexOf("sectional", StringComparison.OrdinalIgnoreCase) >= 0)
+                    {
+                        chartBackgroundImage = image;
+                        break;
+                    }
+                }
+            }
+
+            if (chartBackgroundImage == null)
+            {
+                foreach (RawImage image in GetComponentsInChildren<RawImage>(true))
+                {
+                    if (image != null && image != radarImage)
+                    {
+                        chartBackgroundImage = image;
+                        break;
+                    }
+                }
+            }
+
+            if (chartBackgroundImage != null)
+            {
+                // Keep the GameObject alive even when the graphic is hidden.
+                // A disabled parent was the reason the CHT control appeared to
+                // do nothing in the XR-3 simulator scene.
+                chartBackgroundImage.gameObject.SetActive(true);
+                chartBackgroundImage.raycastTarget = false;
+            }
+        }
+
+        private bool TryResolveChartPosition(out float latitude, out float longitude)
+        {
+            latitude = 0f;
+            longitude = 0f;
+
+            if (radarController != null && IsValidGeoPosition(
+                    radarController.OwnPosition.Latitude,
+                    radarController.OwnPosition.Longitude))
+            {
+                latitude = (float)radarController.OwnPosition.Latitude;
+                longitude = (float)radarController.OwnPosition.Longitude;
+                return true;
+            }
+
+            // During simulator startup the controller can still contain its
+            // zero-value position while the data manager already has the
+            // authored/reference airport location.  Use that location for
+            // chart tiles and let the bridge replace it when live data arrives.
+            TrafficRadarDataManager manager = radarController != null
+                ? radarController.GetComponentInChildren<TrafficRadarDataManager>(true)
+                : null;
+            if (manager == null)
+            {
+                manager = FindAnyObjectByType<TrafficRadarDataManager>();
+            }
+
+            if (manager != null && IsValidGeoPosition(manager.referenceLatitude, manager.referenceLongitude))
+            {
+                latitude = manager.referenceLatitude;
+                longitude = manager.referenceLongitude;
+                return true;
+            }
+
+            return false;
+        }
+
+        private static bool IsValidGeoPosition(double latitude, double longitude)
+        {
+            return !double.IsNaN(latitude) && !double.IsInfinity(latitude) &&
+                   !double.IsNaN(longitude) && !double.IsInfinity(longitude) &&
+                   latitude >= -90d && latitude <= 90d &&
+                   longitude >= -180d && longitude <= 180d &&
+                   (Math.Abs(latitude) > 0.00001d || Math.Abs(longitude) > 0.00001d);
+        }
+
+        private bool TryFetchChartForCurrentPosition(bool force)
+        {
+            if (!showChartBackground || preferXPlaneTrafficTexture || chartProvider == null)
+            {
+                return false;
+            }
+
+            if (!TryResolveChartPosition(out float latitude, out float longitude))
+            {
+                if (Time.unscaledTime >= _nextChartPositionRetryTime)
+                {
+                    _nextChartPositionRetryTime = Time.unscaledTime + Mathf.Max(0.1f, chartPositionRetrySeconds);
+                }
+                return false;
+            }
+
+            bool positionChanged = !_chartFetchRequested ||
+                Mathf.Abs(latitude - _lastChartRequestLat) > 0.02f ||
+                Mathf.Abs(longitude - _lastChartRequestLon) > 0.02f ||
+                !Mathf.Approximately(rangeNM, _lastChartRequestRange);
+
+            if (!force && !positionChanged)
+            {
+                return true;
+            }
+
+            if (!force && chartProvider.IsLoading)
+            {
+                return true;
+            }
+
+            chartProvider.FetchChartTiles(latitude, longitude, rangeNM);
+            _lastChartRequestLat = latitude;
+            _lastChartRequestLon = longitude;
+            _lastChartRequestRange = rangeNM;
+            _chartFetchRequested = true;
+            _nextChartPositionRetryTime = Time.unscaledTime + Mathf.Max(0.1f, chartPositionRetrySeconds);
+            return true;
+        }
+
+        private void BeginChartFade(float targetOpacity, bool animate)
+        {
+            _chartFadeToOpacity = Mathf.Clamp01(targetOpacity);
+            if (!animate || !enableChartFadeAnimation || chartFadeDuration <= 0.001f || !Application.isPlaying)
+            {
+                _chartVisualOpacity = _chartFadeToOpacity;
+                _chartFadeAnimating = false;
+                ApplyChartVisualOpacity();
+                return;
+            }
+
+            _chartFadeFromOpacity = _chartVisualOpacity;
+            _chartFadeStartTime = Time.unscaledTime;
+            _chartFadeAnimating = true;
+            ApplyChartVisualOpacity();
+        }
+
+        private void UpdateChartFade()
+        {
+            if (!_chartFadeAnimating)
+            {
+                return;
+            }
+
+            float duration = Mathf.Max(0.001f, chartFadeDuration);
+            float progress = Mathf.Clamp01((Time.unscaledTime - _chartFadeStartTime) / duration);
+            // Smooth-step keeps the transition polished without adding a
+            // distracting pulse over the pilot's traffic symbols.
+            float eased = progress * progress * (3f - 2f * progress);
+            _chartVisualOpacity = Mathf.Lerp(_chartFadeFromOpacity, _chartFadeToOpacity, eased);
+            ApplyChartVisualOpacity();
+
+            if (progress >= 1f)
+            {
+                _chartFadeAnimating = false;
+            }
+        }
+
         private void OnDestroy()
         {
+            // OnDisable runs before destruction and handles any safe layout
+            // restore.  Do not touch parent/sibling transforms from OnDestroy:
+            // Unity may already be tearing the hierarchy down at this point.
+            ClearFullscreenState(false);
+
             if (radarTexture != null)
                 Destroy(radarTexture);
 
@@ -558,6 +828,9 @@ namespace TrafficRadar
         private void Update()
         {
             EnsureRuntimeDisplayReady();
+
+            UpdateChartFade();
+            TryFetchChartForCurrentPosition(false);
 
             // Handle zoom animation
             if (isAnimatingZoom)
@@ -629,6 +902,7 @@ namespace TrafficRadar
             }
 
             EnsureRadarImageReference();
+            EnsureChartImageReference();
             if (radarImage == null)
             {
                 return;
@@ -931,13 +1205,7 @@ namespace TrafficRadar
         /// </summary>
         private void RefreshChartForCurrentRange()
         {
-            if (showChartBackground && chartProvider != null && radarController != null)
-            {
-                chartProvider.FetchChartTiles(
-                    (float)radarController.OwnPosition.Latitude, 
-                    (float)radarController.OwnPosition.Longitude, 
-                    rangeNM);
-            }
+            TryFetchChartForCurrentPosition(false);
         }
 
         /// <summary>
@@ -945,10 +1213,448 @@ namespace TrafficRadar
         /// </summary>
         public void ToggleChartBackground()
         {
-            showChartBackground = !showChartBackground;
-            if (chartBackgroundImage != null)
+            SetChartBackgroundVisible(!showChartBackground, true);
+        }
+
+        /// <summary>
+        /// Toggle the traffic radar between its normal HUD footprint and a
+        /// centered, maximized pilot-focus view.
+        /// </summary>
+        public void ToggleFullscreen()
+        {
+            SetFullscreen(!_isFullscreen, true);
+        }
+
+        /// <summary>
+        /// Expand or restore the complete radar root.  The root is laid out
+        /// inside the existing Canvas instead of creating a second camera or
+        /// display, which keeps chart tiles, traffic symbols, and XR pointer
+        /// interaction live throughout the transition.
+        /// </summary>
+        public void SetFullscreen(bool fullscreen, bool animate = true)
+        {
+            if (fullscreen)
             {
-                chartBackgroundImage.enabled = showChartBackground;
+                // A pilot can press FULL again while REST is still animating.
+                // Reverse the in-flight transition instead of leaving the map
+                // in a half-sized state until the next button refresh.
+                if (_isFullscreen && _fullscreenTransition != null && _fullscreenTransitionIsExit)
+                {
+                    ReverseFullscreenEnter(animate);
+                    return;
+                }
+
+                EnterFullscreen(animate);
+            }
+            else
+            {
+                ExitFullscreen(animate);
+            }
+        }
+
+        private void EnterFullscreen(bool animate)
+        {
+            if (_isFullscreen)
+            {
+                return;
+            }
+
+            if (!enableFullscreenMode)
+            {
+                Debug.LogWarning("[TrafficRadarDisplay] Pilot-focus mode is disabled on this display.");
+                return;
+            }
+
+            RectTransform root = ResolveFullscreenRoot();
+            RectTransform canvasRect = ResolveCanvasRect(root);
+            if (root == null || canvasRect == null)
+            {
+                Debug.LogWarning("[TrafficRadarDisplay] Could not resolve a Canvas for pilot-focus mode.");
+                return;
+            }
+
+            CaptureFullscreenLayout(root);
+            if (_fullscreenTransition != null)
+            {
+                StopCoroutine(_fullscreenTransition);
+                _fullscreenTransition = null;
+            }
+
+            // A nested canvas is valid too; move only when needed and restore
+            // the original parent on exit.  In the FAA scene this is a no-op,
+            // because the traffic system is already a direct Canvas child.
+            if (root.parent != canvasRect)
+            {
+                root.SetParent(canvasRect, false);
+            }
+
+            ApplyFullscreenLayout(root, canvasRect);
+
+            _fullscreenRoot = root;
+            _isFullscreen = true;
+            Canvas.ForceUpdateCanvases();
+            SetupDisplay();
+            MarkRadarDirty();
+            FullscreenChanged?.Invoke(true);
+
+            if (ShouldAnimateFullscreen(animate))
+            {
+                Vector3 targetScale = _fullscreenOriginalScale;
+                Vector3 startScale = targetScale * 0.92f;
+                root.localScale = startScale;
+                _fullscreenTransitionIsExit = false;
+                _fullscreenTransition = StartCoroutine(AnimateFullscreenScale(root, startScale, targetScale));
+            }
+        }
+
+        private void OnRectTransformDimensionsChange()
+        {
+            if (!_isFullscreen || _fullscreenRoot == null || _updatingFullscreenLayout ||
+                _fullscreenRestorePending || !isActiveAndEnabled)
+            {
+                return;
+            }
+
+            RectTransform canvasRect = ResolveCanvasRect(_fullscreenRoot);
+            if (canvasRect != null)
+            {
+                ApplyFullscreenLayout(_fullscreenRoot, canvasRect);
+            }
+        }
+
+        private void ApplyFullscreenLayout(RectTransform root, RectTransform canvasRect)
+        {
+            if (root == null || canvasRect == null || _updatingFullscreenLayout)
+            {
+                return;
+            }
+
+            _updatingFullscreenLayout = true;
+            try
+            {
+                // Layout groups and XR CanvasScaler values may have settled
+                // only one frame before the button press or a display change.
+                Canvas.ForceUpdateCanvases();
+                Vector2 canvasSize = canvasRect.rect.size;
+                if (canvasSize.x <= 1f || canvasSize.y <= 1f)
+                {
+                    canvasSize = canvasRect.sizeDelta;
+                }
+
+                if (canvasSize.x <= 1f || canvasSize.y <= 1f)
+                {
+                    canvasSize = new Vector2(Screen.width, Screen.height);
+                }
+
+                float margin = Mathf.Max(0f, fullscreenMargin);
+                float availableWidth = Mathf.Max(1f, canvasSize.x - margin * 2f);
+                // Reserve a small band for the sibling traffic strip. Without
+                // this, a square that reaches the top of a 16:9 Canvas pushes
+                // REST/CHT controls into the clipped XR view.
+                float controlsReserve = 0f;
+                Transform controls = canvasRect.Find("TrafficControlStrip");
+                if (controls != null)
+                {
+                    RectTransform controlsRect = controls as RectTransform ?? controls.GetComponent<RectTransform>();
+                    float controlsHeight = controlsRect != null
+                        ? (controlsRect.rect.height > 1f ? controlsRect.rect.height : controlsRect.sizeDelta.y)
+                        : 0f;
+                    controlsReserve = Mathf.Max(0f, controlsHeight + 12f);
+                }
+
+                float availableHeight = Mathf.Max(1f, canvasSize.y - margin * 2f - controlsReserve);
+                float focusSize = Mathf.Min(availableWidth, availableHeight);
+
+                root.anchorMin = new Vector2(0.5f, 0.5f);
+                root.anchorMax = new Vector2(0.5f, 0.5f);
+                root.pivot = new Vector2(0.5f, 0.5f);
+                root.anchoredPosition = Vector2.zero;
+                root.sizeDelta = new Vector2(focusSize, focusSize);
+                root.localPosition = new Vector3(root.localPosition.x, root.localPosition.y, _fullscreenOriginalLocalPosition.z);
+                root.localRotation = Quaternion.identity;
+                root.localScale = _fullscreenOriginalScale;
+                root.SetAsLastSibling();
+
+                // The strip is a sibling of the radar root. Keep it above the
+                // maximized map so the pilot can immediately press REST/CHT/TRK.
+                BringTrafficControlsForward(canvasRect);
+            }
+            finally
+            {
+                _updatingFullscreenLayout = false;
+            }
+        }
+
+        private void ReverseFullscreenEnter(bool animate)
+        {
+            RectTransform root = _fullscreenRoot;
+            if (_fullscreenTransition != null)
+            {
+                StopCoroutine(_fullscreenTransition);
+                _fullscreenTransition = null;
+            }
+
+            if (root == null)
+            {
+                _fullscreenTransitionIsExit = false;
+                return;
+            }
+
+            if (ShouldAnimateFullscreen(animate))
+            {
+                Vector3 startScale = root.localScale;
+                _fullscreenTransitionIsExit = false;
+                _fullscreenTransition = StartCoroutine(AnimateFullscreenScale(root, startScale, _fullscreenOriginalScale));
+            }
+            else
+            {
+                root.localScale = _fullscreenOriginalScale;
+                _fullscreenTransitionIsExit = false;
+            }
+        }
+
+        private void ExitFullscreen(bool animate)
+        {
+            if (!_isFullscreen)
+            {
+                return;
+            }
+
+            if (_fullscreenTransition != null)
+            {
+                StopCoroutine(_fullscreenTransition);
+                _fullscreenTransition = null;
+            }
+
+            RectTransform root = _fullscreenRoot;
+            if (ShouldAnimateFullscreen(animate) && root != null)
+            {
+                Vector3 startScale = root.localScale;
+                Vector3 targetScale = _fullscreenOriginalScale * 0.92f;
+                _fullscreenTransitionIsExit = true;
+                _fullscreenTransition = StartCoroutine(AnimateFullscreenExit(root, startScale, targetScale));
+                return;
+            }
+
+            RestoreFullscreenLayout(true);
+        }
+
+        private IEnumerator AnimateFullscreenScale(RectTransform root, Vector3 from, Vector3 to)
+        {
+            float duration = Mathf.Max(0.001f, fullscreenTransitionDuration);
+            float elapsed = 0f;
+            while (root != null && elapsed < duration)
+            {
+                elapsed += Time.unscaledDeltaTime;
+                float progress = Mathf.Clamp01(elapsed / duration);
+                float eased = progress * progress * (3f - 2f * progress);
+                root.localScale = Vector3.LerpUnclamped(from, to, eased);
+                yield return null;
+            }
+
+            if (root != null)
+            {
+                root.localScale = to;
+            }
+
+            _fullscreenTransition = null;
+            _fullscreenTransitionIsExit = false;
+        }
+
+        private IEnumerator AnimateFullscreenExit(RectTransform root, Vector3 from, Vector3 to)
+        {
+            float duration = Mathf.Max(0.001f, fullscreenTransitionDuration);
+            float elapsed = 0f;
+            while (root != null && elapsed < duration)
+            {
+                elapsed += Time.unscaledDeltaTime;
+                float progress = Mathf.Clamp01(elapsed / duration);
+                float eased = progress * progress * (3f - 2f * progress);
+                root.localScale = Vector3.LerpUnclamped(from, to, eased);
+                yield return null;
+            }
+
+            _fullscreenTransition = null;
+            _fullscreenTransitionIsExit = false;
+            RestoreFullscreenLayout(true);
+        }
+
+        private bool ShouldAnimateFullscreen(bool requested)
+        {
+            return requested && animateFullscreenTransition && fullscreenTransitionDuration > 0.001f && Application.isPlaying;
+        }
+
+        private RectTransform ResolveFullscreenRoot()
+        {
+            // TrafficRadarDisplay is intentionally a child of the system root;
+            // resizing that root also resizes the interaction surface and chart.
+            return transform.parent as RectTransform ?? rectTransform;
+        }
+
+        private static RectTransform ResolveCanvasRect(RectTransform root)
+        {
+            if (root == null)
+            {
+                return null;
+            }
+
+            Canvas canvas = root.GetComponentInParent<Canvas>();
+            if (canvas == null)
+            {
+                return root.parent as RectTransform;
+            }
+
+            RectTransform canvasRect = canvas.transform as RectTransform;
+            // GetComponentInParent includes the root itself.  Never attempt
+            // root.SetParent(root, false) when a traffic system happens to own
+            // a Canvas component; use its parent Canvas/RectTransform instead.
+            if (canvasRect == root)
+            {
+                Canvas parentCanvas = canvas.transform.parent != null
+                    ? canvas.transform.parent.GetComponentInParent<Canvas>()
+                    : null;
+                canvasRect = parentCanvas != null
+                    ? parentCanvas.transform as RectTransform
+                    : canvas.transform.parent as RectTransform;
+            }
+
+            return canvasRect != root ? canvasRect : null;
+        }
+
+        private void CaptureFullscreenLayout(RectTransform root)
+        {
+            _fullscreenRoot = root;
+            _fullscreenOriginalParent = root.parent;
+            _fullscreenOriginalSiblingIndex = root.GetSiblingIndex();
+            _fullscreenOriginalAnchorMin = root.anchorMin;
+            _fullscreenOriginalAnchorMax = root.anchorMax;
+            _fullscreenOriginalPivot = root.pivot;
+            _fullscreenOriginalAnchoredPosition = root.anchoredPosition;
+            _fullscreenOriginalSizeDelta = root.sizeDelta;
+            _fullscreenOriginalLocalPosition = root.localPosition;
+            _fullscreenOriginalLocalRotation = root.localRotation;
+            _fullscreenOriginalScale = root.localScale;
+            _fullscreenLayoutStored = true;
+            _fullscreenRestorePending = false;
+        }
+
+        private void RestoreFullscreenLayout(bool notify, bool refreshDisplay = true, bool allowDefer = true)
+        {
+            if (_fullscreenTransition != null)
+            {
+                StopCoroutine(_fullscreenTransition);
+                _fullscreenTransition = null;
+            }
+            _fullscreenTransitionIsExit = false;
+
+            if (!_fullscreenLayoutStored)
+            {
+                _isFullscreen = false;
+                _fullscreenRoot = null;
+                _fullscreenRestorePending = false;
+                return;
+            }
+
+            RectTransform root = _fullscreenRoot;
+            if (root == null)
+            {
+                ClearFullscreenState(false);
+                return;
+            }
+
+            bool rootActive = root.gameObject.activeInHierarchy;
+            bool parentActive = _fullscreenOriginalParent == null || _fullscreenOriginalParent.gameObject.activeInHierarchy;
+            if (!rootActive || !parentActive)
+            {
+                if (allowDefer)
+                {
+                    _fullscreenRestorePending = true;
+                    return;
+                }
+
+                // During destruction an inactive hierarchy cannot be safely
+                // reparented. The object is going away, so clear state without
+                // issuing the sibling-position warning Unity otherwise emits.
+                ClearFullscreenState(false);
+                return;
+            }
+
+            if (_fullscreenOriginalParent != null && root.parent != _fullscreenOriginalParent)
+            {
+                root.SetParent(_fullscreenOriginalParent, false);
+            }
+
+            root.anchorMin = _fullscreenOriginalAnchorMin;
+            root.anchorMax = _fullscreenOriginalAnchorMax;
+            root.pivot = _fullscreenOriginalPivot;
+            root.anchoredPosition = _fullscreenOriginalAnchoredPosition;
+            root.sizeDelta = _fullscreenOriginalSizeDelta;
+            root.localPosition = _fullscreenOriginalLocalPosition;
+            root.localRotation = _fullscreenOriginalLocalRotation;
+            root.localScale = _fullscreenOriginalScale;
+
+            if (root.parent != null)
+            {
+                int maxSiblingIndex = Mathf.Max(0, root.parent.childCount - 1);
+                int siblingIndex = Mathf.Clamp(_fullscreenOriginalSiblingIndex, 0, maxSiblingIndex);
+                if (root.GetSiblingIndex() != siblingIndex)
+                {
+                    root.SetSiblingIndex(siblingIndex);
+                }
+            }
+
+            if (refreshDisplay && isActiveAndEnabled)
+            {
+                Canvas.ForceUpdateCanvases();
+                SetupDisplay();
+                MarkRadarDirty();
+            }
+
+            ClearFullscreenState(notify);
+        }
+
+        private void ClearFullscreenState(bool notify)
+        {
+            _fullscreenTransition = null;
+            _fullscreenTransitionIsExit = false;
+            _isFullscreen = false;
+            _fullscreenRoot = null;
+            _fullscreenLayoutStored = false;
+            _fullscreenRestorePending = false;
+            if (notify)
+            {
+                FullscreenChanged?.Invoke(false);
+            }
+        }
+
+        private static void BringTrafficControlsForward(RectTransform canvasRect)
+        {
+            if (canvasRect == null)
+            {
+                return;
+            }
+
+            Transform strip = canvasRect.Find("TrafficControlStrip");
+            if (strip != null)
+            {
+                strip.SetAsLastSibling();
+            }
+        }
+
+        /// <summary>
+        /// Set sectional chart visibility while keeping the chart child active
+        /// for XR simulator input and animating the visual transition.
+        /// </summary>
+        public void SetChartBackgroundVisible(bool visible, bool animate = true)
+        {
+            showChartBackground = visible;
+            EnsureChartImageReference();
+            SetupDisplay();
+            BeginChartFade(showChartBackground && !preferXPlaneTrafficTexture ? chartOpacity : 0f, animate);
+
+            if (showChartBackground && !preferXPlaneTrafficTexture)
+            {
+                TryFetchChartForCurrentPosition(true);
             }
         }
         
@@ -982,10 +1688,7 @@ namespace TrafficRadar
         /// </summary>
         public void RefreshChart()
         {
-            if (chartProvider != null && radarController != null)
-            {
-                chartProvider.FetchChartTiles((float)radarController.OwnPosition.Latitude, (float)radarController.OwnPosition.Longitude, rangeNM);
-            }
+            TryFetchChartForCurrentPosition(true);
         }
 
         public void SetTrackUpMode(bool enabled)
@@ -1125,7 +1828,14 @@ namespace TrafficRadar
             // Setup chart background with circular mask
             if (chartBackgroundImage != null)
             {
-                chartBackgroundImage.enabled = showChartBackground && !preferXPlaneTrafficTexture;
+                // Keep the child active even while hidden.  Unity does not
+                // receive the CHT button event when an authored inactive
+                // parent is left disabled, which made the chart appear to be
+                // missing in the XR-3 simulator.
+                chartBackgroundImage.gameObject.SetActive(true);
+                chartBackgroundImage.enabled = !preferXPlaneTrafficTexture &&
+                    (showChartBackground || _chartVisualOpacity > 0.001f || _chartFadeAnimating);
+                chartBackgroundImage.raycastTarget = false;
                 
                 // Create circular mask material if needed
                 if (circularMaskMaterial == null && circularShader != null)
@@ -1138,14 +1848,14 @@ namespace TrafficRadar
                 if (circularMaskMaterial != null)
                 {
                     chartBackgroundImage.material = circularMaskMaterial;
-                    UpdateChartOpacity();
                     UpdateChartEdgeSoftness();
+                    ApplyChartVisualOpacity();
                 }
                 else
                 {
                     // Fallback: just set color alpha
                     Color c = chartBackgroundImage.color;
-                    c.a = chartOpacity;
+                    c.a = _chartVisualOpacity;
                     chartBackgroundImage.color = c;
                 }
             }
@@ -1223,6 +1933,7 @@ namespace TrafficRadar
 
             if (chartBackgroundImage != null)
             {
+                chartBackgroundImage.gameObject.SetActive(true);
                 chartBackgroundImage.enabled = false;
             }
 
@@ -1342,15 +2053,37 @@ namespace TrafficRadar
         
         private void UpdateChartOpacity()
         {
+            // ChartOpacity is the pilot-selected target.  Keep the currently
+            // animated visual value separate so +/- controls and CHT fades do
+            // not pop the map or hide traffic for a frame.
+            if (!_chartFadeAnimating)
+            {
+                _chartVisualOpacity = showChartBackground && !preferXPlaneTrafficTexture
+                    ? Mathf.Clamp01(chartOpacity)
+                    : 0f;
+            }
+
+            ApplyChartVisualOpacity();
+        }
+
+        private void ApplyChartVisualOpacity()
+        {
+            float visualOpacity = Mathf.Clamp01(_chartVisualOpacity);
             if (circularMaskMaterial != null)
             {
-                circularMaskMaterial.SetFloat("_Opacity", chartOpacity);
+                circularMaskMaterial.SetFloat("_Opacity", visualOpacity);
             }
             else if (chartBackgroundImage != null)
             {
                 Color c = chartBackgroundImage.color;
-                c.a = chartOpacity;
+                c.a = visualOpacity;
                 chartBackgroundImage.color = c;
+            }
+
+            if (chartBackgroundImage != null)
+            {
+                chartBackgroundImage.enabled = !preferXPlaneTrafficTexture &&
+                    (showChartBackground || visualOpacity > 0.001f || _chartFadeAnimating);
             }
         }
         
@@ -1418,7 +2151,12 @@ namespace TrafficRadar
         {
             if (chartBackgroundImage != null && chartTexture != null)
             {
+                EnsureChartImageReference();
                 chartBackgroundImage.texture = chartTexture;
+                if (showChartBackground && !preferXPlaneTrafficTexture && _chartVisualOpacity <= 0.001f)
+                {
+                    BeginChartFade(chartOpacity, true);
+                }
             }
         }
 

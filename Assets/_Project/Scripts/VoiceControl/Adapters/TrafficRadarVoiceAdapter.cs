@@ -176,6 +176,30 @@ namespace VoiceControl.Adapters
                     "Toggle the radar background circle visibility"
                 ),
                 new VoiceCommandInfo(
+                    "show_chart",
+                    "Show the low-opacity FAA sectional chart under the traffic radar"
+                ),
+                new VoiceCommandInfo(
+                    "hide_chart",
+                    "Hide the FAA sectional chart while keeping traffic symbols visible"
+                ),
+                new VoiceCommandInfo(
+                    "toggle_chart",
+                    "Toggle the FAA sectional chart visibility"
+                ),
+                new VoiceCommandInfo(
+                    "show_fullscreen",
+                    "Maximize the traffic radar and sectional chart into pilot-focus view"
+                ),
+                new VoiceCommandInfo(
+                    "hide_fullscreen",
+                    "Restore the traffic radar to its normal HUD footprint"
+                ),
+                new VoiceCommandInfo(
+                    "toggle_fullscreen",
+                    "Toggle the traffic radar pilot-focus view"
+                ),
+                new VoiceCommandInfo(
                     "set_background_color",
                     "Set the radar background color",
                     new VoiceCommandParameter(
@@ -383,6 +407,60 @@ namespace VoiceControl.Adapters
                     {
                         display.ShowRadarBackground = !display.ShowRadarBackground;
                         Log($"Toggled radar background: {display.ShowRadarBackground}");
+                        return true;
+                    }
+                    break;
+
+                case "show_chart":
+                    if (display != null)
+                    {
+                        display.SetChartBackgroundVisible(true, true);
+                        Log("Showing FAA sectional chart");
+                        return true;
+                    }
+                    break;
+
+                case "hide_chart":
+                    if (display != null)
+                    {
+                        display.SetChartBackgroundVisible(false, true);
+                        Log("Hiding FAA sectional chart");
+                        return true;
+                    }
+                    break;
+
+                case "toggle_chart":
+                    if (display != null)
+                    {
+                        display.ToggleChartBackground();
+                        Log($"Toggled FAA sectional chart: {display.ChartBackgroundVisible}");
+                        return true;
+                    }
+                    break;
+
+                case "show_fullscreen":
+                    if (display != null)
+                    {
+                        display.SetFullscreen(true, true);
+                        Log("Maximized traffic radar pilot-focus view");
+                        return true;
+                    }
+                    break;
+
+                case "hide_fullscreen":
+                    if (display != null)
+                    {
+                        display.SetFullscreen(false, true);
+                        Log("Restored traffic radar HUD footprint");
+                        return true;
+                    }
+                    break;
+
+                case "toggle_fullscreen":
+                    if (display != null)
+                    {
+                        display.ToggleFullscreen();
+                        Log($"Toggled traffic radar pilot-focus view: {display.IsFullscreen}");
                         return true;
                     }
                     break;

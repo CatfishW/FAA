@@ -1,3 +1,4 @@
+using System.Collections.Generic;
 using TMPro;
 using FAA.XPlaneIntegration.Runtime;
 using TrafficRadar;
@@ -7,6 +8,7 @@ using UnityEngine;
 using UnityEngine.EventSystems;
 using UnityEngine.Events;
 using UnityEngine.UI;
+using UnityEngine.XR.Interaction.Toolkit.UI;
 using WeatherRadar;
 
 namespace FAA.Customization
@@ -103,6 +105,9 @@ namespace FAA.Customization
         private TMP_Text _trafficExpandText;
         private TMP_Text _trafficAdvancedText;
         private TMP_Text _trafficSizeText;
+        private TMP_Text _trafficSizeDownText;
+        private TMP_Text _trafficSizeUpText;
+        private TMP_Text _trafficFullscreenText;
         // The weather panel is procedural/dataref-backed. Start with the
         // legacy reference overlay hidden so it cannot mimic the native
         // X-Plane raster presentation; pilots can still opt into vector
@@ -119,6 +124,7 @@ namespace FAA.Customization
         private float _nextRefreshTime;
         private Transform _weatherSizedRoot;
         private Transform _trafficSizedRoot;
+        private TrafficRadarDisplay _subscribedTrafficDisplay;
 
         public void Configure(Transform weatherRoot, Transform trafficRoot)
         {
@@ -169,6 +175,12 @@ namespace FAA.Customization
             if (_weatherConditionsStrip != null)
             {
                 _weatherConditionsStrip.ExpandedChanged -= OnWeatherConditionsExpandedChanged;
+            }
+
+            if (_subscribedTrafficDisplay != null)
+            {
+                _subscribedTrafficDisplay.FullscreenChanged -= OnTrafficFullscreenChanged;
+                _subscribedTrafficDisplay = null;
             }
         }
 
@@ -449,6 +461,24 @@ namespace FAA.Customization
             _trafficDisplay?.ToggleChartBackground();
         }
 
+        /// <summary>
+        /// Toggle the traffic map's centered pilot-focus view from the visible
+        /// traffic control strip.  The same action is available in both the
+        /// compact and expanded layouts so pilots do not have to hunt through
+        /// the advanced drawer.
+        /// </summary>
+        public void ToggleTrafficFullscreen()
+        {
+            if (_trafficDisplay == null)
+            {
+                return;
+            }
+
+            _trafficDisplay.ToggleFullscreen();
+            EnsureControlStrips();
+            UpdateLabels();
+        }
+
         public void ToggleTrafficBackground()
         {
             _trafficDisplay?.ToggleRadarBackground();
@@ -492,11 +522,23 @@ namespace FAA.Customization
 
         public void TrafficSizeDown()
         {
+            if (_trafficDisplay != null && _trafficDisplay.IsFullscreen)
+            {
+                _trafficDisplay.ZoomOut();
+                return;
+            }
+
             AdjustRadarSize(FaaRadarKind.Traffic, -1f);
         }
 
         public void TrafficSizeUp()
         {
+            if (_trafficDisplay != null && _trafficDisplay.IsFullscreen)
+            {
+                _trafficDisplay.ZoomIn();
+                return;
+            }
+
             AdjustRadarSize(FaaRadarKind.Traffic, 1f);
         }
 
@@ -506,6 +548,25 @@ namespace FAA.Customization
         /// </summary>
         public void AdjustRadarSize(FaaRadarKind radarKind, float direction)
         {
+            // Once the map is maximized, pointer-wheel input should operate the
+            // chart/radar range rather than fighting the focus layout by trying
+            // to resize its root back down to the normal HUD footprint.
+            if (radarKind == FaaRadarKind.Traffic &&
+                _trafficDisplay != null &&
+                _trafficDisplay.IsFullscreen)
+            {
+                if (direction > 0f)
+                {
+                    _trafficDisplay.ZoomIn();
+                }
+                else if (direction < 0f)
+                {
+                    _trafficDisplay.ZoomOut();
+                }
+
+                return;
+            }
+
             Transform root = radarKind == FaaRadarKind.Weather ? _weatherRoot : _trafficRoot;
             RectTransform rootRect = root as RectTransform ?? root?.GetComponent<RectTransform>();
             if (rootRect == null || Mathf.Approximately(direction, 0f))
@@ -631,12 +692,12 @@ namespace FAA.Customization
         {
             if (_weatherRoot == null)
             {
-                _weatherRoot = FindLoadedTransform(weatherRadarRootName);
+                _weatherRoot = FindPreferredLoadedTransform(weatherRadarRootName);
             }
 
             if (_trafficRoot == null)
             {
-                _trafficRoot = FindLoadedTransform(trafficRadarRootName);
+                _trafficRoot = FindPreferredLoadedTransform(trafficRadarRootName);
             }
 
             if (_weatherRoot != null)
@@ -658,6 +719,29 @@ namespace FAA.Customization
                 _trafficDisplay = _trafficRoot.GetComponentInChildren<TrafficRadarDisplay>(true);
                 _trafficDataManager = _trafficRoot.GetComponentInChildren<TrafficRadarDataManager>(true);
             }
+
+            if (_subscribedTrafficDisplay != _trafficDisplay)
+            {
+                if (_subscribedTrafficDisplay != null)
+                {
+                    _subscribedTrafficDisplay.FullscreenChanged -= OnTrafficFullscreenChanged;
+                }
+
+                _subscribedTrafficDisplay = _trafficDisplay;
+                if (_subscribedTrafficDisplay != null)
+                {
+                    _subscribedTrafficDisplay.FullscreenChanged += OnTrafficFullscreenChanged;
+                }
+            }
+        }
+
+        private void OnTrafficFullscreenChanged(bool _)
+        {
+            // Re-dock the strip in the same frame the display completes its
+            // transition, so REST/FULL never lingers in the old position until
+            // the periodic refresh tick.
+            EnsureControlStrips();
+            UpdateLabels();
         }
 
         private void EnsureControlStrips()
@@ -703,8 +787,39 @@ namespace FAA.Customization
 
             FaaRadarConfigurationDrawer drawer = strip.GetComponent<FaaRadarConfigurationDrawer>() ??
                                                    strip.gameObject.AddComponent<FaaRadarConfigurationDrawer>();
-            drawer.Configure(reducedMotion);
+            drawer.ConfigureWithContentRows(reducedMotion, FindDrawerContentRows(strip));
             return drawer;
+        }
+
+        private static RectTransform[] FindDrawerContentRows(RectTransform strip)
+        {
+            if (strip == null)
+            {
+                return null;
+            }
+
+            List<RectTransform> rows = new List<RectTransform>();
+            for (int i = 0; i < strip.childCount; i++)
+            {
+                Transform child = strip.GetChild(i);
+                if (child == null)
+                {
+                    continue;
+                }
+
+                string name = child.name;
+                if (name.IndexOf("Secondary", System.StringComparison.OrdinalIgnoreCase) >= 0 ||
+                    name.IndexOf("Tertiary", System.StringComparison.OrdinalIgnoreCase) >= 0)
+                {
+                    RectTransform row = child as RectTransform ?? child.GetComponent<RectTransform>();
+                    if (row != null)
+                    {
+                        rows.Add(row);
+                    }
+                }
+            }
+
+            return rows.ToArray();
         }
 
         private FaaRadarInteractionSurface EnsureInteractionSurface(Transform root, FaaRadarKind radarKind)
@@ -737,7 +852,11 @@ namespace FAA.Customization
         {
             bool overallVisible = _visibilityInitialized ? _controlsVisible : showOnStart;
             bool weatherEnabled = overallVisible && enableWeatherControls;
-            bool trafficEnabled = overallVisible && enableTrafficControls;
+            // Keep a minimal traffic strip available while the map is focused,
+            // even if the pilot hid the general control overlay.  REST is the
+            // guaranteed escape hatch from fullscreen in an XR session.
+            bool trafficFocus = _trafficDisplay != null && _trafficDisplay.IsFullscreen;
+            bool trafficEnabled = (overallVisible || trafficFocus) && enableTrafficControls;
 
             ApplyDrawerState(
                 _weatherStrip,
@@ -925,16 +1044,18 @@ namespace FAA.Customization
                 _trafficTargetText = EnsureLabel(primaryRow, "TCASTargetValue", "0/50", 54f);
                 _trafficAutoText = GetButtonLabel(EnsureButton(primaryRow, "TCASAutoToggle", "AUTO", ToggleTrafficAutoRange, 48f));
                 _trafficAdvancedText = GetButtonLabel(EnsureButton(primaryRow, "TCASAdvancedToggle", "MORE", ToggleTrafficAdvanced, 58f));
+                _trafficFullscreenText = GetButtonLabel(EnsureButton(primaryRow, "TCASFullscreenToggle", "FULL", ToggleTrafficFullscreen, 48f));
                 HideUnexpectedRowChildren(
                     primaryRow,
                     "TCASExpandToggle", "TCASRangeValue", "TCASRangeDown", "TCASRangeUp", "TCASTargetValue",
-                    "TCASAutoToggle", "TCASAdvancedToggle");
+                    "TCASAutoToggle", "TCASAdvancedToggle", "TCASFullscreenToggle");
             }
             else
             {
-                _trafficSummaryText = GetButtonLabel(EnsureButton(primaryRow, "TCASSummaryToggle", "CONFIG TRF · 0/50 · 40NM", ToggleTrafficExpanded, TrafficCollapsedWidth - 10f));
+                _trafficSummaryText = GetButtonLabel(EnsureButton(primaryRow, "TCASSummaryToggle", "CONFIG TRF · 0/50 · 40NM", ToggleTrafficExpanded, TrafficCollapsedWidth - 62f));
+                _trafficFullscreenText = GetButtonLabel(EnsureButton(primaryRow, "TCASFullscreenToggle", "FULL", ToggleTrafficFullscreen, 48f));
                 _trafficExpandText = null;
-                HideUnexpectedRowChildren(primaryRow, "TCASSummaryToggle");
+                HideUnexpectedRowChildren(primaryRow, "TCASSummaryToggle", "TCASFullscreenToggle");
             }
 
             _trafficMaxText = EnsureLabel(secondaryRow, "TCASMaxValue", "MAX 50", 56f);
@@ -954,9 +1075,19 @@ namespace FAA.Customization
             _trafficOpacityText = EnsureLabel(tertiaryRow, "TCASOpacityValue", "50%", 40f);
             EnsureButton(tertiaryRow, "TCASOpacityDown", "O-", TrafficOpacityDown, 32f);
             EnsureButton(tertiaryRow, "TCASOpacityUp", "O+", TrafficOpacityUp, 32f);
-            EnsureButton(tertiaryRow, "TCASSizeDown", "S-", TrafficSizeDown, 32f);
+            _trafficSizeDownText = GetButtonLabel(EnsureButton(
+                tertiaryRow,
+                "TCASSizeDown",
+                _trafficDisplay != null && _trafficDisplay.IsFullscreen ? "Z-" : "S-",
+                TrafficSizeDown,
+                32f));
             _trafficSizeText = EnsureLabel(tertiaryRow, "TCASSizeValue", "320PX", 58f);
-            EnsureButton(tertiaryRow, "TCASSizeUp", "S+", TrafficSizeUp, 32f);
+            _trafficSizeUpText = GetButtonLabel(EnsureButton(
+                tertiaryRow,
+                "TCASSizeUp",
+                _trafficDisplay != null && _trafficDisplay.IsFullscreen ? "Z+" : "S+",
+                TrafficSizeUp,
+                32f));
             EnsureButton(tertiaryRow, "TCASRefresh", "REF", RefreshTraffic, 42f);
             HideUnexpectedRowChildren(
                 tertiaryRow,
@@ -1124,6 +1255,9 @@ namespace FAA.Customization
                 SetText(_trafficBackgroundText, _trafficDisplay.ShowRadarBackground ? "BKG" : "CLR");
                 SetText(_trafficRingsText, $"R{_trafficDisplay.RangeRingCount}");
                 SetText(_trafficOpacityText, $"{Mathf.RoundToInt(_trafficDisplay.ChartOpacity * 100f)}%");
+                SetText(_trafficSizeDownText, _trafficDisplay.IsFullscreen ? "Z-" : "S-");
+                SetText(_trafficSizeUpText, _trafficDisplay.IsFullscreen ? "Z+" : "S+");
+                SetText(_trafficFullscreenText, _trafficDisplay.IsFullscreen ? "REST" : "FULL");
             }
 
             RectTransform weatherRect = _weatherRoot as RectTransform ?? _weatherRoot?.GetComponent<RectTransform>();
@@ -1138,6 +1272,7 @@ namespace FAA.Customization
             SetButtonActive(_weatherAdvancedText, _showWeatherAdvancedControls);
             SetButtonActive(_trafficAdvancedText, _showTrafficAdvancedControls);
             SetButtonActive(_weatherPowerText, _weatherProvider != null && _weatherProvider.Status != ProviderStatus.Inactive);
+            SetButtonActive(_trafficFullscreenText, _trafficDisplay != null && _trafficDisplay.IsFullscreen);
         }
 
         private void SyncWeatherProviderSettings()
@@ -1500,33 +1635,129 @@ namespace FAA.Customization
                 eventSystem = eventSystemObject.AddComponent<EventSystem>();
             }
 
-            if (eventSystem.GetComponent<BaseInputModule>() == null)
+            // XR Interaction Simulator publishes tracked-device pointer rays
+            // through XRUIInputModule.PerformRaycast. A legacy
+            // StandaloneInputModule (or the regular InputSystemUIInputModule)
+            // can render buttons but cannot provide that simulator raycast, so
+            // prefer XRUIInputModule for every FAA scene. XRUI also keeps its
+            // built-in mouse/touch actions enabled for desktop preview.
+            XRUIInputModule xrInputModule = eventSystem.GetComponent<XRUIInputModule>();
+            bool createdXrInputModule = false;
+            if (xrInputModule == null)
             {
-                eventSystem.gameObject.AddComponent<StandaloneInputModule>();
+                // Disable competing modules before adding the XR module so the
+                // EventSystem never spends a frame with two active UI drivers.
+                foreach (BaseInputModule module in eventSystem.GetComponents<BaseInputModule>())
+                {
+                    if (module != null)
+                    {
+                        module.enabled = false;
+                    }
+                }
+
+                xrInputModule = eventSystem.gameObject.AddComponent<XRUIInputModule>();
+                createdXrInputModule = true;
+            }
+
+            // Do not reset the input toggles on an existing module: the XR
+            // simulator intentionally disables mouse/touch forwarding while
+            // simulated tracked devices are active. Reapplying true on every
+            // control-strip refresh would reintroduce duplicate pointer events.
+            if (createdXrInputModule)
+            {
+                xrInputModule.enableXRInput = true;
+                xrInputModule.enableMouseInput = true;
+                xrInputModule.enableTouchInput = true;
+                xrInputModule.enableGamepadInput = true;
+                xrInputModule.enableJoystickInput = true;
+            }
+
+            foreach (BaseInputModule module in eventSystem.GetComponents<BaseInputModule>())
+            {
+                if (module != null && module != xrInputModule)
+                {
+                    module.enabled = false;
+                }
             }
 
             if (!eventSystem.gameObject.activeSelf)
             {
                 eventSystem.gameObject.SetActive(true);
             }
+
+            if (!xrInputModule.enabled)
+            {
+                xrInputModule.enabled = true;
+            }
         }
 
-        private static Transform FindLoadedTransform(string objectName)
+        private static Transform FindPreferredLoadedTransform(string objectName)
         {
             if (string.IsNullOrWhiteSpace(objectName))
             {
                 return null;
             }
 
+            Transform best = null;
+            int bestScore = int.MinValue;
             foreach (Transform transform in FindObjectsByType<Transform>(FindObjectsInactive.Include, FindObjectsSortMode.None))
             {
-                if (transform != null && transform.name == objectName && transform.gameObject.scene.IsValid() && transform.gameObject.scene.isLoaded)
+                if (transform == null || transform.name != objectName ||
+                    !transform.gameObject.scene.IsValid() || !transform.gameObject.scene.isLoaded)
                 {
-                    return transform;
+                    continue;
+                }
+
+                string path = GetHierarchyPath(transform).ToLowerInvariant();
+                int score = 0;
+                if (transform.gameObject.activeSelf)
+                {
+                    score += 500;
+                }
+                if (transform.gameObject.activeInHierarchy)
+                {
+                    score += 500;
+                }
+                if (path.Contains("/xplanetrafficradarcanvas/") ||
+                    path.Contains("/xplaneweatherradarcanvas/"))
+                {
+                    score += 5000;
+                }
+                if (path.Contains("/faasymbologycanvas/radarcanvas") ||
+                    path.Contains("faasymbologycanvasworldspace"))
+                {
+                    score -= 2000;
+                }
+                if (transform.GetComponentInChildren<TrafficRadarDisplay>(true) != null)
+                {
+                    score += 100;
+                }
+
+                if (best == null || score > bestScore)
+                {
+                    best = transform;
+                    bestScore = score;
                 }
             }
 
-            return null;
+            return best;
+        }
+
+        private static string GetHierarchyPath(Transform current)
+        {
+            if (current == null)
+            {
+                return string.Empty;
+            }
+
+            string path = current.name;
+            while (current.parent != null)
+            {
+                current = current.parent;
+                path = current.name + "/" + path;
+            }
+
+            return "/" + path;
         }
 
         private void MatchStripToRadarRoot(RectTransform strip, Transform root)
@@ -1543,6 +1774,24 @@ namespace FAA.Customization
                 strip.anchorMax = new Vector2(0.5f, 1f);
                 strip.pivot = new Vector2(0.5f, 0f);
                 strip.anchoredPosition = stripOffset;
+                return;
+            }
+
+            // A focused traffic root is centered on the Canvas.  The normal
+            // right-anchored formula below uses the root's bottom edge, but a
+            // centered RectTransform's anchored Y is relative to the Canvas
+            // midpoint.  Dock the strip just inside the map's top edge (with a
+            // top pivot) so it remains below the flight HUD and never clips at
+            // the edge of a 16:9 XR view.
+            if (root == _trafficRoot && _trafficDisplay != null && _trafficDisplay.IsFullscreen)
+            {
+                strip.anchorMin = new Vector2(0.5f, 0.5f);
+                strip.anchorMax = new Vector2(0.5f, 0.5f);
+                strip.pivot = new Vector2(0.5f, 1f);
+                float focusedRootHeight = rootRect.rect.height > 1f ? rootRect.rect.height : rootRect.sizeDelta.y;
+                strip.anchoredPosition = new Vector2(
+                    rootRect.anchoredPosition.x,
+                    rootRect.anchoredPosition.y + focusedRootHeight * 0.5f - Mathf.Max(4f, stripOffset.y));
                 return;
             }
 

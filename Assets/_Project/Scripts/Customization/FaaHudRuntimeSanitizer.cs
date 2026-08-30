@@ -981,6 +981,10 @@ namespace FAA.Customization
                 display.enabled = true;
                 display.ConfigureHudPresentation(0.34f, 0.28f);
                 display.PreferXPlaneTrafficTexture = false;
+                // The sectional chart is a low-opacity, circular context cue
+                // in the XR-3 presentation.  Keep it enabled by policy so a
+                // stale serialized scene or a legacy setup pass cannot hide it.
+                display.SetChartBackgroundVisible(true, false);
                 RestoreDesignedRadarImage(display.RadarImage);
             }
         }

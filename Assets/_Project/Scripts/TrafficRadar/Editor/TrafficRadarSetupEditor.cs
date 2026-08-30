@@ -353,8 +353,12 @@ public class TrafficRadarSetupEditor : EditorWindow
             displaySO.FindProperty("rangeLabel").objectReferenceValue = rangeLabel;
             displaySO.FindProperty("radarController").objectReferenceValue = controller;
             displaySO.FindProperty("showRadarBackground").boolValue = true;
-            displaySO.FindProperty("showChartBackground").boolValue = false;
+            displaySO.FindProperty("showChartBackground").boolValue = true;
             displaySO.FindProperty("chartOpacity").floatValue = 0.28f;
+            SerializedProperty chartFadeProperty = displaySO.FindProperty("enableChartFadeAnimation");
+            if (chartFadeProperty != null) chartFadeProperty.boolValue = true;
+            SerializedProperty chartFadeDurationProperty = displaySO.FindProperty("chartFadeDuration");
+            if (chartFadeDurationProperty != null) chartFadeDurationProperty.floatValue = 0.24f;
             displaySO.FindProperty("enforceReadablePanelBackground").boolValue = false;
             displaySO.FindProperty("minimumPanelBackgroundOpacity").floatValue = 0f;
             displaySO.FindProperty("minimumChartBackgroundOpacity").floatValue = 0f;
