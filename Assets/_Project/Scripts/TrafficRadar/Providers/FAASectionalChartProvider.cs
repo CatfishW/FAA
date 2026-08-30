@@ -53,7 +53,7 @@ namespace TrafficRadar
         [SerializeField] private string terminalAreaTileServerUrl = "https://tiles.arcgis.com/tiles/ssFJjBXIUyZDrSYZ/arcgis/rest/services/VFR_Terminal_Area_Chart/MapServer";
 
         [Tooltip("FAA ArcGIS MapServer URL for world aeronautical charts.")]
-        [SerializeField] private string worldAeronauticalTileServerUrl = "https://tiles.arcgis.com/tiles/ssFJjBXIUyZDrSYZ/arcgis/rest/services/World_Aeronautical_Chart/MapServer";
+        [SerializeField] private string worldAeronauticalTileServerUrl = "https://services.arcgisonline.com/ArcGIS/rest/services/Specialty/World_Navigation_Charts/MapServer";
 
         [Tooltip("XYZ tile URL template for the StreetMap source. Use {z}, {x}, and {y} tokens.")]
         [SerializeField] private string streetMapTileUrlTemplate = "https://tile.openstreetmap.org/{z}/{x}/{y}.png";
@@ -255,7 +255,7 @@ namespace TrafficRadar
                     : float.IsNegativeInfinity(rangeNM)
                         ? 0.1f
                         : Mathf.Clamp(rangeNM, 0.1f, 10000f);
-            zoomLevel = GetZoomForRange(safeRange);
+            zoomLevel = ResolveZoomForRange(safeRange);
             
             lastFetchLat = ClampLatitude(latitude);
             lastFetchLon = WrapLongitude(longitude);
@@ -638,9 +638,18 @@ namespace TrafficRadar
 
         private static string GetMapSourceAttribution(FAAChartMapSource source)
         {
-            return source == FAAChartMapSource.StreetMap
-                ? "© OpenStreetMap contributors"
-                : "FAA / ArcGIS";
+            switch (source)
+            {
+                case FAAChartMapSource.StreetMap:
+                    return "© OpenStreetMap contributors";
+                case FAAChartMapSource.WorldAeronautical:
+                    return "Esri / NGA World Navigation Charts";
+                case FAAChartMapSource.TerminalArea:
+                case FAAChartMapSource.Sectional:
+                case FAAChartMapSource.Custom:
+                default:
+                    return "FAA / ArcGIS";
+            }
         }
 
         private void PublishChartTexture()
@@ -845,6 +854,27 @@ namespace TrafficRadar
             if (rangeNM <= 40) return 8;
             if (rangeNM <= 80) return 7;
             return 6;
+        }
+
+        private int ResolveZoomForRange(float rangeNM)
+        {
+            int requested = GetZoomForRange(rangeNM);
+            // FAA's VFR Terminal cache is published only at LOD 10-12.
+            // Clamping here avoids a guaranteed HTML/404 response at the
+            // wider 20-40 NM ranges used by the pilot-focus display.
+            if (mapSource == FAAChartMapSource.TerminalArea)
+            {
+                return Mathf.Clamp(requested, 10, 12);
+            }
+
+            // World Navigation Charts exposes LOD 0-10.  Keep the request in
+            // that range while retaining the existing range-to-zoom mapping.
+            if (mapSource == FAAChartMapSource.WorldAeronautical)
+            {
+                return Mathf.Clamp(requested, 4, 10);
+            }
+
+            return requested;
         }
 
         private void CancelActiveFetch(bool publishStatus)
