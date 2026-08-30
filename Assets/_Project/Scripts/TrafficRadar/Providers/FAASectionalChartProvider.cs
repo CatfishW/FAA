@@ -180,6 +180,12 @@ namespace TrafficRadar
         /// </summary>
         public string MapSourceName => GetMapSourceDisplayName(mapSource);
 
+        /// <summary>
+        /// Attribution text for the active basemap.  Hosts should keep this
+        /// visible in a map drawer/about affordance when StreetMap is used.
+        /// </summary>
+        public string MapSourceAttribution => GetMapSourceAttribution(mapSource);
+
         public int MapSourceCount => 5;
 
         #endregion
@@ -628,6 +634,13 @@ namespace TrafficRadar
                 default:
                     return "SECTIONAL";
             }
+        }
+
+        private static string GetMapSourceAttribution(FAAChartMapSource source)
+        {
+            return source == FAAChartMapSource.StreetMap
+                ? "© OpenStreetMap contributors"
+                : "FAA / ArcGIS";
         }
 
         private void PublishChartTexture()
