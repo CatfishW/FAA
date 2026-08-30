@@ -5,12 +5,16 @@ using TMPro;
 namespace WeatherRadar
 {
     /// <summary>
-    /// Displays the source X-Plane weather radar PNG directly, preserving its aspect
-    /// ratio and avoiding any synthetic recoloring or return reconstruction.
+    /// Displays the bridge's dataref-derived weather texture with a compact
+    /// pilot-readable presentation. The same component can render a legacy
+    /// source when explicitly configured, but the FAA scene stays procedural.
     /// </summary>
-    [AddComponentMenu("Weather Radar/Display/X-Plane Original Weather Radar Display")]
+    [AddComponentMenu("Weather Radar/Display/FAA Dataref Weather Radar Display")]
     public class XPlaneOriginalWeatherRadarDisplay : MonoBehaviour
     {
+        private const string SweepOverlayName = "XPlaneWeatherSweepOverlay";
+        private const float DefaultTextureAspect = 724f / 512f;
+
         [Header("References")]
         [SerializeField] private WeatherRadarProviderBase weatherProvider;
         [SerializeField] private WeatherRadarDataProvider dataProvider;
@@ -22,9 +26,9 @@ namespace WeatherRadar
         [SerializeField] private TMP_Text powerLabel;
 
         [Header("Look")]
-        [SerializeField] private Color onlineTint = Color.white;
-        [SerializeField] private Color staleTint = Color.white;
-        [SerializeField] private Color offlineTint = new Color(0f, 0f, 0f, 1f);
+        [SerializeField] private Color onlineTint = new Color(1f, 1f, 1f, 0.84f);
+        [SerializeField] private Color staleTint = new Color(0.82f, 0.9f, 0.84f, 0.72f);
+        [SerializeField] private Color offlineTint = new Color(0.004f, 0.055f, 0.04f, 0.06f);
         [SerializeField] private Color radarOnColor = new Color(0.35f, 1f, 0.35f, 1f);
         [SerializeField] private Color radarOffColor = new Color(1f, 0.35f, 0.2f, 1f);
         [SerializeField] private Color radarUnknownColor = new Color(0.72f, 0.9f, 0.72f, 1f);
@@ -35,8 +39,9 @@ namespace WeatherRadar
         [SerializeField] private float emptyRefreshDelaySeconds = 0.75f;
         [SerializeField] private float staleRefreshDelaySeconds = 3f;
         [SerializeField] private bool keepTextureVisibleWhenRadarOff = true;
-        [SerializeField] private Vector2 minimumDisplaySize = new Vector2(352f, 352f);
-        [SerializeField] private bool showReferenceOverlay = false;
+        [SerializeField] private Vector2 minimumDisplaySize = new Vector2(160f, 160f);
+        [SerializeField] private float displayPadding = 8f;
+        [SerializeField] private bool showReferenceOverlay = true;
 
         private Texture _currentTexture;
         private float _lastTextureRealtime = -1f;
@@ -48,6 +53,8 @@ namespace WeatherRadar
         private Texture2D _blackPlaceholder;
         private float _nextLabelRefreshRealtime;
         private bool _layerOrderDirty = true;
+        private XPlaneWeatherRadarSweepOverlay _sweepOverlay;
+        private Vector2 _lastDisplayBounds = new Vector2(-1f, -1f);
 
         public RawImage TargetImage => targetImage;
         public Texture CurrentTexture => _currentTexture;
@@ -59,6 +66,7 @@ namespace WeatherRadar
         public bool HasRadarPowerState => _hasRadarPowerState;
         public bool IsRadarPowered => _isRadarPowered;
         public int RadarMode => _radarMode;
+        public XPlaneWeatherRadarSweepOverlay SweepOverlay => _sweepOverlay;
         public bool ShowReferenceOverlay
         {
             get => showReferenceOverlay;
@@ -76,6 +84,10 @@ namespace WeatherRadar
 
         private void Awake()
         {
+            // The FAA scene uses a procedural dataref radar texture. Keep the
+            // optional reference overlay off so native X-Plane raster styling
+            // is not reproduced over the custom display.
+            showReferenceOverlay = false;
             AutoFindReferences();
             ApplyInitialVisualState();
         }
@@ -98,6 +110,8 @@ namespace WeatherRadar
             {
                 AutoFindReferences();
             }
+
+            RefreshLayoutIfBoundsChanged();
 
             if (_layerOrderDirty)
             {
@@ -144,11 +158,16 @@ namespace WeatherRadar
         public void SetDataProvider(WeatherRadarDataProvider provider)
         {
             dataProvider = provider;
+            if (_sweepOverlay != null)
+            {
+                _sweepOverlay.Configure(targetImage, this, dataProvider);
+            }
         }
 
         public void SetTargetImage(RawImage image)
         {
             targetImage = image;
+            EnsureSweepOverlay();
             if (targetImage != null && _currentTexture != null)
             {
                 EnsureVisibleDisplayRect();
@@ -209,12 +228,38 @@ namespace WeatherRadar
                 aspectRatioFitter.aspectRatio = texture.width / (float)texture.height;
             }
 
+            EnsureSweepOverlay();
+
             if (dataProvider != null)
             {
                 dataProvider.UpdateRadarTexture(texture);
             }
 
             RefreshLabels();
+        }
+
+        /// <summary>
+        /// Applies the compact FAA glass treatment without modifying the native
+        /// X-Plane pixels. Alpha is applied at presentation time so weather cells
+        /// remain authentic while the outside view remains visible underneath.
+        /// </summary>
+        public void ConfigureHudPresentation(float textureOpacity)
+        {
+            float opacity = Mathf.Clamp(textureOpacity, 0.35f, 1f);
+            onlineTint = new Color(1f, 1f, 1f, opacity);
+            staleTint = new Color(0.82f, 0.9f, 0.84f, Mathf.Min(opacity, 0.72f));
+            offlineTint = new Color(0.004f, 0.055f, 0.04f, Mathf.Min(opacity, 0.06f));
+            minimumDisplaySize = new Vector2(160f, 160f);
+            displayPadding = Mathf.Max(0f, displayPadding);
+            RefreshLayout();
+            RefreshLabels();
+        }
+
+        public void RefreshLayout()
+        {
+            _lastDisplayBounds = new Vector2(-1f, -1f);
+            EnsureVisibleDisplayRect();
+            _layerOrderDirty = true;
         }
 
         private void AutoFindReferences()
@@ -239,7 +284,11 @@ namespace WeatherRadar
                 aspectRatioFitter = targetImage.GetComponent<AspectRatioFitter>();
             }
 
+            // X-Plane's native render is a 724x512 sector. Square-stretching it
+            // distorts bearings and weather cells, so runtime always preserves it.
+            preserveAspectRatio = true;
             EnsureVisibleDisplayRect();
+            EnsureSweepOverlay();
             _layerOrderDirty = true;
         }
 
@@ -264,6 +313,11 @@ namespace WeatherRadar
             }
 
             Transform overlay = textureTransform.Find("FAAReferenceOverlay");
+            if (_sweepOverlay != null)
+            {
+                _sweepOverlay.transform.SetAsLastSibling();
+            }
+
             if (overlay != null)
             {
                 ApplyReferenceOverlayVisibility(overlay);
@@ -372,16 +426,146 @@ namespace WeatherRadar
                 return;
             }
 
-            Vector2 minSize = new Vector2(
-                Mathf.Max(352f, minimumDisplaySize.x),
-                Mathf.Max(352f, minimumDisplaySize.y));
+            Vector2 displayBounds = ResolveAvailableDisplayBounds(rectTransform);
+            float aspect = GetSourceTextureAspect();
+            Vector2 fittedSize = CalculateAspectFitSize(displayBounds, aspect);
 
             rectTransform.anchorMin = new Vector2(0.5f, 0.5f);
             rectTransform.anchorMax = new Vector2(0.5f, 0.5f);
             rectTransform.pivot = new Vector2(0.5f, 0.5f);
             rectTransform.anchoredPosition = new Vector2(0f, 2f);
-            rectTransform.sizeDelta = minSize;
+            rectTransform.sizeDelta = fittedSize;
             rectTransform.localScale = Vector3.one;
+
+            if (aspectRatioFitter != null)
+            {
+                // The size is fitted explicitly so it stays deterministic even
+                // under parent layout groups and while the texture is refreshing.
+                aspectRatioFitter.aspectRatio = aspect;
+                aspectRatioFitter.aspectMode = AspectRatioFitter.AspectMode.None;
+                aspectRatioFitter.enabled = false;
+            }
+
+            _lastDisplayBounds = displayBounds;
+        }
+
+        private void RefreshLayoutIfBoundsChanged()
+        {
+            if (targetImage == null)
+            {
+                return;
+            }
+
+            Vector2 bounds = ResolveAvailableDisplayBounds(targetImage.rectTransform);
+            if ((bounds - _lastDisplayBounds).sqrMagnitude > 0.25f)
+            {
+                EnsureVisibleDisplayRect();
+                _layerOrderDirty = true;
+            }
+        }
+
+        private Vector2 ResolveAvailableDisplayBounds(RectTransform imageRect)
+        {
+            Vector2 fallback = new Vector2(
+                Mathf.Max(128f, minimumDisplaySize.x),
+                Mathf.Max(128f, minimumDisplaySize.y));
+            Vector2 available = fallback;
+            bool foundParentBounds = false;
+
+            Transform ancestor = imageRect != null ? imageRect.parent : null;
+            while (ancestor != null)
+            {
+                RectTransform ancestorRect = ancestor as RectTransform;
+                if (ancestorRect != null)
+                {
+                    float width = ancestorRect.rect.width;
+                    float height = ancestorRect.rect.height;
+                    if (width >= 128f && height >= 128f)
+                    {
+                        Vector2 candidate = new Vector2(
+                            Mathf.Max(128f, width - displayPadding * 2f),
+                            Mathf.Max(128f, height - displayPadding * 2f));
+                        available = foundParentBounds
+                            ? new Vector2(Mathf.Min(available.x, candidate.x), Mathf.Min(available.y, candidate.y))
+                            : candidate;
+                        foundParentBounds = true;
+                    }
+                }
+
+                if (ancestor.GetComponent<Canvas>() != null)
+                {
+                    break;
+                }
+
+                ancestor = ancestor.parent;
+            }
+
+            return foundParentBounds ? available : fallback;
+        }
+
+        public static Vector2 CalculateAspectFitSize(Vector2 bounds, float aspect)
+        {
+            float width = Mathf.Max(1f, bounds.x);
+            float height = Mathf.Max(1f, bounds.y);
+            float safeAspect = Mathf.Max(0.01f, aspect);
+
+            float fittedWidth = width;
+            float fittedHeight = fittedWidth / safeAspect;
+            if (fittedHeight > height)
+            {
+                fittedHeight = height;
+                fittedWidth = fittedHeight * safeAspect;
+            }
+
+            return new Vector2(fittedWidth, fittedHeight);
+        }
+
+        private float GetSourceTextureAspect()
+        {
+            Texture texture = _currentTexture != null
+                ? _currentTexture
+                : targetImage != null ? targetImage.texture : null;
+            return texture != null && texture.height > 0
+                ? texture.width / (float)texture.height
+                : DefaultTextureAspect;
+        }
+
+        private void EnsureSweepOverlay()
+        {
+            if (!Application.isPlaying || targetImage == null)
+            {
+                return;
+            }
+
+            if (_sweepOverlay == null)
+            {
+                Transform existing = targetImage.transform.Find(SweepOverlayName);
+                GameObject overlayObject;
+                if (existing != null)
+                {
+                    overlayObject = existing.gameObject;
+                }
+                else
+                {
+                    overlayObject = new GameObject(
+                        SweepOverlayName,
+                        typeof(RectTransform),
+                        typeof(CanvasRenderer),
+                        typeof(RawImage));
+                    overlayObject.layer = targetImage.gameObject.layer;
+                    overlayObject.transform.SetParent(targetImage.transform, false);
+                }
+
+                RawImage image = overlayObject.GetComponent<RawImage>() ?? overlayObject.AddComponent<RawImage>();
+                image.texture = Texture2D.whiteTexture;
+                image.color = Color.white;
+                image.raycastTarget = false;
+                _sweepOverlay = overlayObject.GetComponent<XPlaneWeatherRadarSweepOverlay>() ??
+                                overlayObject.AddComponent<XPlaneWeatherRadarSweepOverlay>();
+            }
+
+            _sweepOverlay.Configure(targetImage, this, dataProvider);
+            _layerOrderDirty = true;
         }
 
         private void Subscribe()
@@ -445,6 +629,7 @@ namespace WeatherRadar
                 targetImage.color = !HasUsableTexture
                     ? offlineTint
                     : !shouldShowTexture ? offlineTint
+                    : isStale ? staleTint
                     : onlineTint;
                 targetImage.enabled = true;
                 targetImage.raycastTarget = false;
@@ -452,8 +637,11 @@ namespace WeatherRadar
 
             if (sourceLabel != null)
             {
-                sourceLabel.text = weatherProvider is XPlaneOriginalWeatherRadarProvider
-                    ? "XPL WX DATAREFS"
+                sourceLabel.text = weatherProvider is XPlaneOriginalWeatherRadarProvider originalProvider &&
+                                   !originalProvider.UsesNativeTexture
+                    ? "XPL DATAREF WX"
+                    : weatherProvider is XPlaneOriginalWeatherRadarProvider
+                        ? "XPL WX LIVE"
                     : weatherProvider != null ? "X-PLANE WX" : "WX SOURCE";
             }
 
@@ -485,7 +673,7 @@ namespace WeatherRadar
                     powerLabel.color = radarUnknownColor;
                     if (powerBadgeBackground != null)
                     {
-                        powerBadgeBackground.color = new Color(0f, 0f, 0f, 0.72f);
+                        powerBadgeBackground.color = new Color(0.004f, 0.10f, 0.065f, 0.38f);
                     }
                 }
                 else
@@ -497,8 +685,8 @@ namespace WeatherRadar
                     if (powerBadgeBackground != null)
                     {
                         Color badgeColor = _isRadarPowered
-                            ? new Color(0f, 0.16f, 0.04f, 0.82f)
-                            : new Color(0.22f, 0.04f, 0f, 0.82f);
+                            ? new Color(0.004f, 0.16f, 0.07f, 0.52f)
+                            : new Color(0.22f, 0.04f, 0f, 0.52f);
                         powerBadgeBackground.color = badgeColor;
                     }
                 }
@@ -538,8 +726,9 @@ namespace WeatherRadar
 
             string textureName = texture.name;
             return !string.IsNullOrEmpty(textureName) &&
-                   (textureName.StartsWith("XPlaneOriginalWeatherRadar", System.StringComparison.OrdinalIgnoreCase) ||
+                   (textureName.StartsWith("FAAProceduralWeatherRadar", System.StringComparison.OrdinalIgnoreCase) ||
                     textureName.StartsWith("XPlaneStreamWeatherRadar", System.StringComparison.OrdinalIgnoreCase) ||
+                    textureName.StartsWith("XPlaneOriginalWeatherRadar", System.StringComparison.OrdinalIgnoreCase) ||
                     textureName.StartsWith("v1/render/weather", System.StringComparison.OrdinalIgnoreCase));
         }
     }

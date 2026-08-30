@@ -437,7 +437,9 @@ namespace WeatherRadar.Editor
             WeatherRadarProviderBase weatherProvider,
             WeatherRadarDataProvider dataProvider)
         {
-            GameObject textureObj = new GameObject("XPlaneOriginalTexture");
+            // Use a neutral object name and leave the texture empty in edit
+            // mode; the FAA bridge supplies its own dataref-derived display.
+            GameObject textureObj = new GameObject("FAA Procedural Weather");
             textureObj.transform.SetParent(panel.transform, false);
 
             int radarSize = displaySize - 20;
@@ -449,7 +451,7 @@ namespace WeatherRadar.Editor
             rect.sizeDelta = new Vector2(radarSize, Mathf.Round(radarSize * 512f / 724f));
 
             RawImage image = textureObj.AddComponent<RawImage>();
-            image.color = new Color(1f, 1f, 1f, 0.96f);
+            image.color = new Color(1f, 1f, 1f, 0.82f);
             image.raycastTarget = false;
 
             AspectRatioFitter aspect = textureObj.AddComponent<AspectRatioFitter>();
@@ -462,6 +464,8 @@ namespace WeatherRadar.Editor
             displaySO.FindProperty("dataProvider").objectReferenceValue = dataProvider;
             displaySO.FindProperty("targetImage").objectReferenceValue = image;
             displaySO.FindProperty("aspectRatioFitter").objectReferenceValue = aspect;
+            displaySO.FindProperty("requestTextureWhenEmpty").boolValue = false;
+            displaySO.FindProperty("showReferenceOverlay").boolValue = false;
             displaySO.ApplyModifiedPropertiesWithoutUndo();
 
             textureObj.transform.SetSiblingIndex(1);

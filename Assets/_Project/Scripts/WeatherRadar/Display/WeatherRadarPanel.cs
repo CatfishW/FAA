@@ -382,27 +382,23 @@ namespace WeatherRadar
 
             if (radarDisplay != null)
             {
-                ConfigureOriginalTextureRect(radarDisplay.rectTransform);
+                ConfigureOriginalTextureRect(radarDisplay.rectTransform, weatherTexture);
                 radarDisplay.texture = weatherTexture;
                 radarDisplay.color = Color.white;
                 radarDisplay.enabled = true;
                 radarDisplay.raycastTarget = false;
             }
 
-            foreach (RawImage rawImage in GetComponentsInChildren<RawImage>(true))
+            foreach (XPlaneOriginalWeatherRadarDisplay display in
+                     GetComponentsInChildren<XPlaneOriginalWeatherRadarDisplay>(true))
             {
+                RawImage rawImage = display != null ? display.TargetImage : null;
                 if (rawImage == null)
                 {
                     continue;
                 }
 
-                string objectName = rawImage.gameObject.name;
-                if (!string.Equals(objectName, "XPlaneOriginalTexture", System.StringComparison.OrdinalIgnoreCase))
-                {
-                    continue;
-                }
-
-                ConfigureOriginalTextureRect(rawImage.rectTransform);
+                ConfigureOriginalTextureRect(rawImage.rectTransform, weatherTexture);
                 rawImage.texture = weatherTexture;
                 rawImage.color = Color.white;
                 rawImage.enabled = true;
@@ -418,10 +414,11 @@ namespace WeatherRadar
             SetRendererObjectActive(waypointRenderer, false);
 
             RectTransform textureTransform = null;
-            foreach (RawImage rawImage in GetComponentsInChildren<RawImage>(true))
+            foreach (XPlaneOriginalWeatherRadarDisplay display in
+                     GetComponentsInChildren<XPlaneOriginalWeatherRadarDisplay>(true))
             {
-                if (rawImage == null ||
-                    !string.Equals(rawImage.gameObject.name, "XPlaneOriginalTexture", System.StringComparison.OrdinalIgnoreCase))
+                RawImage rawImage = display != null ? display.TargetImage : null;
+                if (rawImage == null)
                 {
                     continue;
                 }
@@ -430,7 +427,7 @@ namespace WeatherRadar
                 rawImage.enabled = true;
                 rawImage.color = Color.white;
                 rawImage.raycastTarget = false;
-                ConfigureOriginalTextureRect(rawImage.rectTransform);
+                ConfigureOriginalTextureRect(rawImage.rectTransform, rawImage.texture);
                 textureTransform = rawImage.rectTransform;
             }
 
@@ -440,17 +437,20 @@ namespace WeatherRadar
                 Transform overlay = textureTransform.Find("FAAReferenceOverlay");
                 if (overlay != null)
                 {
-                    overlay.gameObject.SetActive(false);
+                    XPlaneOriginalWeatherRadarDisplay display =
+                        textureTransform.GetComponent<XPlaneOriginalWeatherRadarDisplay>();
+                    bool showOverlay = display == null || display.ShowReferenceOverlay;
+                    overlay.gameObject.SetActive(showOverlay);
                     XPlaneWeatherRadarOverlay referenceOverlay = overlay.GetComponent<XPlaneWeatherRadarOverlay>();
                     if (referenceOverlay != null)
                     {
-                        referenceOverlay.enabled = false;
+                        referenceOverlay.enabled = showOverlay;
                     }
 
                     RawImage overlayImage = overlay.GetComponent<RawImage>();
                     if (overlayImage != null)
                     {
-                        overlayImage.enabled = false;
+                        overlayImage.enabled = showOverlay;
                         overlayImage.raycastTarget = false;
                     }
                 }
@@ -462,7 +462,7 @@ namespace WeatherRadar
             BringLabelToFront(gainLabel);
         }
 
-        private static void ConfigureOriginalTextureRect(RectTransform rectTransform)
+        private static void ConfigureOriginalTextureRect(RectTransform rectTransform, Texture texture)
         {
             if (rectTransform == null)
             {
@@ -473,7 +473,12 @@ namespace WeatherRadar
             rectTransform.anchorMax = new Vector2(0.5f, 0.5f);
             rectTransform.pivot = new Vector2(0.5f, 0.5f);
             rectTransform.anchoredPosition = new Vector2(0f, 2f);
-            rectTransform.sizeDelta = new Vector2(352f, 352f);
+            float aspect = texture != null && texture.height > 0
+                ? texture.width / (float)texture.height
+                : 724f / 512f;
+            rectTransform.sizeDelta = XPlaneOriginalWeatherRadarDisplay.CalculateAspectFitSize(
+                new Vector2(352f, 352f),
+                aspect);
             rectTransform.localScale = Vector3.one;
         }
 

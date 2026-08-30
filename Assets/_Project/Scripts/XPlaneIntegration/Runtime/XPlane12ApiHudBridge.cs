@@ -36,6 +36,7 @@ namespace FAA.XPlaneIntegration.Runtime
         private const float MetersPerSecondToKnots = 1.94384f;
         private const float MetersPerSecondToFeetPerMinute = 196.8504f;
         private const float KnotsToFeetPerSecond = 1.68781f;
+        private const string TangTunnelLiveApiBaseUrl = "http://127.0.0.1:12678";
 
         public enum TransportMode
         {
@@ -52,6 +53,7 @@ namespace FAA.XPlaneIntegration.Runtime
         }
 
         [Header("X-Plane 12 API")]
+        [Tooltip("Live X-Plane 12 API reached through the local SSH forward to tang-server.")]
         [SerializeField] private string baseUrl = "http://127.0.0.1:12678";
         [SerializeField] private bool autoStartOnPlay = true;
         [SerializeField] private float pollIntervalSeconds = 0.1f;
@@ -59,7 +61,7 @@ namespace FAA.XPlaneIntegration.Runtime
         [SerializeField] private float staleAfterSeconds = 5f;
 
         [Header("Transport")]
-        [SerializeField] private TransportMode transportMode = TransportMode.TcpNdjsonStream;
+        [SerializeField] private TransportMode transportMode = TransportMode.HttpApi;
         [SerializeField] private string tcpStreamHost = "127.0.0.1";
         [SerializeField] private int tcpStreamPort = 37212;
         [SerializeField] private string webSocketUrl = "ws://127.0.0.1:37212/v1/stream/ws";
@@ -127,6 +129,8 @@ namespace FAA.XPlaneIntegration.Runtime
         [SerializeField] private bool applyToWeatherRadar = true;
         [SerializeField] private bool disableUserControlWhenReceiving = true;
         [SerializeField] private bool disableTrafficApiWhenReceiving = true;
+        [Tooltip("When disabled, traffic is exclusively sourced from X-Plane multiplayer datarefs.")]
+        [SerializeField] private bool allowExternalTrafficFallback = false;
         [SerializeField] private bool refreshWeatherRadarTexture = false;
         [SerializeField] private bool treatFreshWeatherTextureAsRadarOn = true;
         [SerializeField] private float minimumUnityTerrainClearanceMeters = 120f;
@@ -153,6 +157,8 @@ namespace FAA.XPlaneIntegration.Runtime
         private bool _trafficWasFetchingBeforeApi;
         private float _lastWeatherRefreshTime;
         private float _lastDisplayApplyRealtime;
+        private float _lastFlightSnapshotRealtime = -1f;
+        private bool _enginePointersClearedForStaleFeed;
         private bool _hasWeatherRadarPowerState;
         private bool _isWeatherRadarPowered;
         private int _weatherRadarMode = -1;
@@ -203,6 +209,10 @@ namespace FAA.XPlaneIntegration.Runtime
         private Glideslope[] _glideslopeHuds = Array.Empty<Glideslope>();
         private LocalizerElement[] _localizerElements = Array.Empty<LocalizerElement>();
         private GlidescopeElement[] _glidescopeElements = Array.Empty<GlidescopeElement>();
+        private AirspeedIndicatorElement[] _airspeedIndicatorElements = Array.Empty<AirspeedIndicatorElement>();
+        private AltimeterElement[] _altimeterElements = Array.Empty<AltimeterElement>();
+        private TorquePanelElement[] _torquePanelElements = Array.Empty<TorquePanelElement>();
+        private NRIndicatorElement[] _nrIndicatorElements = Array.Empty<NRIndicatorElement>();
 
         public bool IsRunning => _pollRoutine != null || _mqttTransportRunning || _webSocketTransportRunning || _tcpStreamTransportRunning;
         public bool IsFeedHealthy { get; private set; }
@@ -226,7 +236,22 @@ namespace FAA.XPlaneIntegration.Runtime
 
         private void Awake()
         {
+            // This FAA scene is intentionally X-Plane-only. Port 12678 is locally
+            // forwarded over SSH to tang-server, avoiding Unity/libcurl HTTP/2 issues
+            // while still consuming the remote live X-Plane API.
+            baseUrl = TangTunnelLiveApiBaseUrl;
+            transportMode = TransportMode.HttpApi;
+            allowExternalTrafficFallback = false;
+            // Weather presentation is synthesized from the live datarefs in
+            // each coherent 4090 snapshot. This deliberately avoids pulling
+            // the native X-Plane radar PNG into the Unity HUD.
+            publishWeatherDatarefTextureFromStream = true;
+
             FindDependencies();
+            if (!allowExternalTrafficFallback)
+            {
+                SuppressExternalTrafficFetching();
+            }
         }
 
         private void Start()
@@ -244,6 +269,8 @@ namespace FAA.XPlaneIntegration.Runtime
                 return;
             }
 
+            MaintainTrafficApiFallback();
+
             if (transportMode == TransportMode.MqttSnapshot || _usingMqttFallback)
             {
                 ProcessPendingMqttSnapshot();
@@ -256,6 +283,7 @@ namespace FAA.XPlaneIntegration.Runtime
             }
 
             ApplyContinuousDisplayFrame();
+            ClearEnginePointersWhenFeedIsStale();
         }
 
         private void OnDisable()
@@ -311,6 +339,8 @@ namespace FAA.XPlaneIntegration.Runtime
             {
                 _renderAssetRoutine = StartCoroutine(RenderAssetLoop());
             }
+
+            MaintainTrafficApiFallback();
         }
 
         [ContextMenu("Stop X-Plane 12 API Bridge")]
@@ -333,6 +363,7 @@ namespace FAA.XPlaneIntegration.Runtime
             }
 
             RestoreSuppressedSystems();
+            ClearEngineHudPointers();
             IsFeedHealthy = false;
             _pendingSnapshotJson = null;
             _pendingWebSocketSnapshotJson = null;
@@ -346,6 +377,8 @@ namespace FAA.XPlaneIntegration.Runtime
             _targetFlightData = null;
             _latestFlightData = null;
             _lastDisplayApplyRealtime = 0f;
+            _lastFlightSnapshotRealtime = -1f;
+            _enginePointersClearedForStaleFeed = true;
             _hasTargetFlightData = false;
         }
 
@@ -454,7 +487,17 @@ namespace FAA.XPlaneIntegration.Runtime
 
             if (weatherRadarProvider is XPlaneOriginalWeatherRadarProvider originalWeatherProvider)
             {
-                originalWeatherProvider.RadarTextureUrl = BuildUrl(GetWeatherTexturePath());
+                if (publishWeatherDatarefTextureFromStream || !originalWeatherProvider.UsesNativeTexture)
+                {
+                    // Keep the active FAA path dataref-only. In particular,
+                    // do not repopulate the legacy raster URL while refreshing
+                    // dependencies after a scene reload.
+                    originalWeatherProvider.UseProceduralDatarefTexture();
+                }
+                else
+                {
+                    originalWeatherProvider.RadarTextureUrl = BuildUrl(GetWeatherTexturePath());
+                }
             }
 
             TrafficRadarDisplay preferredTrafficDisplay = FindPreferredTrafficTextureDisplay();
@@ -492,6 +535,18 @@ namespace FAA.XPlaneIntegration.Runtime
             _glideslopeHuds = FindSceneObjects<Glideslope>();
             _localizerElements = FindSceneObjects<LocalizerElement>();
             _glidescopeElements = FindSceneObjects<GlidescopeElement>();
+            _airspeedIndicatorElements = Array.FindAll(
+                FindSceneObjects<AirspeedIndicatorElement>(),
+                element => element != null && element.enabled && element.gameObject.activeInHierarchy);
+            _altimeterElements = Array.FindAll(
+                FindSceneObjects<AltimeterElement>(),
+                element => element != null && element.enabled && element.gameObject.activeInHierarchy);
+            _torquePanelElements = Array.FindAll(
+                FindSceneObjects<TorquePanelElement>(),
+                element => element != null && element.enabled && element.gameObject.activeInHierarchy);
+            _nrIndicatorElements = Array.FindAll(
+                FindSceneObjects<NRIndicatorElement>(),
+                element => element != null && element.enabled && element.gameObject.activeInHierarchy);
         }
 
         private static T[] FindSceneObjects<T>() where T : Component
@@ -1064,6 +1119,23 @@ namespace FAA.XPlaneIntegration.Runtime
                 yield break;
             }
 
+            // The local 12678 forward terminates on tang-server and reaches
+            // the 4090 xplane12_data_api. Prefer its single coherent snapshot
+            // envelope so IAS, altitude, engines, systems, weather, and
+            // traffic all come from the same websocket-origin packet. The
+            // category endpoints remain a compatibility fallback for older
+            // API builds.
+            bool receivedCoherentSnapshot = false;
+            yield return RequestJson("v1/snapshot", snapshot =>
+            {
+                ApplySnapshotEnvelope(snapshot);
+                receivedCoherentSnapshot = snapshot != null && _snapshot.Aircraft.Count > 0;
+            }, suppressFailureState: true);
+            if (receivedCoherentSnapshot)
+            {
+                yield break;
+            }
+
             bool receivedAny = false;
 
             bool receivedHealth = false;
@@ -1274,6 +1346,8 @@ namespace FAA.XPlaneIntegration.Runtime
 
         private void ApplySnapshot()
         {
+            _lastFlightSnapshotRealtime = Time.realtimeSinceStartup;
+            _enginePointersClearedForStaleFeed = false;
             _rawFlightData = BuildFlightData(_snapshot.Aircraft, _snapshot.Weather, _snapshot.Systems);
             _targetFlightData = BuildDisplayTargetFlightData(_rawFlightData);
             _hasTargetFlightData = _targetFlightData != null;
@@ -1496,33 +1570,103 @@ namespace FAA.XPlaneIntegration.Runtime
 
         private void ApplyEngineData(AviationFlightData data, IDictionary<string, float> systems)
         {
-            data.engine1Torque = GetAny(systems, data.engine1Torque,
-                "sim/cockpit2/engine/indicators/torque_percent[0]",
-                "sim/flightmodel/engine/ENGN_thro[0]");
-            data.engine2Torque = GetAny(systems, data.engine2Torque,
-                "sim/cockpit2/engine/indicators/torque_percent[1]",
-                "sim/flightmodel/engine/ENGN_thro[1]");
-            data.engine1NR = GetAny(systems, data.engine1NR,
-                "sim/cockpit2/engine/indicators/N1_percent[0]",
-                "sim/cockpit2/engine/indicators/prop_speed_rpm[0]");
-            data.engine2NR = GetAny(systems, data.engine2NR,
-                "sim/cockpit2/engine/indicators/N1_percent[1]",
-                "sim/cockpit2/engine/indicators/prop_speed_rpm[1]");
-            data.engine1NG = GetAny(systems, data.engine1NG,
-                "sim/cockpit2/engine/indicators/N2_percent[0]",
-                "sim/cockpit2/engine/indicators/engine_speed_rpm[0]");
-            data.engine2NG = GetAny(systems, data.engine2NG,
-                "sim/cockpit2/engine/indicators/N2_percent[1]",
-                "sim/cockpit2/engine/indicators/engine_speed_rpm[1]");
+            data.engineCount = TryGetAny(
+                systems,
+                out float engineCount,
+                "sim/aircraft/engine/acf_num_engines")
+                ? Mathf.Clamp(Mathf.RoundToInt(engineCount), 0, 8)
+                : 0;
 
-            if (data.engine1Torque > 0f && data.engine1Torque <= 1f)
+            data.engine1TorqueValid = TryCalculateTorquePercent(systems, 0, out data.engine1Torque);
+            data.engine2TorqueValid = data.engineCount >= 2 &&
+                                      TryCalculateTorquePercent(systems, 1, out data.engine2Torque);
+
+            data.engine1NRValid = TryReadEnginePercent(
+                systems,
+                "sim/cockpit2/engine/indicators/N2_percent[0]",
+                110f,
+                out data.engine1NR);
+            data.engine2NRValid = data.engineCount >= 2 && TryReadEnginePercent(
+                systems,
+                "sim/cockpit2/engine/indicators/N2_percent[1]",
+                110f,
+                out data.engine2NR);
+
+            data.engine1NGValid = TryReadEnginePercent(
+                systems,
+                "sim/cockpit2/engine/indicators/N1_percent[0]",
+                120f,
+                out data.engine1NG);
+            data.engine2NGValid = data.engineCount >= 2 && TryReadEnginePercent(
+                systems,
+                "sim/cockpit2/engine/indicators/N1_percent[1]",
+                120f,
+                out data.engine2NG);
+
+            data.rotorNRValid = TryCalculateRotorNrPercent(systems, 0, out data.rotorNR);
+        }
+
+        public static bool TryCalculateTorquePercent(
+            IDictionary<string, float> systems,
+            int engineIndex,
+            out float percent)
+        {
+            percent = 0f;
+            if (!TryGetFinite(systems, $"sim/flightmodel/engine/ENGN_driv_TRQ[{engineIndex}]", out float torqueNm) ||
+                !TryGetFinite(systems, $"sim/flightmodel/engine/POINT_max_TRQ[{engineIndex}]", out float ratedTorqueNm))
             {
-                data.engine1Torque *= 100f;
+                return false;
             }
-            if (data.engine2Torque > 0f && data.engine2Torque <= 1f)
+
+            ratedTorqueNm = Mathf.Abs(ratedTorqueNm);
+            if (ratedTorqueNm <= 0.001f)
             {
-                data.engine2Torque *= 100f;
+                return false;
             }
+
+            percent = Mathf.Clamp(Mathf.Abs(torqueNm) / ratedTorqueNm * 100f, 0f, 120f);
+            return true;
+        }
+
+        public static bool TryCalculateRotorNrPercent(
+            IDictionary<string, float> systems,
+            int propellerIndex,
+            out float percent)
+        {
+            percent = 0f;
+            if (!TryGetFinite(
+                    systems,
+                    $"sim/cockpit2/engine/indicators/prop_speed_rpm[{propellerIndex}]",
+                    out float propellerRpm) ||
+                !TryGetFinite(systems, "sim/aircraft/controls/acf_RSC_redline_prp", out float redlineRadiansPerSecond))
+            {
+                return false;
+            }
+
+            float redlineRpm = Mathf.Abs(redlineRadiansPerSecond) * 60f / (2f * Mathf.PI);
+            if (redlineRpm <= 0.001f)
+            {
+                return false;
+            }
+
+            percent = Mathf.Clamp(Mathf.Abs(propellerRpm) / redlineRpm * 100f, 0f, 110f);
+            return true;
+        }
+
+        private static bool TryReadEnginePercent(
+            IDictionary<string, float> systems,
+            string key,
+            float maximum,
+            out float percent)
+        {
+            percent = 0f;
+            if (!TryGetFinite(systems, key, out float value))
+            {
+                return false;
+            }
+
+            percent = Mathf.Clamp(value, 0f, maximum);
+            return true;
         }
 
         private void ApplyToAviationHud(AviationFlightData data)
@@ -1584,12 +1728,69 @@ namespace FAA.XPlaneIntegration.Runtime
             {
                 ForEach(_localizerElements, element => element.SetDeviation(data.courseDeviation));
                 ForEach(_glidescopeElements, element => element.SetDeviation(data.glideslopeDeviation));
+                bool airspeedValid = TryGetFinite(
+                    _snapshot.Aircraft,
+                    "sim/flightmodel/position/indicated_airspeed",
+                    out float indicatedAirspeed) &&
+                    indicatedAirspeed >= 0f;
+                bool altitudeValid = TryGetFinite(
+                    _snapshot.Aircraft,
+                    "sim/flightmodel/position/elevation",
+                    out float altitudeMeters);
+                ForEach(_airspeedIndicatorElements, element =>
+                    element.SetAirspeedData(data.indicatedAirspeed, airspeedValid));
+                ForEach(_altimeterElements, element =>
+                    element.SetAltitudeData(data.altitudeMSL, altitudeValid && IsFinite(data.altitudeMSL)));
+                ForEach(_torquePanelElements, element =>
+                {
+                    element.SetEngineCount(data.engineCount);
+                    element.SetTorqueData(
+                        data.engine1Torque,
+                        data.engine1TorqueValid,
+                        data.engine2Torque,
+                        data.engine2TorqueValid);
+                });
+                ForEach(_nrIndicatorElements, element =>
+                {
+                    element.SetEngineCount(data.engineCount);
+                    element.SetRPMData(
+                        data.rotorNR,
+                        data.rotorNRValid,
+                        data.engine1NR,
+                        data.engine1NRValid,
+                        data.engine2NR,
+                        data.engine2NRValid);
+                });
             }
 
             if (hudController != null && aircraftController?.State != null)
             {
                 hudController.InjectState(aircraftController.State);
             }
+        }
+
+        private void ClearEnginePointersWhenFeedIsStale()
+        {
+            if (_enginePointersClearedForStaleFeed || _lastFlightSnapshotRealtime < 0f)
+            {
+                return;
+            }
+
+            if (Time.realtimeSinceStartup - _lastFlightSnapshotRealtime <= Mathf.Max(0.1f, staleAfterSeconds))
+            {
+                return;
+            }
+
+            ClearEngineHudPointers();
+            _enginePointersClearedForStaleFeed = true;
+        }
+
+        private void ClearEngineHudPointers()
+        {
+            ForEach(_airspeedIndicatorElements, element => element.ClearExternalData());
+            ForEach(_altimeterElements, element => element.ClearExternalData());
+            ForEach(_torquePanelElements, element => element.ClearExternalData());
+            ForEach(_nrIndicatorElements, element => element.ClearExternalData());
         }
 
         private void SuppressLocalAircraftSimulation()
@@ -1640,20 +1841,25 @@ namespace FAA.XPlaneIntegration.Runtime
                 return;
             }
 
-            if (disableTrafficApiWhenReceiving && !_suppressedTrafficFetching)
-            {
-                _trafficWasFetchingBeforeApi = trafficRadarDataManager.IsActive;
-                if (_trafficWasFetchingBeforeApi)
-                {
-                    trafficRadarDataManager.StopFetching();
-                }
-                _suppressedTrafficFetching = true;
-            }
-
             double ownLat = Get(_snapshot.Aircraft, "sim/flightmodel/position/latitude", 0d);
             double ownLon = Get(_snapshot.Aircraft, "sim/flightmodel/position/longitude", 0d);
             BuildTrafficRows(_snapshot.Traffic, ownLat, ownLon, _trafficRows);
             TrafficCount = _trafficRows.Count;
+
+            if (_trafficRows.Count == 0)
+            {
+                if (allowExternalTrafficFallback)
+                {
+                    EnableTrafficApiFallback();
+                    return;
+                }
+
+                SuppressExternalTrafficFetching();
+                ClearTrafficRadarRows(ownLat, ownLon, data);
+                return;
+            }
+
+            SuppressExternalTrafficFetching();
 
             trafficRadarDataManager.aircraftMap.Clear();
             trafficRadarDataManager.aircraftList.Clear();
@@ -1670,6 +1876,70 @@ namespace FAA.XPlaneIntegration.Runtime
 
             trafficRadarDataManager.SetReferencePosition((float)ownLat, (float)ownLon);
             trafficRadarDataManager.onDataUpdated?.Invoke(_trafficRows);
+        }
+
+        private void MaintainTrafficApiFallback()
+        {
+            if (!disableTrafficApiWhenReceiving || trafficRadarDataManager == null)
+            {
+                return;
+            }
+
+            if (allowExternalTrafficFallback && (!IsFeedHealthy || TrafficCount == 0))
+            {
+                EnableTrafficApiFallback();
+                return;
+            }
+
+            SuppressExternalTrafficFetching();
+        }
+
+        private void EnableTrafficApiFallback()
+        {
+            if (!allowExternalTrafficFallback || !disableTrafficApiWhenReceiving || trafficRadarDataManager == null)
+            {
+                return;
+            }
+
+            // Release the prior live-traffic suppression before starting the fallback.
+            _suppressedTrafficFetching = false;
+            _trafficWasFetchingBeforeApi = false;
+            if (!trafficRadarDataManager.IsActive)
+            {
+                trafficRadarDataManager.StartFetching();
+            }
+        }
+
+        private void SuppressExternalTrafficFetching()
+        {
+            if (!disableTrafficApiWhenReceiving || trafficRadarDataManager == null)
+            {
+                return;
+            }
+
+            if (!_suppressedTrafficFetching)
+            {
+                _trafficWasFetchingBeforeApi = trafficRadarDataManager.IsActive;
+                _suppressedTrafficFetching = true;
+            }
+
+            if (trafficRadarDataManager.IsActive)
+            {
+                trafficRadarDataManager.StopFetching();
+            }
+        }
+
+        private void ClearTrafficRadarRows(double ownLat, double ownLon, AviationFlightData data)
+        {
+            trafficRadarDataManager.aircraftMap.Clear();
+            trafficRadarDataManager.aircraftList.Clear();
+            trafficRadarDataManager.SetReferencePosition((float)ownLat, (float)ownLon);
+            trafficRadarDataManager.onDataUpdated?.Invoke(_trafficRows);
+
+            if (trafficRadarController != null)
+            {
+                trafficRadarController.SetOwnPosition(ownLat, ownLon, data.altitudeMSL / MetersToFeet, data.heading);
+            }
         }
 
         private void BuildTrafficRows(
@@ -1734,6 +2004,11 @@ namespace FAA.XPlaneIntegration.Runtime
             float latitude = Get(_snapshot.Aircraft, "sim/flightmodel/position/latitude");
             float longitude = Get(_snapshot.Aircraft, "sim/flightmodel/position/longitude");
             weatherRadarProvider.SetAircraftPosition(data.altitudeMSL, latitude, longitude, data.heading);
+            if (weatherRadarDataProvider != null)
+            {
+                weatherRadarDataProvider.SetPosition(latitude, longitude, data.altitudeMSL);
+                weatherRadarDataProvider.SetHeading(data.heading);
+            }
             ApplyStreamWeatherTexture(data, latitude, longitude);
 
             if (refreshWeatherRadarTexture && Time.time - _lastWeatherRefreshTime >= Mathf.Max(1f, renderAssetPollIntervalSeconds))
@@ -1796,7 +2071,7 @@ namespace FAA.XPlaneIntegration.Runtime
                 DestroyTexture(ref _streamWeatherTexture);
                 _streamWeatherTexture = new Texture2D(size, size, TextureFormat.RGBA32, false)
                 {
-                    name = "XPlaneStreamWeatherRadar",
+                    name = "FAAProceduralWeatherRadar",
                     filterMode = FilterMode.Bilinear,
                     wrapMode = TextureWrapMode.Clamp
                 };
@@ -2573,7 +2848,10 @@ namespace FAA.XPlaneIntegration.Runtime
         {
             while (enabled)
             {
-                if (ShouldBridgeDownloadWeatherTexture())
+                // The weather panel is fed by ApplyStreamWeatherTexture from
+                // the live snapshot. Native X-Plane raster downloads remain an
+                // explicit fallback only and are disabled for this scene.
+                if (ShouldBridgeDownloadWeatherTexture() && !publishWeatherDatarefTextureFromStream)
                 {
                     yield return DownloadTexture(GetWeatherTexturePath(), texture =>
                     {
@@ -2774,22 +3052,15 @@ namespace FAA.XPlaneIntegration.Runtime
 
         private string GetWeatherTexturePath()
         {
-            float rangeNm = 160f;
-            if (weatherRadarDataProvider != null && weatherRadarDataProvider.RadarData != null)
-            {
-                rangeNm = weatherRadarDataProvider.RadarData.currentRange;
-            }
-            else if (weatherRadarProvider != null)
-            {
-                rangeNm = weatherRadarProvider.RangeNM;
-            }
-
-            return "v1/render/weather.png?range_nm=" + Mathf.Clamp(rangeNm, 5f, 320f).ToString("0", CultureInfo.InvariantCulture);
+            // Retained only for an explicitly opted-in legacy fallback. The
+            // configured FAA scene uses the procedural dataref texture path.
+            return "v1/render/weather.png";
         }
 
         private bool ShouldBridgeDownloadWeatherTexture()
         {
-            return weatherImageTarget != null || xPlaneWeatherRadarDisplay != null || weatherRadarProvider != null;
+            return !publishWeatherDatarefTextureFromStream &&
+                   (weatherImageTarget != null || xPlaneWeatherRadarDisplay != null || weatherRadarProvider != null);
         }
 
         private IEnumerator DownloadTexture(string relativeUrl, Action<Texture2D> onSuccess)
@@ -3123,6 +3394,14 @@ namespace FAA.XPlaneIntegration.Runtime
         private static bool IsFinite(float value)
         {
             return !float.IsNaN(value) && !float.IsInfinity(value);
+        }
+
+        private static bool TryGetFinite(IDictionary<string, float> values, string key, out float value)
+        {
+            value = 0f;
+            return values != null &&
+                   values.TryGetValue(key, out value) &&
+                   IsFinite(value);
         }
 
         private static void AddSnapshotValue(IDictionary<string, float> values, string key, JToken token)

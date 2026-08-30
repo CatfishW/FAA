@@ -135,7 +135,7 @@ namespace OnlineMaps.Editors
         {
             if (!texture) return;
 
-            string textureFilename = AssetDatabase.GetAssetPath(texture.GetInstanceID());
+            string textureFilename = OnlineMaps.Compatibility.GetAssetPathCompat(texture);
             TextureImporter textureImporter = AssetImporter.GetAtPath(textureFilename) as TextureImporter;
             if (!textureImporter) return;
 

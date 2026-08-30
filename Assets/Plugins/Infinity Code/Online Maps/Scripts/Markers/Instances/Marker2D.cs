@@ -338,7 +338,7 @@ namespace OnlineMaps
             return base.ToJSON().AppendObject(new
             {
                 align = (int)align,
-                texture = texture ? texture.GetInstanceID() : 0,
+                texture = texture ? Compatibility.GetInstanceIDCompat(texture) : 0,
                 rotation
             });
         }

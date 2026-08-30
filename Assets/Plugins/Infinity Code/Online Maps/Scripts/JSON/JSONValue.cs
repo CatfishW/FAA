@@ -155,7 +155,7 @@ namespace OnlineMaps
 #if UNITY_EDITOR
                 if (t.IsSubclassOf(typeof(UnityEngine.Object)))
                 {
-                    return UnityEditor.EditorUtility.InstanceIDToObject((int)(long)_value);
+                    return Compatibility.InstanceIDToObjectCompat((int)(long)_value);
                 }
 #endif
 

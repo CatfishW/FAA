@@ -420,7 +420,7 @@ namespace OnlineMaps
                 }
                 else
                 {
-                    json.Add("marker3DPrefab", marker3DPrefab.GetInstanceID());
+                    json.Add("marker3DPrefab", Compatibility.GetInstanceIDCompat(marker3DPrefab));
                     json.Add("marker3DSizeType", marker3DSizeType);
                 }
             }

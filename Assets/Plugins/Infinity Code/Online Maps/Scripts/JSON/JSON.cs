@@ -684,7 +684,7 @@ namespace OnlineMaps
             {
                 if (!settings.HasFlag(SerializeSettings.SerializeUnityObject) || !(obj is Component || obj is ScriptableObject))
                 {
-                    return new JSONValue((obj as UnityEngine.Object).GetInstanceID());
+                    return new JSONValue(Compatibility.GetInstanceIDCompat(obj as UnityEngine.Object));
                 }
             }
 

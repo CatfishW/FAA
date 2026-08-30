@@ -1,3 +1,4 @@
+#if UNITY_EDITOR
 using UnityEngine;
 using UnityEditor;
 using System.IO;
@@ -546,3 +547,4 @@ namespace WeatherRadar.Weather3D.Editor
         }
     }
 }
+#endif

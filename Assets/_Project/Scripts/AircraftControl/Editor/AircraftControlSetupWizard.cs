@@ -1,3 +1,4 @@
+#if UNITY_EDITOR
 using UnityEngine;
 using UnityEditor;
 using AircraftControl.Core;
@@ -375,3 +376,4 @@ private void PerformSetup()
         }
     }
 }
+#endif

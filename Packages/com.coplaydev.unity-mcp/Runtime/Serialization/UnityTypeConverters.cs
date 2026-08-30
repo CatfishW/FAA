@@ -1,6 +1,7 @@
 using Newtonsoft.Json;
 using Newtonsoft.Json.Linq;
 using System;
+using MCPForUnity.Runtime.Helpers;
 using UnityEngine;
 #if UNITY_EDITOR
 using UnityEditor; // Required for AssetDatabase and EditorUtility
@@ -279,7 +280,7 @@ namespace MCPForUnity.Runtime.Serialization
                     writer.WritePropertyName("name");
                     writer.WriteValue(value.name);
                     writer.WritePropertyName("instanceID");
-                    writer.WriteValue(value.GetInstanceID());
+                    writer.WriteValue(value.GetInstanceIDCompat());
                     writer.WritePropertyName("isAssetWithoutPath");
                     writer.WriteValue(true);
                     writer.WriteEndObject();
@@ -292,7 +293,7 @@ namespace MCPForUnity.Runtime.Serialization
                 writer.WritePropertyName("name");
                 writer.WriteValue(value.name);
                 writer.WritePropertyName("instanceID");
-                writer.WriteValue(value.GetInstanceID());
+                writer.WriteValue(value.GetInstanceIDCompat());
                 writer.WriteEndObject();
             }
 #else
@@ -301,7 +302,7 @@ namespace MCPForUnity.Runtime.Serialization
             writer.WritePropertyName("name");
             writer.WriteValue(value.name);
             writer.WritePropertyName("instanceID");
-            writer.WriteValue(value.GetInstanceID());
+            writer.WriteValue(value.GetInstanceIDCompat());
              writer.WritePropertyName("warning");
             writer.WriteValue("UnityEngineObjectConverter running in non-Editor mode, asset path unavailable.");
             writer.WriteEndObject();
@@ -364,7 +365,7 @@ namespace MCPForUnity.Runtime.Serialization
                 if (jo.TryGetValue("instanceID", out JToken idToken) && idToken.Type == JTokenType.Integer)
                 {
                     int instanceId = idToken.ToObject<int>();
-                    UnityEngine.Object obj = UnityEditor.EditorUtility.InstanceIDToObject(instanceId);
+                    UnityEngine.Object obj = UnityObjectIdCompat.InstanceIDToObjectCompat(instanceId);
                     if (obj != null)
                     {
                         // Direct type match

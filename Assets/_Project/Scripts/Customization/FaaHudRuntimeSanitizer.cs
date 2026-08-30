@@ -21,11 +21,13 @@ namespace FAA.Customization
     {
         private const string DefaultRadarControlsObjectName = "X-Plane Radar Controls";
         private const string XPlaneOriginalTextureObjectName = "XPlaneOriginalTexture";
+        private const string ProceduralWeatherTextureObjectName = "FAA Procedural Weather";
         private const float LegacyScreenFlightHudScale = 420f;
         private const float MinimumReadableScreenFlightHudScale = 520f;
         private const float DefaultScreenFlightHudScale = 540f;
-        private const float MinimumTrafficRadarWidth = 360f;
-        private const float MinimumTrafficRadarHeight = 360f;
+        private const float LegacyWeatherRadarSize = 372f;
+        private const float LegacyTrafficRadarSize = 420f;
+        private const float MinimumRadarSize = 220f;
         private const string HeadingTapeCanvasName = "FAAHeadingTapeCanvas";
         private const string HeadingTapeOverlayName = "FAA Heading Tape Overlay";
         private static readonly Color HudGreen = new Color(0.2f, 1f, 0.2f, 1f);
@@ -61,8 +63,8 @@ namespace FAA.Customization
         [SerializeField] private string trafficRadarCanvasName = "XPlaneTrafficRadarCanvas";
         [SerializeField] private string trafficRadarRootName = "Traffic Radar System";
         [SerializeField] private string indicatorCanvasName = "XPlaneWeatherIndicatorCanvas";
-        [SerializeField] private Vector2 weatherRadarSize = new Vector2(372f, 372f);
-        [SerializeField] private Vector2 trafficRadarSize = new Vector2(420f, 420f);
+        [SerializeField] private Vector2 weatherRadarSize = new Vector2(280f, 280f);
+        [SerializeField] private Vector2 trafficRadarSize = new Vector2(296f, 296f);
         [SerializeField] private Vector2 radarInset = new Vector2(28f, 28f);
         [SerializeField] private bool createRadarControlStrips = true;
         [SerializeField] private string radarControlsObjectName = DefaultRadarControlsObjectName;
@@ -73,12 +75,22 @@ namespace FAA.Customization
         [Header("Cesium Presentation Cleanup")]
         [SerializeField] private bool hideCesiumCreditOverlay = true;
 
+        [Header("HUD-Friendly Skybox")]
+        [SerializeField] private bool tuneSkyboxForHudContrast = true;
+        [SerializeField] private Color hudSkyTint = new Color(0.24f, 0.48f, 0.72f, 1f);
+        [SerializeField] private Color hudHorizonTint = new Color(0.14f, 0.19f, 0.24f, 1f);
+        [SerializeField] private float hudSkyboxExposure = 0.68f;
+
         [Header("Runtime Rescan")]
+        [Tooltip("Opt in only for scenes that create HUD objects after startup. Continuous scans can override user-driven visibility, color, and layout changes.")]
+        [SerializeField] private bool continuousRuntimeRescan = false;
         [SerializeField] private int initialFrameScans = 240;
         [SerializeField] private float rescanIntervalSeconds = 0.5f;
 
         private int _remainingInitialScans;
         private float _nextScanTime;
+        private Material _sourceSkyboxMaterial;
+        private Material _hudSkyboxMaterial;
 
 #if UNITY_EDITOR
         [InitializeOnLoadMethod]
@@ -103,14 +115,14 @@ namespace FAA.Customization
         private void Awake()
         {
             EnsureRuntimeDefaults();
-            _remainingInitialScans = initialFrameScans;
+            _remainingInitialScans = continuousRuntimeRescan ? initialFrameScans : 0;
             SanitizeNow();
         }
 
         private void OnEnable()
         {
             EnsureRuntimeDefaults();
-            _remainingInitialScans = initialFrameScans;
+            _remainingInitialScans = continuousRuntimeRescan ? initialFrameScans : 0;
             SanitizeNow();
         }
 
@@ -119,8 +131,29 @@ namespace FAA.Customization
             SanitizeNow();
         }
 
+        private void OnDestroy()
+        {
+            if (_hudSkyboxMaterial == null)
+            {
+                return;
+            }
+
+            if (RenderSettings.skybox == _hudSkyboxMaterial)
+            {
+                RenderSettings.skybox = _sourceSkyboxMaterial;
+            }
+
+            DestroySkyboxMaterial(_hudSkyboxMaterial);
+            _hudSkyboxMaterial = null;
+        }
+
         private void LateUpdate()
         {
+            if (!continuousRuntimeRescan)
+            {
+                return;
+            }
+
             bool shouldScan = _remainingInitialScans > 0 || Time.unscaledTime >= _nextScanTime;
             if (!shouldScan)
             {
@@ -140,6 +173,11 @@ namespace FAA.Customization
         public void SanitizeNow()
         {
             EnsureRuntimeDefaults();
+
+            if (tuneSkyboxForHudContrast && Application.isPlaying)
+            {
+                ApplyHudFriendlySkybox();
+            }
 
             if (disableWorldSpaceSymbologyCanvas)
             {
@@ -184,6 +222,74 @@ namespace FAA.Customization
             }
         }
 
+        private void ApplyHudFriendlySkybox()
+        {
+            Material activeSkybox = RenderSettings.skybox;
+            if (activeSkybox == null || activeSkybox == _hudSkyboxMaterial)
+            {
+                return;
+            }
+
+            if (_hudSkyboxMaterial != null)
+            {
+                DestroySkyboxMaterial(_hudSkyboxMaterial);
+            }
+
+            _sourceSkyboxMaterial = activeSkybox;
+            _hudSkyboxMaterial = new Material(activeSkybox)
+            {
+                name = activeSkybox.name + " (FAA HUD Contrast)",
+                hideFlags = HideFlags.HideAndDontSave
+            };
+
+            SetMaterialColorIfPresent(_hudSkyboxMaterial, "_SkyTint", hudSkyTint);
+            SetMaterialColorIfPresent(_hudSkyboxMaterial, "_Tint", new Color(0.70f, 0.82f, 0.94f, 1f));
+            SetMaterialColorIfPresent(_hudSkyboxMaterial, "_GroundColor", hudHorizonTint);
+            SetMaterialColorIfPresent(_hudSkyboxMaterial, "_NightSkyTint", new Color(0.035f, 0.07f, 0.13f, 1f));
+            SetMaterialFloatIfPresent(_hudSkyboxMaterial, "_Exposure", Mathf.Clamp(hudSkyboxExposure, 0.2f, 1.5f));
+            SetMaterialFloatIfPresent(_hudSkyboxMaterial, "_AtmosphereThickness", 0.82f);
+            SetMaterialFloatIfPresent(_hudSkyboxMaterial, "_HorizonBrightness", 0.72f);
+            SetMaterialFloatIfPresent(_hudSkyboxMaterial, "_SunHDR", 0.78f);
+
+            RenderSettings.skybox = _hudSkyboxMaterial;
+            RenderSettings.ambientIntensity = 0.82f;
+            RenderSettings.reflectionIntensity = 0.58f;
+            DynamicGI.UpdateEnvironment();
+        }
+
+        private static void SetMaterialColorIfPresent(Material material, string propertyName, Color value)
+        {
+            if (material != null && material.HasProperty(propertyName))
+            {
+                material.SetColor(propertyName, value);
+            }
+        }
+
+        private static void SetMaterialFloatIfPresent(Material material, string propertyName, float value)
+        {
+            if (material != null && material.HasProperty(propertyName))
+            {
+                material.SetFloat(propertyName, value);
+            }
+        }
+
+        private static void DestroySkyboxMaterial(Material material)
+        {
+            if (material == null)
+            {
+                return;
+            }
+
+            if (Application.isPlaying)
+            {
+                Object.Destroy(material);
+            }
+            else
+            {
+                Object.DestroyImmediate(material);
+            }
+        }
+
         private void EnsureHeadingTapeOverlay()
         {
             Canvas canvas = EnsureHeadingTapeCanvas();
@@ -193,12 +299,16 @@ namespace FAA.Customization
             }
 
             Transform existing = FindExistingHeadingTapeOverlay();
+            bool createdOverlayObject = existing == null;
             GameObject overlayObject = existing != null
                 ? existing.gameObject
                 : new GameObject(HeadingTapeOverlayName, typeof(RectTransform));
 
             RectTransform rectTransform = EnsureRectTransform(overlayObject);
-            rectTransform.SetParent(canvas.transform, false);
+            if (rectTransform.parent != canvas.transform)
+            {
+                rectTransform.SetParent(canvas.transform, false);
+            }
             rectTransform.SetAsLastSibling();
             overlayObject.name = HeadingTapeOverlayName;
             overlayObject.SetActive(true);
@@ -207,11 +317,19 @@ namespace FAA.Customization
             FaaHeadingTapeOverlay overlay = overlayObject.GetComponent<FaaHeadingTapeOverlay>() ??
                                            overlayObject.AddComponent<FaaHeadingTapeOverlay>();
             overlay.enabled = true;
-            overlay.Configure(HeadingTapeAnchoredPosition, HeadingTapeSize, HudGreen, HudGreenDim);
+            ConfigureHeadingTapeLayoutIfCreated(overlay, createdOverlayObject);
             overlay.SetDataSources(
                 FindAnyObjectByType<AviationUI.AviationFlightDataProvider>(FindObjectsInactive.Include),
                 FindAnyObjectByType<AircraftControl.Core.AircraftController>(FindObjectsInactive.Include),
                 Camera.main != null ? Camera.main.transform : null);
+        }
+
+        private static void ConfigureHeadingTapeLayoutIfCreated(FaaHeadingTapeOverlay overlay, bool createdOverlayObject)
+        {
+            if (overlay != null && createdOverlayObject)
+            {
+                overlay.Configure(HeadingTapeAnchoredPosition, HeadingTapeSize, HudGreen, HudGreenDim);
+            }
         }
 
         private static Transform FindExistingHeadingTapeOverlay()
@@ -395,11 +513,16 @@ namespace FAA.Customization
                 screenFlightHudAnchoredPosition = DefaultScreenFlightHudAnchoredPosition;
             }
 
-            if (trafficRadarSize.x < MinimumTrafficRadarWidth || trafficRadarSize.y < MinimumTrafficRadarHeight)
+            if (Vector2.Distance(weatherRadarSize, Vector2.one * LegacyWeatherRadarSize) < 0.5f ||
+                weatherRadarSize.x < MinimumRadarSize || weatherRadarSize.y < MinimumRadarSize)
             {
-                trafficRadarSize = new Vector2(
-                    Mathf.Max(trafficRadarSize.x, MinimumTrafficRadarWidth),
-                    Mathf.Max(trafficRadarSize.y, MinimumTrafficRadarHeight));
+                weatherRadarSize = new Vector2(280f, 280f);
+            }
+
+            if (Vector2.Distance(trafficRadarSize, Vector2.one * LegacyTrafficRadarSize) < 0.5f ||
+                trafficRadarSize.x < MinimumRadarSize || trafficRadarSize.y < MinimumRadarSize)
+            {
+                trafficRadarSize = new Vector2(296f, 296f);
             }
         }
 
@@ -802,7 +925,7 @@ namespace FAA.Customization
                     new Vector2(0f, 0f),
                     new Vector2(radarInset.x, radarInset.y),
                     weatherRadarSize);
-                DisableWeatherReferenceOverlays(weatherRoot);
+                EnableWeatherReferenceOverlays(weatherRoot);
             }
 
             Canvas trafficCanvas = EnsureOverlayCanvas(trafficRadarCanvasName, screenFlightHudSortingOrder + 80, true);
@@ -856,9 +979,7 @@ namespace FAA.Customization
             foreach (TrafficRadar.TrafficRadarDisplay display in radarDisplay.GetComponentsInChildren<TrafficRadar.TrafficRadarDisplay>(true))
             {
                 display.enabled = true;
-                display.ShowRadarBackground = true;
-                display.BackgroundColor = new Color(0f, 0f, 0f, 0.96f);
-                display.ChartOpacity = Mathf.Max(display.ChartOpacity, 0.78f);
+                display.ConfigureHudPresentation(0.34f, 0.28f);
                 display.PreferXPlaneTrafficTexture = false;
                 RestoreDesignedRadarImage(display.RadarImage);
             }
@@ -876,14 +997,14 @@ namespace FAA.Customization
                 if (mask != null)
                 {
                     mask.enabled = true;
-                    mask.showMaskGraphic = true;
+                    mask.showMaskGraphic = false;
                 }
             }
 
             UnityEngine.UI.Image image = radarDisplay.GetComponent<UnityEngine.UI.Image>();
             if (image != null)
             {
-                image.color = new Color(0.05f, 0.1f, 0.15f, 0.95f);
+                image.color = new Color(0.01f, 0.08f, 0.075f, 0f);
                 image.raycastTarget = false;
             }
         }
@@ -897,11 +1018,11 @@ namespace FAA.Customization
 
             image.gameObject.SetActive(true);
             image.enabled = true;
-            image.color = image.texture == null ? new Color(0f, 0f, 0f, 0.96f) : Color.white;
+            image.color = Color.white;
             image.raycastTarget = false;
         }
 
-        private static void DisableWeatherReferenceOverlays(GameObject weatherRoot)
+        private static void EnableWeatherReferenceOverlays(GameObject weatherRoot)
         {
             if (weatherRoot == null)
             {
@@ -912,9 +1033,16 @@ namespace FAA.Customization
             {
                 if (display != null)
                 {
+                    // The FAA radar is rendered from live X-Plane datarefs.
+                    // Keep the legacy reference/raster treatment out of the
+                    // presentation; the procedural display owns its own
+                    // modern grid and return styling.
                     display.ShowReferenceOverlay = false;
+                    display.ConfigureHudPresentation(0.82f);
                 }
             }
+
+            StyleWeatherRadarGlass(weatherRoot);
 
             foreach (XPlaneWeatherRadarOverlay overlay in weatherRoot.GetComponentsInChildren<XPlaneWeatherRadarOverlay>(true))
             {
@@ -923,6 +1051,7 @@ namespace FAA.Customization
                     continue;
                 }
 
+                overlay.gameObject.SetActive(false);
                 overlay.enabled = false;
                 RawImage image = overlay.GetComponent<RawImage>();
                 if (image != null)
@@ -930,11 +1059,32 @@ namespace FAA.Customization
                     image.enabled = false;
                     image.raycastTarget = false;
                 }
+            }
+        }
 
-                if (overlay.gameObject.activeSelf)
+        private static void StyleWeatherRadarGlass(GameObject weatherRoot)
+        {
+            foreach (UnityEngine.UI.Image image in weatherRoot.GetComponentsInChildren<UnityEngine.UI.Image>(true))
+            {
+                if (image == null)
                 {
-                    overlay.gameObject.SetActive(false);
+                    continue;
                 }
+
+                string objectName = image.gameObject.name;
+                bool isRootPlate = image.transform == weatherRoot.transform;
+                bool isBackground = objectName.IndexOf("Background", System.StringComparison.OrdinalIgnoreCase) >= 0 ||
+                                    objectName.IndexOf("Backplate", System.StringComparison.OrdinalIgnoreCase) >= 0 ||
+                                    objectName.IndexOf("Bezel", System.StringComparison.OrdinalIgnoreCase) >= 0;
+                if (!isRootPlate && !isBackground)
+                {
+                    continue;
+                }
+
+                image.color = isRootPlate
+                    ? new Color(0.005f, 0.04f, 0.03f, 0f)
+                    : new Color(0.008f, 0.065f, 0.05f, 0.06f);
+                image.raycastTarget = false;
             }
         }
 
@@ -1644,7 +1794,6 @@ namespace FAA.Customization
                     continue;
                 }
 
-                graphic.color = WithHudAlpha(graphic.color.a);
                 graphic.raycastTarget = false;
             }
 
@@ -1655,7 +1804,11 @@ namespace FAA.Customization
                     continue;
                 }
 
-                ApplyTmpHudGreen(text);
+                if (text.font == null && TMP_Settings.defaultFontAsset != null)
+                {
+                    text.font = TMP_Settings.defaultFontAsset;
+                }
+                text.raycastTarget = false;
             }
 
             foreach (Text text in legacyHudRoot.GetComponentsInChildren<Text>(true))
@@ -1665,56 +1818,8 @@ namespace FAA.Customization
                     continue;
                 }
 
-                text.color = HudGreen;
                 text.raycastTarget = false;
             }
-
-            foreach (Outline outline in legacyHudRoot.GetComponentsInChildren<Outline>(true))
-            {
-                if (outline == null || ShouldSkipHudColorTarget(outline.transform))
-                {
-                    continue;
-                }
-
-                outline.effectColor = HudGreenDim;
-            }
-
-            foreach (Shadow shadow in legacyHudRoot.GetComponentsInChildren<Shadow>(true))
-            {
-                if (shadow == null || ShouldSkipHudColorTarget(shadow.transform))
-                {
-                    continue;
-                }
-
-                shadow.effectColor = new Color(0f, 0.08f, 0.02f, 0.72f);
-            }
-        }
-
-        private static Color WithHudAlpha(float currentAlpha)
-        {
-            Color color = HudGreen;
-            color.a = Mathf.Max(currentAlpha, 0.92f);
-            return color;
-        }
-
-        private static void ApplyTmpHudGreen(TMP_Text text)
-        {
-            if (text.font == null && TMP_Settings.defaultFontAsset != null)
-            {
-                text.font = TMP_Settings.defaultFontAsset;
-            }
-
-            text.color = HudGreen;
-            if (text.fontSharedMaterial != null)
-            {
-                text.faceColor = HudGreen;
-                text.outlineColor = HudGreenDim;
-            }
-
-            text.enableVertexGradient = false;
-            text.raycastTarget = false;
-            text.canvasRenderer.SetColor(HudGreen);
-            text.ForceMeshUpdate(true, true);
         }
 
         private static bool ShouldSkipHudColorTarget(Transform transform)
@@ -1984,22 +2089,13 @@ namespace FAA.Customization
 
             private static void SanitizeLoadedHudOverlays()
             {
-                bool sanitizedAny = false;
-                foreach (FaaHudRuntimeSanitizer sanitizer in Resources.FindObjectsOfTypeAll<FaaHudRuntimeSanitizer>())
-                {
-                    if (sanitizer == null || !IsLoadedSceneObject(sanitizer.gameObject))
-                    {
-                        continue;
-                    }
-
-                    sanitizedAny = true;
-                    sanitizer.SanitizeNow();
-                }
-
-                if (!sanitizedAny)
-                {
-                    HideCesiumCreditOverlay();
-                }
+                // This editor callback exists only to suppress Cesium's transient
+                // credit document. Running the complete HUD sanitizer here used to
+                // rescan and mutate the entire integrated FAA_OPL scene every half
+                // second, pinning the editor main thread on large terrain scenes.
+                // Runtime normalization still runs deterministically from Awake,
+                // OnEnable, and Start on each sanitizer instance.
+                HideCesiumCreditOverlay();
             }
         }
 #endif
@@ -2053,7 +2149,7 @@ namespace FAA.Customization
                     continue;
                 }
 
-                int instanceId = image.GetInstanceID();
+                int instanceId = image.GetEntityId().GetHashCode();
                 if (BrokenSpriteImageInstanceIds.Contains(instanceId))
                 {
                     continue;
@@ -2112,7 +2208,8 @@ namespace FAA.Customization
             {
                 if (rawImage == null ||
                     !IsLoadedSceneObject(rawImage.gameObject) ||
-                    !string.Equals(rawImage.gameObject.name, XPlaneOriginalTextureObjectName, System.StringComparison.OrdinalIgnoreCase) ||
+                    (!string.Equals(rawImage.gameObject.name, XPlaneOriginalTextureObjectName, System.StringComparison.OrdinalIgnoreCase) &&
+                     !string.Equals(rawImage.gameObject.name, ProceduralWeatherTextureObjectName, System.StringComparison.OrdinalIgnoreCase)) ||
                     rawImage.texture == null)
                 {
                     continue;
@@ -2128,7 +2225,7 @@ namespace FAA.Customization
                 SerializedProperty colorProperty = serializedImage.FindProperty("m_Color");
                 if (colorProperty != null)
                 {
-                    colorProperty.colorValue = new Color(0f, 0f, 0f, 0.96f);
+                    colorProperty.colorValue = new Color(0.004f, 0.055f, 0.04f, 0f);
                 }
 
                 SerializedProperty raycastProperty = serializedImage.FindProperty("m_RaycastTarget");

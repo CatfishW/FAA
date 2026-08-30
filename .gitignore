@@ -23,7 +23,6 @@
 ExportedObj/
 .consulo/
 *.csproj
-!Packages/com.cesium.unity/Reinterop~/Reinterop.csproj
 *.unityproj
 *.sln
 *.suo

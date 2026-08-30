@@ -431,7 +431,7 @@ namespace OnlineMaps
         /// <returns>Child element.</returns>
         public XML Create(string nodeName, Object value)
         {
-            return Create(nodeName, value != null ? value.GetInstanceID() : 0);
+            return Create(nodeName, Compatibility.GetInstanceIDCompat(value));
         }
 
         /// <summary>

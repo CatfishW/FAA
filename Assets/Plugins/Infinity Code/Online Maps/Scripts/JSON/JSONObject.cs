@@ -87,7 +87,7 @@ namespace OnlineMaps
             if (value is string || value is bool || value is int || value is long || value is short || value is float || value is double) _table[name] = new JSONValue(value);
             else if (value is UnityEngine.Object)
             {
-                _table[name] = new JSONValue((value as UnityEngine.Object).GetInstanceID());
+                _table[name] = new JSONValue(Compatibility.GetInstanceIDCompat(value as UnityEngine.Object));
             }
             else _table[name] = JSON.Serialize(value);
         }

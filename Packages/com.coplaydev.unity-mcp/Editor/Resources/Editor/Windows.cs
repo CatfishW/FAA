@@ -1,6 +1,7 @@
 using System;
 using System.Collections.Generic;
 using MCPForUnity.Editor.Helpers;
+using MCPForUnity.Runtime.Helpers;
 using Newtonsoft.Json.Linq;
 using UnityEditor;
 using UnityEngine;
@@ -39,7 +40,7 @@ namespace MCPForUnity.Editor.Resources.Editor
                                 width = window.position.width,
                                 height = window.position.height
                             },
-                            instanceID = window.GetInstanceID()
+                            instanceID = window.GetInstanceIDCompat()
                         });
                     }
                     catch (Exception ex)

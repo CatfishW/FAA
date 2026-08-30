@@ -160,7 +160,7 @@ namespace VoiceControl.UI.Editor
             EditorGUI.BeginChangeCheck();
 
             float buttonSize = EditorGUILayout.FloatField("Button Size", _menu.CollapsedButtonSize);
-            Vector2 buttonPos = EditorGUILayout.Vector2Field("Button Position", _menu.CollapsedButtonPosition);
+            Vector2 buttonPos = EditorGUILayout.Vector2Field("Top-Right Inset", _menu.CollapsedButtonPosition);
 
             if (EditorGUI.EndChangeCheck())
             {

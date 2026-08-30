@@ -170,7 +170,7 @@ namespace OnlineMaps
 #if UNITY_EDITOR
             if (isPlaying)
             {
-                if (obj.GetInstanceID() < 0) Object.Destroy(obj);
+                if (Compatibility.GetInstanceIDCompat(obj) < 0) Object.Destroy(obj);
             }
             else Object.DestroyImmediate(obj);
 #else
@@ -187,7 +187,7 @@ namespace OnlineMaps
         {
 #if UNITY_EDITOR
             if (tid == 0) return null;
-            return EditorUtility.InstanceIDToObject(tid);
+            return Compatibility.InstanceIDToObjectCompat(tid);
 #else
             return null;
 #endif

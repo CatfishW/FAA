@@ -9,6 +9,13 @@ using UnityEditor.IMGUI.Controls;
 using UnityEngine;
 using UnityEngine.Networking;
 
+#if UNITY_6000_2_OR_NEWER
+// Unity 6.0.2 deprecated the non-generic IMGUI tree APIs. Keep the
+// Reinterop probe on the strongly typed variants so this file itself also
+// compiles with warnings-as-errors enabled for CS0619 (Unity 6.5 refresh).
+using TreeViewState = UnityEditor.IMGUI.Controls.TreeViewState<int>;
+using TreeViewItem = UnityEditor.IMGUI.Controls.TreeViewItem<int>;
+#endif
 
 namespace CesiumForUnity
 {
@@ -132,7 +139,7 @@ namespace CesiumForUnity
             TreeViewItem root = new TreeViewItem(0, -1, "root");
             int id = root.id;
 
-            TreeViewState treeState = new TreeViewState();
+            CesiumTreeViewState treeState = new CesiumTreeViewState();
             IonAssetsTreeView treeView = new IonAssetsTreeView(treeState);
             treeView.Reload();
 
@@ -262,5 +269,3 @@ namespace CesiumForUnity
         }
     }
 }
-
-

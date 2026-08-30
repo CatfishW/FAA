@@ -271,7 +271,7 @@ namespace OnlineMaps
         {
             return base.ToJSON().AppendObject(new
             {
-                _prefab = _prefab ? _prefab.GetInstanceID() : 0,
+                _prefab = _prefab ? Compatibility.GetInstanceIDCompat(_prefab) : 0,
                 rotationY = _rotation,
                 sizeType = (int)sizeType
             });

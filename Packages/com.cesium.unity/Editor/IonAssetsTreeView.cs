@@ -4,6 +4,11 @@ using System.Collections.Generic;
 using UnityEditor.IMGUI.Controls;
 using UnityEngine;
 
+#if UNITY_6000_2_OR_NEWER
+using TreeView = UnityEditor.IMGUI.Controls.TreeView<int>;
+using TreeViewItem = UnityEditor.IMGUI.Controls.TreeViewItem<int>;
+#endif
+
 namespace CesiumForUnity
 {
     public enum IonAssetsColumn
@@ -99,7 +104,7 @@ namespace CesiumForUnity
     {
         private MultiColumnHeaderState _headerState;
 
-        public IonAssetsTreeView(TreeViewState assetsTreeState)
+        public IonAssetsTreeView(CesiumTreeViewState assetsTreeState)
             : base(assetsTreeState)
         {
             BuildMultiColumnHeader();
@@ -193,7 +198,24 @@ namespace CesiumForUnity
 
         private partial void CellGUI(Rect cellRect, int assetIndex, IonAssetsColumn column);
 
-        public partial void Refresh();
+        // Keep the C++ bridge away from deprecated non-generic TreeView APIs.
+        public void Refresh()
+        {
+            int sortedColumnIndex = this.multiColumnHeader.sortedColumnIndex;
+            bool ascending = false;
+            if (sortedColumnIndex >= 0)
+            {
+                ascending = this.multiColumnHeader.IsSortedAscending(sortedColumnIndex);
+            }
+            this.RefreshFiltered(this.searchString, sortedColumnIndex, ascending);
+        }
+
+        private partial void RefreshFiltered(String searchString, int sortedColumnIndex, bool ascending);
+
+        public void ReloadTreeView()
+        {
+            base.Reload();
+        }
 
         protected override void SearchChanged(string newSearch)
         {
@@ -211,4 +233,3 @@ namespace CesiumForUnity
         public partial void AddOverlayToTerrain(int index);
     }
 }
-

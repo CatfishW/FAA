@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Reflection;
 using MCPForUnity.Editor.Helpers;
+using MCPForUnity.Runtime.Helpers;
 using Newtonsoft.Json.Linq;
 using UnityEditor;
 using UnityEditor.SceneManagement;
@@ -112,9 +113,9 @@ namespace MCPForUnity.Editor.Tools
                 message = $"Component '{componentTypeName}' added to '{targetGo.name}'.",
                 data = new
                 {
-                    instanceID = targetGo.GetInstanceID(),
+                    instanceID = targetGo.GetInstanceIDCompat(),
                     componentType = type.FullName,
-                    componentInstanceID = newComponent.GetInstanceID()
+                    componentInstanceID = newComponent.GetInstanceIDCompat()
                 }
             };
         }
@@ -156,7 +157,7 @@ namespace MCPForUnity.Editor.Tools
                 message = $"Component '{componentTypeName}' removed from '{targetGo.name}'.",
                 data = new
                 {
-                    instanceID = targetGo.GetInstanceID()
+                    instanceID = targetGo.GetInstanceIDCompat()
                 }
             };
         }
@@ -240,7 +241,7 @@ namespace MCPForUnity.Editor.Tools
                         message = $"Some properties failed to set on '{componentType}'.",
                         data = new
                         {
-                            instanceID = targetGo.GetInstanceID(),
+                            instanceID = targetGo.GetInstanceIDCompat(),
                             errors = errors
                         }
                     };
@@ -252,7 +253,7 @@ namespace MCPForUnity.Editor.Tools
                     message = $"Properties set on component '{componentType}' on '{targetGo.name}'.",
                     data = new
                     {
-                        instanceID = targetGo.GetInstanceID()
+                        instanceID = targetGo.GetInstanceIDCompat()
                     }
                 };
             }

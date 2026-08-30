@@ -9,7 +9,7 @@ namespace FAA.XPlaneIntegration.Editor
     public static class RadarEvidenceCli
     {
         private const string SnapshotUrl = "http://127.0.0.1:12678/v1/snapshot";
-        private const string WeatherTextureUrl = "http://127.0.0.1:12678/v1/render/weather.png?range_nm=160";
+        private const string WeatherTextureUrl = "http://127.0.0.1:12678/v1/render/weather.png";
         private const string TrafficTextureUrl = "http://127.0.0.1:12678/v1/render/traffic.png";
 
         public static void Run()

@@ -26,6 +26,7 @@ namespace FAA.Editor
     public static class FaaXPlane12BridgeSceneSetup
     {
         private const string ExperimentScenePath = "Assets/_Project/Scenes/ExperimentScene.unity";
+        private const string SecondIterationGuiPrefabPath = "Assets/Resources/FFA GUI ASSETS/Prefabs/Second Interation GUI.prefab";
         private const string SceneRootObjectName = "FAA_Scene";
         private const string BridgeObjectName = "X-Plane 12 API HUD Bridge";
         private const string XPlaneWeatherRadarRootName = "X-Plane Weather Radar System";
@@ -35,7 +36,7 @@ namespace FAA.Editor
         private const string RadarControlsObjectName = "X-Plane Radar Controls";
         private const string IndicatorSystemObjectName = "[Indicator System]";
         private const string IndicatorCanvasObjectName = "XPlaneWeatherIndicatorCanvas";
-        private const string LocalXPlane12ApiBaseUrl = "http://127.0.0.1:12678";
+        private const string TangTunnelXPlane12ApiBaseUrl = "http://127.0.0.1:12678";
         private const string OwnshipObjectName = "X-Plane Ownship";
         private const string ManagersObjectName = "[MANAGERS]";
         private const string UiRootObjectName = "_UI";
@@ -50,14 +51,20 @@ namespace FAA.Editor
         private const string XPlaneWeatherRadarPreviewPath = "Assets/_Project/Textures/XPlaneWeatherRadarPreview.png";
         private const float ScreenFlightHudScale = 540f;
         private const float WeatherRadarDefaultRangeNM = 160f;
-        private static readonly Vector2 WeatherRadarSize = new Vector2(372f, 372f);
-        private static readonly Vector2 TrafficRadarSize = new Vector2(420f, 420f);
+        private static readonly Vector2 WeatherRadarSize = new Vector2(280f, 280f);
+        private static readonly Vector2 TrafficRadarSize = new Vector2(296f, 296f);
         private static readonly Vector2 ScreenFlightHudAnchoredPosition = new Vector2(960f, 690f);
         private static readonly Vector2 HeadingTapeAnchoredPosition = new Vector2(-610f, 430f);
         private static readonly Vector2 HeadingTapeSize = new Vector2(600f, 38f);
         private static readonly Color HudGreen = new Color(0.2f, 1f, 0.2f, 1f);
         private static readonly Color HudGreenDim = new Color(0.2f, 1f, 0.2f, 0.74f);
         private const int ScreenFlightHudSortingOrder = 5000;
+        // These names identify the authored tape objects removed by the
+        // rollback pass. Setup never recreates them or imports a raster tape.
+        private const string AirspeedTapeObjectName = "FAA IAS Tape";
+        private const string AltimeterTapeObjectName = "FAA ALT Tape";
+        private const string LegacyAirspeedTapeObjectName = "Original IAS Tape";
+        private const string LegacyAltimeterTapeObjectName = "Original ALT Tape";
 
         [MenuItem("FAA/X-Plane 12/Configure API HUD Bridge In Experiment Scene")]
         public static void ConfigureExperimentScene()
@@ -202,6 +209,113 @@ namespace FAA.Editor
                 : $"[FaaXPlane12BridgeSceneSetup] Failed to save UI Toolkit HUD setup in {ExperimentScenePath}.");
         }
 
+        [MenuItem("FAA/X-Plane 12/Repair Live Engine Bars In Experiment Scene")]
+        public static void ConfigureLiveEngineBarsInExperimentScene()
+        {
+            Scene scene = OpenExperimentScene();
+            if (!scene.IsValid() || !scene.isLoaded)
+            {
+                return;
+            }
+
+            AircraftController ownship = FindSceneObjects<AircraftController>()
+                .FirstOrDefault(controller => controller != null && controller.gameObject.scene == scene);
+            if (ownship == null)
+            {
+                Debug.LogError("[FaaXPlane12BridgeSceneSetup] Cannot repair engine bars because the own-aircraft controller is missing.");
+                return;
+            }
+
+            ConfigureHudControlStack(ownship);
+            RemoveEngineBarScaleLabelsInPrefab();
+            XPlane12ApiHudBridge bridge = FindSceneObjects<XPlane12ApiHudBridge>()
+                .FirstOrDefault(candidate => candidate != null && candidate.gameObject.scene == scene);
+            bridge?.FindDependencies();
+            EditorSceneManager.MarkSceneDirty(scene);
+            EditorSceneManager.SaveScene(scene);
+            Debug.Log("[FaaXPlane12BridgeSceneSetup] Repaired and registered live X-Plane torque and NR/N2 bars.");
+        }
+
+        [MenuItem("FAA/X-Plane 12/Remove Engine Bar Scale Numbers In Scene And Prefab")]
+        public static void AuthorEngineBarNumbersInSceneAndPrefab()
+        {
+            Scene scene = OpenExperimentScene();
+            if (!scene.IsValid() || !scene.isLoaded)
+            {
+                return;
+            }
+
+            GameObject legacyHudRoot = FindLegacyHudRoot();
+            if (legacyHudRoot == null)
+            {
+                Debug.LogError("[FaaXPlane12BridgeSceneSetup] Cannot author engine bar numbers because the primary HUD root is missing.");
+                return;
+            }
+
+            RemoveEngineBarScaleLabels(legacyHudRoot);
+            // Keep the live value readouts bound to the authored objects while
+            // removing only the fixed side-number columns.
+            EnsureEngineBarEditorLabels(legacyHudRoot);
+            RemoveLegacyInstrumentReadoutRastersInScene();
+            EnsurePrimaryTorquePanelElement(legacyHudRoot);
+            EnsurePrimaryNrIndicatorElement(legacyHudRoot);
+            EditorSceneManager.MarkSceneDirty(scene);
+            bool sceneSaved = EditorSceneManager.SaveScene(scene);
+            bool prefabSaved = RemoveEngineBarScaleLabelsInPrefab();
+            Debug.Log($"[FaaXPlane12BridgeSceneSetup] Removed engine bar scale numbers from scene (saved={sceneSaved}) and reusable prefab (saved={prefabSaved}).");
+        }
+
+        [MenuItem("FAA/X-Plane 12/Roll Back Authored IAS And Altimeter Tapes")]
+        public static void RollbackAuthoredPilotScalesInSceneAndPrefab()
+        {
+            Scene scene = OpenExperimentScene();
+            if (!scene.IsValid() || !scene.isLoaded)
+            {
+                return;
+            }
+
+            GameObject legacyHudRoot = FindLegacyHudRoot();
+            if (legacyHudRoot == null)
+            {
+                Debug.LogError("[FaaXPlane12BridgeSceneSetup] Cannot roll back IAS/ALT tapes because the primary HUD root is missing.");
+                return;
+            }
+
+            RollbackAuthoredPilotTapeVisuals(legacyHudRoot);
+            EnsurePrimaryAirspeedElement(legacyHudRoot);
+            EnsurePrimaryAltimeterElement(legacyHudRoot);
+            RemoveLegacyInstrumentReadoutRastersInScene();
+            EditorSceneManager.MarkSceneDirty(scene);
+            bool sceneSaved = EditorSceneManager.SaveScene(scene);
+            bool prefabSaved = RollbackAuthoredPilotScalesInPrefab();
+            Debug.Log($"[FaaXPlane12BridgeSceneSetup] Rolled back authored IAS/ALT tapes in scene (saved={sceneSaved}) and reusable prefab (saved={prefabSaved}).");
+        }
+
+        [MenuItem("FAA/X-Plane 12/Apply Compact Radar Glass In Experiment Scene")]
+        public static void ApplyCompactRadarGlassInExperimentScene()
+        {
+            Scene scene = OpenExperimentScene();
+            if (!scene.IsValid() || !scene.isLoaded)
+            {
+                return;
+            }
+
+            GameObject managers = FindOrCreateRoot(ManagersObjectName);
+            XPlane12ApiHudBridge bridge = EnsureBridge(managers.transform);
+            EnsureXPlaneWeatherRadarSystem(bridge);
+            EnsureXPlaneTrafficRadarSystem(bridge);
+            EnsureHudRuntimeSanitizer(managers.transform);
+            EnsureRadarControlsOverlay();
+            bridge.FindDependencies();
+
+            EditorUtility.SetDirty(bridge);
+            EditorSceneManager.MarkSceneDirty(scene);
+            bool saved = EditorSceneManager.SaveScene(scene);
+            Debug.Log(saved
+                ? "[FaaXPlane12BridgeSceneSetup] Applied compact, transparent weather and traffic radar glass."
+                : $"[FaaXPlane12BridgeSceneSetup] Failed to save compact radar glass in {ExperimentScenePath}.");
+        }
+
         private static Scene OpenExperimentScene()
         {
             if (!File.Exists(Path.Combine(Directory.GetCurrentDirectory(), ExperimentScenePath)))
@@ -252,7 +366,7 @@ namespace FAA.Editor
         private static void ConfigureBridge(XPlane12ApiHudBridge bridge)
         {
             SerializedObject serializedBridge = new SerializedObject(bridge);
-            SetString(serializedBridge, "baseUrl", LocalXPlane12ApiBaseUrl);
+            SetString(serializedBridge, "baseUrl", TangTunnelXPlane12ApiBaseUrl);
             SetBool(serializedBridge, "autoStartOnPlay", true);
             SetFloat(serializedBridge, "pollIntervalSeconds", 0.1f);
             SetFloat(serializedBridge, "requestTimeoutSeconds", 2f);
@@ -260,9 +374,13 @@ namespace FAA.Editor
             SetBool(serializedBridge, "pollWeather", true);
             SetBool(serializedBridge, "pollSystems", true);
             SetBool(serializedBridge, "pollTraffic", true);
+            // Weather returns are generated from the live X-Plane datarefs on
+            // the 4090 stream. Do not fetch or display the native X-Plane
+            // raster artifact; keep the render loop only for non-weather
+            // manifests/traffic assets.
             SetBool(serializedBridge, "pollRenderAssets", true);
             SetFloat(serializedBridge, "renderAssetPollIntervalSeconds", 1f);
-            SetBool(serializedBridge, "publishWeatherDatarefTextureFromStream", false);
+            SetBool(serializedBridge, "publishWeatherDatarefTextureFromStream", true);
             SetFloat(serializedBridge, "streamWeatherTextureIntervalSeconds", 1f);
             SetInt(serializedBridge, "streamWeatherTextureSize", 512);
             SetObject(serializedBridge, "hudController", FindFirstSceneObject(FindType("HUDControl.Core.HUDController")));
@@ -273,9 +391,10 @@ namespace FAA.Editor
             SetBool(serializedBridge, "applyToWeatherRadar", true);
             SetBool(serializedBridge, "disableUserControlWhenReceiving", true);
             SetBool(serializedBridge, "disableTrafficApiWhenReceiving", true);
+            SetBool(serializedBridge, "allowExternalTrafficFallback", false);
             SetBool(serializedBridge, "treatFreshWeatherTextureAsRadarOn", true);
             SetFloat(serializedBridge, "minimumUnityTerrainClearanceMeters", 120f);
-            SetInt(serializedBridge, "transportMode", 3);
+            SetInt(serializedBridge, "transportMode", 0);
             SetString(serializedBridge, "tcpStreamHost", "127.0.0.1");
             SetInt(serializedBridge, "tcpStreamPort", 37212);
             SetString(serializedBridge, "webSocketUrl", "ws://127.0.0.1:37212/v1/stream/ws");
@@ -471,8 +590,12 @@ namespace FAA.Editor
             dataProvider.SetRange(WeatherRadarDefaultRangeNM);
 
             SerializedObject providerSo = new SerializedObject(provider);
-            SetString(providerSo, "radarTextureUrl", LocalXPlane12ApiBaseUrl + "/v1/render/weather.png");
-            SetBool(providerSo, "allowHttpTexturePolling", true);
+            // Keep the provider as the dataref-backed weather source, but do
+            // not request the native X-Plane PNG. The bridge publishes a
+            // compact procedural radar texture from the live 4090 snapshot.
+            SetString(providerSo, "radarTextureUrl", string.Empty);
+            SetBool(providerSo, "preferNativePluginTexture", false);
+            SetBool(providerSo, "allowHttpTexturePolling", false);
             SetFloat(providerSo, "rangeNM", WeatherRadarDefaultRangeNM);
             SetFloat(providerSo, "requestTimeoutSeconds", 2f);
             SetBool(providerSo, "cacheBustRequests", true);
@@ -539,16 +662,22 @@ namespace FAA.Editor
                 SerializedObject displaySo = new SerializedObject(display);
                 SetObject(displaySo, "radarController", controller);
                 SetBool(displaySo, "showChartBackground", false);
-                SetFloat(displaySo, "chartOpacity", 0.78f);
+                SetFloat(displaySo, "chartOpacity", 0.28f);
+                SetFloat(displaySo, "chartEdgeSoftness", 0.035f);
                 SetBool(displaySo, "showRadarBackground", true);
+                SetBool(displaySo, "enforceReadablePanelBackground", false);
+                SetFloat(displaySo, "minimumPanelBackgroundOpacity", 0f);
+                SetFloat(displaySo, "minimumChartBackgroundOpacity", 0f);
                 SetBool(displaySo, "preferXPlaneTrafficTexture", false);
                 SetBool(displaySo, "hideGeneratedOverlaysWithXPlaneTexture", false);
                 SetVector2(displaySo, "xPlaneTextureFallbackSize", new Vector2(420f, 480f));
+                SetInt(displaySo, "displaySize", 512);
                 SetFloat(displaySo, "rangeNM", 40f);
                 SetInt(displaySo, "rangeRingCount", 4);
-                SetColor(displaySo, "backgroundColor", new Color(0f, 0f, 0f, 0.96f));
-                SetColor(displaySo, "rangeRingColor", new Color(0.42f, 0.95f, 0.52f, 0.45f));
-                SetColor(displaySo, "compassMarkingsColor", new Color(0.62f, 1f, 0.7f, 0.78f));
+                SetColor(displaySo, "backgroundColor", new Color(0.004f, 0.055f, 0.06f, 0.34f));
+                SetColor(displaySo, "rangeRingColor", new Color(0.18f, 0.9f, 0.84f, 0.58f));
+                SetColor(displaySo, "compassMarkingsColor", new Color(0.74f, 1f, 0.95f, 0.88f));
+                SetColor(displaySo, "ownAircraftColor", new Color(0.35f, 1f, 0.55f, 1f));
                 SetObject(displaySo, "radarImage", EnsureTrafficRadarImage(display));
                 displaySo.ApplyModifiedPropertiesWithoutUndo();
                 EditorUtility.SetDirty(display);
@@ -608,8 +737,10 @@ namespace FAA.Editor
             image.gameObject.name = "Radar Image";
             image.gameObject.SetActive(true);
             image.enabled = true;
-            image.texture = Texture2D.blackTexture;
-            image.color = Color.white;
+            // Keep the serialized/edit-mode state transparent. TrafficRadarDisplay
+            // supplies its circular generated texture as soon as runtime starts.
+            image.texture = null;
+            image.color = Color.clear;
             image.material = null;
             image.raycastTarget = false;
 
@@ -663,14 +794,14 @@ namespace FAA.Editor
             if (mask != null)
             {
                 mask.enabled = true;
-                mask.showMaskGraphic = true;
+                mask.showMaskGraphic = false;
                 EditorUtility.SetDirty(mask);
             }
 
             UnityEngine.UI.Image image = displayObject.GetComponent<UnityEngine.UI.Image>();
             if (image != null)
             {
-                image.color = new Color(0.05f, 0.1f, 0.15f, 0.95f);
+                image.color = new Color(0.004f, 0.055f, 0.06f, 0f);
                 image.raycastTarget = false;
                 EditorUtility.SetDirty(image);
             }
@@ -1155,7 +1286,7 @@ namespace FAA.Editor
             config.rangeRingWidth = 1f;
             config.rangeRingCount = 4;
             config.headingLineColor = new Color(0.65f, 1f, 0.72f, 0.6f);
-            config.backgroundColor = new Color(0f, 0f, 0f, 1f);
+            config.backgroundColor = new Color(0.004f, 0.055f, 0.04f, 0.06f);
             EditorUtility.SetDirty(config);
             AssetDatabase.SaveAssets();
             return config;
@@ -1181,26 +1312,32 @@ namespace FAA.Editor
             CanvasGroup canvasGroup = panelObject.GetComponent<CanvasGroup>() ?? panelObject.AddComponent<CanvasGroup>();
             WeatherRadarPanel panel = panelObject.GetComponent<WeatherRadarPanel>() ?? panelObject.AddComponent<WeatherRadarPanel>();
 
-            UnityEngine.UI.Image background = EnsureImage(panelObject.transform, "Background", new Color(0f, 0f, 0f, 0.9f));
+            UnityEngine.UI.Image background = EnsureImage(
+                panelObject.transform,
+                "Background",
+                new Color(0.004f, 0.055f, 0.04f, 0.06f));
             StretchToParent(background.rectTransform);
 
-            GameObject textureObject = EnsureChild(panelObject.transform, "XPlaneOriginalTexture");
+            RemoveChildrenByExactName(panelObject.transform, "XPlaneOriginalTexture");
+            GameObject textureObject = EnsureChild(panelObject.transform, "FAA Procedural Weather");
             RectTransform textureRect = EnsureRectTransform(textureObject);
             AspectRatioFitter aspect = textureObject.GetComponent<AspectRatioFitter>() ?? textureObject.AddComponent<AspectRatioFitter>();
             aspect.enabled = false;
             aspect.aspectMode = AspectRatioFitter.AspectMode.None;
-            aspect.aspectRatio = 1f;
+            aspect.aspectRatio = 724f / 512f;
 
             textureRect.anchorMin = new Vector2(0.5f, 0.5f);
             textureRect.anchorMax = new Vector2(0.5f, 0.5f);
             textureRect.pivot = new Vector2(0.5f, 0.5f);
             textureRect.anchoredPosition = new Vector2(0f, 2f);
-            textureRect.sizeDelta = new Vector2(352f, 352f);
+            textureRect.sizeDelta = XPlaneOriginalWeatherRadarDisplay.CalculateAspectFitSize(
+                WeatherRadarSize - new Vector2(16f, 16f),
+                aspect.aspectRatio);
             textureRect.localScale = Vector3.one;
 
             RawImage textureImage = textureObject.GetComponent<RawImage>() ?? textureObject.AddComponent<RawImage>();
             textureImage.texture = null;
-            textureImage.color = new Color(0f, 0f, 0f, 0.96f);
+            textureImage.color = new Color(0.004f, 0.055f, 0.04f, 0f);
             textureImage.raycastTarget = false;
 
             originalDisplay = textureObject.GetComponent<XPlaneOriginalWeatherRadarDisplay>() ?? textureObject.AddComponent<XPlaneOriginalWeatherRadarDisplay>();
@@ -1215,20 +1352,20 @@ namespace FAA.Editor
             SerializedObject originalOverlaySo = new SerializedObject(originalOverlay);
             SetObject(originalOverlaySo, "overlayImage", originalOverlayImage);
             SetObject(originalOverlaySo, "dataProvider", dataProvider);
-            SetInt(originalOverlaySo, "textureWidth", 512);
+            SetInt(originalOverlaySo, "textureWidth", 724);
             SetInt(originalOverlaySo, "textureHeight", 512);
             SetInt(originalOverlaySo, "rangeRingCount", 4);
-            SetFloat(originalOverlaySo, "sectorHalfAngleDegrees", 64f);
-            SetFloat(originalOverlaySo, "originHeightRatio", 0.078f);
-            SetFloat(originalOverlaySo, "lineWidthPixels", 0.62f);
-            SetFloat(originalOverlaySo, "majorLineWidthPixels", 0.92f);
+            SetFloat(originalOverlaySo, "sectorHalfAngleDegrees", 55f);
+            SetFloat(originalOverlaySo, "originHeightRatio", 0.07f);
+            SetFloat(originalOverlaySo, "lineWidthPixels", 1.15f);
+            SetFloat(originalOverlaySo, "majorLineWidthPixels", 1.7f);
             originalOverlaySo.ApplyModifiedPropertiesWithoutUndo();
             originalOverlay.enabled = false;
             originalOverlayImage.enabled = false;
             originalOverlayObject.SetActive(false);
 
             GameObject returnsObject = EnsureChild(panelObject.transform, "RadarReturns");
-            RectTransform returnsRect = EnsureCenteredSquare(returnsObject, 286f);
+            RectTransform returnsRect = EnsureCenteredSquare(returnsObject, WeatherRadarSize.x - 16f);
             RawImage returnsImage = returnsObject.GetComponent<RawImage>() ?? returnsObject.AddComponent<RawImage>();
             returnsImage.color = Color.clear;
             returnsImage.raycastTarget = false;
@@ -1240,7 +1377,7 @@ namespace FAA.Editor
             returnSo.ApplyModifiedPropertiesWithoutUndo();
 
             GameObject ringsObject = EnsureChild(panelObject.transform, "RangeRings");
-            RectTransform ringsRect = EnsureCenteredSquare(ringsObject, 286f);
+            RectTransform ringsRect = EnsureCenteredSquare(ringsObject, WeatherRadarSize.x - 16f);
             RawImage ringsImage = ringsObject.GetComponent<RawImage>() ?? ringsObject.AddComponent<RawImage>();
             ringsImage.color = Color.clear;
             ringsImage.raycastTarget = false;
@@ -1252,7 +1389,7 @@ namespace FAA.Editor
             ringsSo.ApplyModifiedPropertiesWithoutUndo();
 
             GameObject sweepObject = EnsureChild(panelObject.transform, "SweepLine");
-            RectTransform sweepRect = EnsureCenteredSquare(sweepObject, 286f);
+            RectTransform sweepRect = EnsureCenteredSquare(sweepObject, WeatherRadarSize.x - 16f);
             RawImage sweepImage = sweepObject.GetComponent<RawImage>() ?? sweepObject.AddComponent<RawImage>();
             sweepImage.color = Color.clear;
             sweepImage.raycastTarget = false;
@@ -1263,29 +1400,33 @@ namespace FAA.Editor
             sweepSo.ApplyModifiedPropertiesWithoutUndo();
 
             GameObject waypointObject = EnsureChild(panelObject.transform, "WaypointOverlay");
-            RectTransform waypointRect = EnsureCenteredSquare(waypointObject, 286f);
+            RectTransform waypointRect = EnsureCenteredSquare(waypointObject, WeatherRadarSize.x - 16f);
             WaypointOverlayRenderer waypointRenderer = waypointObject.GetComponent<WaypointOverlayRenderer>() ?? waypointObject.AddComponent<WaypointOverlayRenderer>();
             SerializedObject waypointSo = new SerializedObject(waypointRenderer);
             SetObject(waypointSo, "displayRect", waypointRect);
             waypointSo.ApplyModifiedPropertiesWithoutUndo();
 
             TMP_Text modeLabel = EnsureLabel(panelObject.transform, "ModeLabel", "WX", new Vector2(0f, 165f), TextAlignmentOptions.Center, 15f, new Color(0.75f, 1f, 0.75f, 1f), 110f);
-            TMP_Text rangeLabel = EnsureLabel(panelObject.transform, "RangeLabel", "160nm", new Vector2(0f, -164f), TextAlignmentOptions.Center, 13f, new Color(0.72f, 0.95f, 0.72f, 1f), 110f);
-            TMP_Text tiltLabel = EnsureLabel(panelObject.transform, "TiltLabel", "TLT +0.0", new Vector2(144f, -126f), TextAlignmentOptions.Right, 12f, new Color(0.72f, 0.95f, 0.72f, 1f), 120f);
-            TMP_Text statusLabel = EnsureLabel(panelObject.transform, "TextureStatusLabel", "---", new Vector2(-142f, -126f), TextAlignmentOptions.Left, 11f, new Color(0.62f, 0.88f, 0.62f, 1f), 130f);
-            TMP_Text sourceLabel = EnsureLabel(panelObject.transform, "SourceLabel", "X-PLANE WX", new Vector2(-134f, 142f), TextAlignmentOptions.Left, 12f, new Color(0.62f, 0.92f, 0.62f, 1f), 150f);
-            TMP_Text ageLabel = EnsureLabel(panelObject.transform, "TextureAgeLabel", "--", new Vector2(143f, 142f), TextAlignmentOptions.Right, 12f, new Color(0.62f, 0.92f, 0.62f, 1f), 70f);
+            modeLabel.gameObject.SetActive(false);
+            TMP_Text rangeLabel = EnsureLabel(panelObject.transform, "RangeLabel", "160 NM", new Vector2(0f, -127f), TextAlignmentOptions.Center, 14f, new Color(0.72f, 1f, 0.76f, 1f), 110f);
+            TMP_Text tiltLabel = EnsureLabel(panelObject.transform, "TiltLabel", "TILT +0.0°", new Vector2(82f, -104f), TextAlignmentOptions.Right, 13f, new Color(0.72f, 1f, 0.76f, 1f), 112f);
+            TMP_Text statusLabel = EnsureLabel(panelObject.transform, "TextureStatusLabel", "---", new Vector2(-105f, -126f), TextAlignmentOptions.Left, 11f, new Color(0.62f, 0.88f, 0.62f, 1f), 138f);
+            TMP_Text sourceLabel = EnsureLabel(panelObject.transform, "SourceLabel", "X-PLANE WX", new Vector2(-105f, 142f), TextAlignmentOptions.Left, 12f, new Color(0.62f, 0.92f, 0.62f, 1f), 132f);
+            TMP_Text ageLabel = EnsureLabel(panelObject.transform, "TextureAgeLabel", "--", new Vector2(137f, 142f), TextAlignmentOptions.Right, 12f, new Color(0.62f, 0.92f, 0.62f, 1f), 64f);
+            statusLabel.gameObject.SetActive(false);
+            sourceLabel.gameObject.SetActive(false);
+            ageLabel.gameObject.SetActive(false);
             GameObject powerBadge = EnsureChild(panelObject.transform, "WeatherPowerBadge");
             RectTransform powerBadgeRect = EnsureRectTransform(powerBadge);
             powerBadgeRect.anchorMin = new Vector2(0.5f, 1f);
             powerBadgeRect.anchorMax = new Vector2(0.5f, 1f);
             powerBadgeRect.pivot = new Vector2(0.5f, 1f);
-            powerBadgeRect.anchoredPosition = new Vector2(0f, -10f);
-            powerBadgeRect.sizeDelta = new Vector2(156f, 28f);
+            powerBadgeRect.anchoredPosition = new Vector2(0f, -8f);
+            powerBadgeRect.sizeDelta = new Vector2(116f, 26f);
             UnityEngine.UI.Image powerBadgeBackground = powerBadge.GetComponent<UnityEngine.UI.Image>() ?? powerBadge.AddComponent<UnityEngine.UI.Image>();
-            powerBadgeBackground.color = new Color(0f, 0f, 0f, 0.72f);
+            powerBadgeBackground.color = new Color(0.004f, 0.10f, 0.065f, 0.38f);
             powerBadgeBackground.raycastTarget = false;
-            TMP_Text powerLabel = EnsureLabel(powerBadge.transform, "PowerLabel", "WX --", Vector2.zero, TextAlignmentOptions.Center, 15f, new Color(0.72f, 0.9f, 0.72f, 1f), 150f);
+            TMP_Text powerLabel = EnsureLabel(powerBadge.transform, "PowerLabel", "WX --", Vector2.zero, TextAlignmentOptions.Center, 14f, new Color(0.72f, 1f, 0.76f, 1f), 110f);
             StretchToParent(powerLabel.rectTransform);
 
             SerializedObject displaySo = new SerializedObject(originalDisplay);
@@ -1298,14 +1439,16 @@ namespace FAA.Editor
             SetObject(displaySo, "ageLabel", ageLabel);
             SetObject(displaySo, "powerLabel", powerLabel);
             SetObject(displaySo, "powerBadgeBackground", powerBadgeBackground);
-            SetColor(displaySo, "onlineTint", Color.white);
-            SetColor(displaySo, "staleTint", Color.white);
-            SetBool(displaySo, "preserveAspectRatio", false);
-            SetBool(displaySo, "requestTextureWhenEmpty", true);
+            SetColor(displaySo, "onlineTint", new Color(1f, 1f, 1f, 0.82f));
+            SetColor(displaySo, "staleTint", new Color(0.82f, 0.9f, 0.84f, 0.58f));
+            SetColor(displaySo, "offlineTint", new Color(0.004f, 0.055f, 0.04f, 0.06f));
+            SetBool(displaySo, "preserveAspectRatio", true);
+            SetBool(displaySo, "requestTextureWhenEmpty", false);
             SetFloat(displaySo, "emptyRefreshDelaySeconds", 0.75f);
             SetFloat(displaySo, "staleRefreshDelaySeconds", 3f);
             SetBool(displaySo, "keepTextureVisibleWhenRadarOff", true);
-            SetVector2(displaySo, "minimumDisplaySize", new Vector2(352f, 352f));
+            SetVector2(displaySo, "minimumDisplaySize", new Vector2(160f, 160f));
+            SetFloat(displaySo, "displayPadding", 8f);
             SetBool(displaySo, "showReferenceOverlay", false);
             displaySo.ApplyModifiedPropertiesWithoutUndo();
 
@@ -1926,6 +2069,14 @@ namespace FAA.Editor
 
             FaaRadarControlsOverlay controls = controlsObject.GetComponent<FaaRadarControlsOverlay>() ??
                                                controlsObject.AddComponent<FaaRadarControlsOverlay>();
+            SerializedObject serializedControls = new SerializedObject(controls);
+            SetFloat(serializedControls, "defaultWeatherRadarSize", WeatherRadarSize.x);
+            SetFloat(serializedControls, "defaultTrafficRadarSize", TrafficRadarSize.x);
+            SetFloat(serializedControls, "minimumRadarSize", 220f);
+            SetFloat(serializedControls, "maximumRadarSize", 560f);
+            SetFloat(serializedControls, "radarSizeStep", 32f);
+            SetBool(serializedControls, "rememberRadarSizes", true);
+            serializedControls.ApplyModifiedPropertiesWithoutUndo();
             controls.Configure(weatherRoot, trafficRoot);
 
             EditorUtility.SetDirty(controls);
@@ -1956,7 +2107,12 @@ namespace FAA.Editor
                 return;
             }
 
+            RollbackAuthoredPilotTapeVisuals(legacyHudRoot);
+            EnsurePrimaryAirspeedElement(legacyHudRoot);
+            EnsurePrimaryAltimeterElement(legacyHudRoot);
+            EnsureEngineBarEditorLabels(legacyHudRoot);
             EnsurePrimaryTorquePanelElement(legacyHudRoot);
+            EnsurePrimaryNrIndicatorElement(legacyHudRoot);
             SuppressDuplicatePitchLadder(legacyHudRoot);
 
             Component[] candidates = legacyHudRoot
@@ -1999,6 +2155,473 @@ namespace FAA.Editor
             Debug.Log($"[FaaXPlane12BridgeSceneSetup] HUDControl stack configured with {registeredElements.Count} active uGUI element(s).");
         }
 
+        /// <summary>
+        /// Keep the live engine value readouts authored in the scene/prefab.
+        /// The fixed side-number columns are intentionally removed; the
+        /// runtime HUD only updates references that already exist.
+        /// </summary>
+        private static void EnsureEngineBarEditorLabels(GameObject legacyHudRoot)
+        {
+            if (legacyHudRoot == null)
+            {
+                return;
+            }
+
+            Transform torquePanel = FindChildByName(legacyHudRoot.transform, "Torque Panel");
+            if (torquePanel != null)
+            {
+                RemoveChildrenByNamePrefix(torquePanel, "Torque Scale ");
+                RectTransform frame = FindChildByName(torquePanel, "Torque Frame")?.GetComponent<RectTransform>();
+                int layer = frame != null ? frame.gameObject.layer : torquePanel.gameObject.layer;
+
+                EnsureEngineNumericLabel(
+                    torquePanel, "Torque Value L", "---", new Vector2(-0.055f, -0.055f), 22f, layer, HudGreenDim);
+                EnsureEngineNumericLabel(
+                    torquePanel, "Torque Value R", "---", new Vector2(0.088f, -0.055f), 22f, layer, HudGreenDim);
+            }
+
+            Transform nrIndicator = FindChildByName(legacyHudRoot.transform, "NR/ENG Ind");
+            if (nrIndicator != null)
+            {
+                RemoveChildrenByNamePrefix(nrIndicator, "NR Scale ");
+                RectTransform frame = FindChildByName(nrIndicator, "NR Indicator Frame")?.GetComponent<RectTransform>();
+                int layer = frame != null ? frame.gameObject.layer : nrIndicator.gameObject.layer;
+
+                EnsureEngineNumericLabel(
+                    nrIndicator, "NR Value Center", "---", new Vector2(0f, -0.055f), 20f, layer, HudGreenDim);
+                EnsureEngineNumericLabel(
+                    nrIndicator, "NR Value L", "---", new Vector2(-0.11f, -0.055f), 20f, layer, HudGreenDim);
+                EnsureEngineNumericLabel(
+                    nrIndicator, "NR Value R", "---", new Vector2(0.11f, -0.055f), 20f, layer, HudGreenDim);
+            }
+        }
+
+        /// <summary>
+        /// Remove only the authored IAS/ALT tape objects. The center attitude,
+        /// heading, radar, and other symbology are outside this subtree and are
+        /// left intact. The numeric text readouts remain bound to live data.
+        /// </summary>
+        private static void RollbackAuthoredPilotTapeVisuals(GameObject legacyHudRoot)
+        {
+            if (legacyHudRoot == null)
+            {
+                return;
+            }
+
+            Transform airspeed = FindChildByName(legacyHudRoot.transform, "Airspeed Indicator");
+            Transform altimeter = FindChildByName(legacyHudRoot.transform, "Altimeter");
+            RemovePilotTape(airspeed, AirspeedTapeObjectName, LegacyAirspeedTapeObjectName);
+            RemovePilotTape(altimeter, AltimeterTapeObjectName, LegacyAltimeterTapeObjectName);
+            RemoveLegacyReadoutRaster(airspeed, "Window Panel", "Airspeed Readout");
+            RemoveLegacyReadoutRaster(altimeter, "Window Panel Alt", "Alt Readout");
+        }
+
+        private static void RemovePilotTape(Transform indicator, string authoredName, string legacyName)
+        {
+            if (indicator == null)
+            {
+                return;
+            }
+
+            Transform authoredTape = FindChildByName(indicator, authoredName);
+            if (authoredTape != null)
+            {
+                UnityEngine.Object.DestroyImmediate(authoredTape.gameObject);
+            }
+
+            Transform legacyTape = FindChildByName(indicator, legacyName);
+            if (legacyTape != null)
+            {
+                UnityEngine.Object.DestroyImmediate(legacyTape.gameObject);
+            }
+
+            RemoveChildrenByNamePrefix(indicator, "IAS Scale ");
+            RemoveChildrenByNamePrefix(indicator, "ALT Scale ");
+            EditorUtility.SetDirty(indicator.gameObject);
+        }
+
+        /// <summary>
+        /// The legacy readout container carries a large baked PNG which also
+        /// contains the old side-number columns. Keep the authored TMP text
+        /// children, but remove the raster Image component so the editor HUD
+        /// is fully vector-authored and cannot reintroduce those columns.
+        /// </summary>
+        private static void RemoveLegacyReadoutRaster(
+            Transform indicator,
+            string panelName,
+            string readoutName)
+        {
+            Transform panel = FindChildByName(indicator, panelName);
+            Transform readout = FindChildByName(panel, readoutName);
+            if (readout == null)
+            {
+                return;
+            }
+
+            UnityEngine.UI.Image image = readout.GetComponent<UnityEngine.UI.Image>();
+            if (image != null)
+            {
+                UnityEngine.Object.DestroyImmediate(image);
+            }
+
+            EditorUtility.SetDirty(readout.gameObject);
+        }
+
+        private static void RemoveLegacyInstrumentReadoutRastersInScene()
+        {
+            foreach (UnityEngine.UI.Image image in FindSceneObjects<UnityEngine.UI.Image>())
+            {
+                if (image == null || image.gameObject.scene != SceneManager.GetActiveScene())
+                {
+                    continue;
+                }
+
+                string objectName = image.gameObject.name;
+                if (!string.Equals(objectName, "Airspeed Readout", StringComparison.Ordinal) &&
+                    !string.Equals(objectName, "Alt Readout", StringComparison.Ordinal))
+                {
+                    continue;
+                }
+
+                Scene scene = image.gameObject.scene;
+                UnityEngine.Object.DestroyImmediate(image);
+                EditorSceneManager.MarkSceneDirty(scene);
+            }
+        }
+
+        private static void RemoveChildrenByNamePrefix(Transform root, string prefix)
+        {
+            if (root == null || string.IsNullOrEmpty(prefix))
+            {
+                return;
+            }
+
+            Transform[] children = root.GetComponentsInChildren<Transform>(true);
+            foreach (Transform child in children)
+            {
+                if (child == null || child == root || child.name.IndexOf(prefix, StringComparison.Ordinal) != 0)
+                {
+                    continue;
+                }
+
+                UnityEngine.Object.DestroyImmediate(child.gameObject);
+            }
+        }
+
+        private static void RemoveChildrenByExactName(Transform root, string objectName)
+        {
+            if (root == null || string.IsNullOrEmpty(objectName))
+            {
+                return;
+            }
+
+            Transform[] children = root.GetComponentsInChildren<Transform>(true);
+            foreach (Transform child in children)
+            {
+                if (child == null || child == root ||
+                    !string.Equals(child.name, objectName, StringComparison.Ordinal))
+                {
+                    continue;
+                }
+
+                UnityEngine.Object.DestroyImmediate(child.gameObject);
+            }
+        }
+
+        private static void EnsurePrimaryAirspeedElement(GameObject legacyHudRoot)
+        {
+            Type elementType = FindType("HUDControl.Elements.AirspeedIndicatorElement");
+            if (elementType == null || legacyHudRoot == null)
+            {
+                return;
+            }
+
+            Transform indicator = FindChildByName(legacyHudRoot.transform, "Airspeed Indicator");
+            if (indicator == null)
+            {
+                return;
+            }
+
+            Component primary = indicator.GetComponent(elementType) ?? indicator.gameObject.AddComponent(elementType);
+            RectTransform tape = null;
+            TMP_Text readout = FindChildByName(indicator, "AirspeedReadoutText")?.GetComponent<TMP_Text>();
+            RectTransform window = FindChildByName(indicator, "Window Panel")?.GetComponent<RectTransform>();
+
+            SerializedObject serializedPrimary = new SerializedObject(primary);
+            SetObject(serializedPrimary, "speedTape", tape);
+            SetObject(serializedPrimary, "airspeedReadout", readout);
+            SetObject(serializedPrimary, "windowPanel", window);
+            SetBool(serializedPrimary, "enableTape", tape != null);
+            SetBool(serializedPrimary, "enableReadout", readout != null);
+            SetFloat(serializedPrimary, "pixelsPerKnot", 0.0018f);
+            SetFloat(serializedPrimary, "maxTapeOffsetPixels", 0.18f);
+            SetFloat(serializedPrimary, "referenceAirspeed", 100f);
+            SetString(serializedPrimary, "displayFormat", "{0:000}");
+            SetFloat(serializedPrimary, "animationSpeed", 14f);
+            SetBool(serializedPrimary, "isEnabled", tape != null || readout != null);
+            serializedPrimary.ApplyModifiedPropertiesWithoutUndo();
+
+            if (primary is Behaviour primaryBehaviour)
+            {
+                primaryBehaviour.enabled = tape != null || readout != null;
+            }
+
+            DisableDuplicateHudElementComponents(indicator, elementType, primary);
+            EditorUtility.SetDirty(primary);
+            EditorUtility.SetDirty(primary.gameObject);
+        }
+
+        private static void EnsurePrimaryAltimeterElement(GameObject legacyHudRoot)
+        {
+            Type elementType = FindType("HUDControl.Elements.AltimeterElement");
+            if (elementType == null || legacyHudRoot == null)
+            {
+                return;
+            }
+
+            Transform indicator = FindChildByName(legacyHudRoot.transform, "Altimeter");
+            if (indicator == null)
+            {
+                return;
+            }
+
+            Component primary = indicator.GetComponent(elementType) ?? indicator.gameObject.AddComponent(elementType);
+            RectTransform tape = null;
+            TMP_Text readout = FindChildByName(indicator, "AltReadoutText")?.GetComponent<TMP_Text>();
+            RectTransform window = FindChildByName(indicator, "Window Panel Alt")?.GetComponent<RectTransform>();
+
+            SerializedObject serializedPrimary = new SerializedObject(primary);
+            SetObject(serializedPrimary, "altitudeTape", tape);
+            SetObject(serializedPrimary, "altitudeReadout", readout);
+            SetObject(serializedPrimary, "windowPanel", window);
+            SetBool(serializedPrimary, "enableTape", tape != null);
+            SetBool(serializedPrimary, "enableReadout", readout != null);
+            SetFloat(serializedPrimary, "pixelsPerFoot", 0.00018f);
+            SetFloat(serializedPrimary, "maxTapeOffsetPixels", 0.18f);
+            SetFloat(serializedPrimary, "referenceAltitude", 10000f);
+            SetString(serializedPrimary, "displayFormat", "{0:00000}");
+            SetFloat(serializedPrimary, "animationSpeed", 14f);
+            SetBool(serializedPrimary, "isEnabled", tape != null || readout != null);
+            serializedPrimary.ApplyModifiedPropertiesWithoutUndo();
+
+            if (primary is Behaviour primaryBehaviour)
+            {
+                primaryBehaviour.enabled = tape != null || readout != null;
+            }
+
+            DisableDuplicateHudElementComponents(indicator, elementType, primary);
+            EditorUtility.SetDirty(primary);
+            EditorUtility.SetDirty(primary.gameObject);
+        }
+
+        private static void DisableDuplicateHudElementComponents(Transform root, Type elementType, Component primary)
+        {
+            if (root == null || elementType == null)
+            {
+                return;
+            }
+
+            foreach (Component duplicate in root.GetComponentsInChildren(elementType, true).OfType<Component>())
+            {
+                if (duplicate == null || duplicate == primary)
+                {
+                    continue;
+                }
+
+                SerializedObject serializedDuplicate = new SerializedObject(duplicate);
+                SetBool(serializedDuplicate, "isEnabled", false);
+                serializedDuplicate.ApplyModifiedPropertiesWithoutUndo();
+                if (duplicate is Behaviour duplicateBehaviour)
+                {
+                    duplicateBehaviour.enabled = false;
+                }
+
+                EditorUtility.SetDirty(duplicate);
+            }
+        }
+
+        private static bool RollbackAuthoredPilotScalesInPrefab()
+        {
+            if (!File.Exists(Path.Combine(Directory.GetCurrentDirectory(), SecondIterationGuiPrefabPath)))
+            {
+                return false;
+            }
+
+            GameObject prefabRoot = null;
+            try
+            {
+                prefabRoot = PrefabUtility.LoadPrefabContents(SecondIterationGuiPrefabPath);
+                RollbackAuthoredPilotTapeVisuals(prefabRoot);
+                EnsurePrimaryAirspeedElement(prefabRoot);
+                EnsurePrimaryAltimeterElement(prefabRoot);
+                EditorUtility.SetDirty(prefabRoot);
+                return PrefabUtility.SaveAsPrefabAsset(prefabRoot, SecondIterationGuiPrefabPath) != null;
+            }
+            catch (Exception exception)
+            {
+                Debug.LogError($"[FaaXPlane12BridgeSceneSetup] Failed to roll back authored IAS/ALT tapes in prefab: {exception.Message}");
+                return false;
+            }
+            finally
+            {
+                if (prefabRoot != null)
+                {
+                    PrefabUtility.UnloadPrefabContents(prefabRoot);
+                }
+            }
+        }
+
+        private static bool AuthorEngineBarNumbersInPrefab()
+        {
+            if (!File.Exists(Path.Combine(Directory.GetCurrentDirectory(), SecondIterationGuiPrefabPath)))
+            {
+                return false;
+            }
+
+            GameObject prefabRoot = null;
+            try
+            {
+                prefabRoot = PrefabUtility.LoadPrefabContents(SecondIterationGuiPrefabPath);
+                RemoveEngineBarScaleLabels(prefabRoot);
+                EnsureEngineBarEditorLabels(prefabRoot);
+                EditorUtility.SetDirty(prefabRoot);
+                return PrefabUtility.SaveAsPrefabAsset(prefabRoot, SecondIterationGuiPrefabPath) != null;
+            }
+            catch (Exception exception)
+            {
+                Debug.LogError($"[FaaXPlane12BridgeSceneSetup] Failed to author engine bar numbers in prefab: {exception.Message}");
+                return false;
+            }
+            finally
+            {
+                if (prefabRoot != null)
+                {
+                    PrefabUtility.UnloadPrefabContents(prefabRoot);
+                }
+            }
+        }
+
+        private static bool RemoveEngineBarScaleLabelsInPrefab()
+        {
+            if (!File.Exists(Path.Combine(Directory.GetCurrentDirectory(), SecondIterationGuiPrefabPath)))
+            {
+                return false;
+            }
+
+            GameObject prefabRoot = null;
+            try
+            {
+                prefabRoot = PrefabUtility.LoadPrefabContents(SecondIterationGuiPrefabPath);
+                RemoveEngineBarScaleLabels(prefabRoot);
+                EnsurePrimaryTorquePanelElement(prefabRoot);
+                EnsurePrimaryNrIndicatorElement(prefabRoot);
+                EditorUtility.SetDirty(prefabRoot);
+                return PrefabUtility.SaveAsPrefabAsset(prefabRoot, SecondIterationGuiPrefabPath) != null;
+            }
+            catch (Exception exception)
+            {
+                Debug.LogError($"[FaaXPlane12BridgeSceneSetup] Failed to remove engine bar scale labels from prefab: {exception.Message}");
+                return false;
+            }
+            finally
+            {
+                if (prefabRoot != null)
+                {
+                    PrefabUtility.UnloadPrefabContents(prefabRoot);
+                }
+            }
+        }
+
+        private static void RemoveEngineBarScaleLabels(GameObject legacyHudRoot)
+        {
+            if (legacyHudRoot == null)
+            {
+                return;
+            }
+
+            Transform torquePanel = FindChildByName(legacyHudRoot.transform, "Torque Panel");
+            RemoveChildrenByNamePrefix(torquePanel, "Torque Scale ");
+
+            Transform nrIndicator = FindChildByName(legacyHudRoot.transform, "NR/ENG Ind");
+            RemoveChildrenByNamePrefix(nrIndicator, "NR Scale ");
+        }
+
+        private static List<Component> FindEngineScaleLabels(Transform parent, string prefix, int count)
+        {
+            List<Component> labels = new List<Component>(count);
+            for (int i = 0; i < count; i++)
+            {
+                TMP_Text label = FindChildByName(parent, prefix + i)?.GetComponent<TMP_Text>();
+                if (label != null)
+                {
+                    labels.Add(label);
+                }
+            }
+
+            return labels;
+        }
+
+        private static TMP_Text EnsureEngineNumericLabel(
+            Transform parent,
+            string childName,
+            string text,
+            Vector2 anchoredPosition,
+            float fontSize,
+            int layer,
+            Color color)
+        {
+            TMP_Text label = EnsureLabel(
+                parent,
+                childName,
+                text,
+                anchoredPosition,
+                TextAlignmentOptions.Center,
+                fontSize,
+                color,
+                52f);
+            RectTransform rect = label.rectTransform;
+            rect.sizeDelta = new Vector2(52f, 26f);
+            rect.localScale = Vector3.one * 0.0016f;
+            rect.localRotation = Quaternion.identity;
+            label.overflowMode = TextOverflowModes.Overflow;
+            label.textWrappingMode = TextWrappingModes.NoWrap;
+            label.raycastTarget = false;
+            label.gameObject.layer = layer;
+            label.transform.SetAsLastSibling();
+            EditorUtility.SetDirty(label);
+            EditorUtility.SetDirty(label.gameObject);
+            return label;
+        }
+
+        private static float GetEngineScaleHorizontalOffset(RectTransform frame, float gap)
+        {
+            float width = frame != null ? Mathf.Abs(frame.rect.width) : 0.2918475f;
+            if (width < 0.0001f && frame != null)
+            {
+                width = Mathf.Abs(frame.sizeDelta.x);
+            }
+
+            if (width < 0.0001f)
+            {
+                width = 0.2918475f;
+            }
+
+            return -(width * 0.5f + gap);
+        }
+
+        private static Vector2 GetEngineScaleLabelPosition(
+            RectTransform frame,
+            float value,
+            float maximumPercent,
+            float horizontalOffset,
+            float pointerMinimumY,
+            float pointerTravelY)
+        {
+            float x = frame != null ? frame.anchoredPosition.x + horizontalOffset : horizontalOffset;
+            float normalized = Mathf.Clamp01(value / Mathf.Max(1f, maximumPercent));
+            return new Vector2(x, pointerMinimumY + normalized * pointerTravelY);
+        }
+
         private static void EnsurePrimaryTorquePanelElement(GameObject legacyHudRoot)
         {
             Type torquePanelType = FindType("HUDControl.Elements.TorquePanelElement");
@@ -2022,13 +2645,29 @@ namespace FAA.Editor
             RectTransform frame = FindChildByName(torquePanel, "Torque Frame")?.GetComponent<RectTransform>();
             RectTransform leftIndicator = FindChildByName(torquePanel, "Torque Indicator L")?.GetComponent<RectTransform>();
             RectTransform rightIndicator = FindChildByName(torquePanel, "Torque Indicator R")?.GetComponent<RectTransform>();
+            TMP_Text torqueValueL = FindChildByName(torquePanel, "Torque Value L")?.GetComponent<TMP_Text>();
+            TMP_Text torqueValueR = FindChildByName(torquePanel, "Torque Value R")?.GetComponent<TMP_Text>();
+            List<Component> torqueScaleLabels = FindEngineScaleLabels(torquePanel, "Torque Scale ", 7);
 
             SerializedObject serializedPrimary = new SerializedObject(primary);
             SetObject(serializedPrimary, "torqueFrame", frame);
             SetObject(serializedPrimary, "torquePointerL", leftIndicator);
             SetObject(serializedPrimary, "torquePointerR", rightIndicator);
+            SetObject(serializedPrimary, "torqueValueL", torqueValueL);
+            SetObject(serializedPrimary, "torqueValueR", torqueValueR);
+            SetObjectArray(serializedPrimary, "torqueScaleLabels", torqueScaleLabels);
             SetBool(serializedPrimary, "enableAnimation", leftIndicator != null || rightIndicator != null);
-            SetBool(serializedPrimary, "simulateFromThrottle", true);
+            SetBool(serializedPrimary, "simulateFromThrottle", false);
+            SetFloat(serializedPrimary, "pointerMinimumY", 0.004f);
+            SetFloat(serializedPrimary, "pointerTravelY", 0.24f);
+            SetFloat(serializedPrimary, "maxTorquePercent", 120f);
+            SetBool(serializedPrimary, "showNumericReadouts", true);
+            // Scale labels are intentionally omitted from the compact pilot
+            // layout; the bars and live value readouts remain visible.
+            SetBool(serializedPrimary, "showScaleLabels", false);
+            SetInt(serializedPrimary, "scaleLabelStepPercent", 20);
+            SetFloat(serializedPrimary, "scaleLabelFontSize", 16f);
+            SetFloat(serializedPrimary, "scaleLabelGap", 0.045f);
             SetBool(serializedPrimary, "isEnabled", true);
             serializedPrimary.ApplyModifiedPropertiesWithoutUndo();
 
@@ -2051,6 +2690,82 @@ namespace FAA.Editor
 
                 Behaviour duplicateBehaviour = duplicate as Behaviour;
                 if (duplicateBehaviour != null)
+                {
+                    duplicateBehaviour.enabled = false;
+                }
+
+                EditorUtility.SetDirty(duplicate);
+            }
+
+            EditorUtility.SetDirty(primary);
+            EditorUtility.SetDirty(primary.gameObject);
+        }
+
+        private static void EnsurePrimaryNrIndicatorElement(GameObject legacyHudRoot)
+        {
+            Type nrIndicatorType = FindType("HUDControl.Elements.NRIndicatorElement");
+            if (nrIndicatorType == null || legacyHudRoot == null)
+            {
+                return;
+            }
+
+            Transform nrIndicator = FindChildByName(legacyHudRoot.transform, "NR/ENG Ind");
+            if (nrIndicator == null)
+            {
+                return;
+            }
+
+            Component primary = nrIndicator.GetComponent(nrIndicatorType) ??
+                                nrIndicator.gameObject.AddComponent(nrIndicatorType);
+            RectTransform frame = FindChildByName(nrIndicator, "NR Indicator Frame")?.GetComponent<RectTransform>();
+            RectTransform center = FindChildByName(nrIndicator, "RPM Center Pointer")?.GetComponent<RectTransform>();
+            RectTransform left = FindChildByName(nrIndicator, "RPM Pointer L")?.GetComponent<RectTransform>();
+            RectTransform right = FindChildByName(nrIndicator, "RPM Pointer R")?.GetComponent<RectTransform>();
+            TMP_Text rpmValueCenter = FindChildByName(nrIndicator, "NR Value Center")?.GetComponent<TMP_Text>();
+            TMP_Text rpmValueL = FindChildByName(nrIndicator, "NR Value L")?.GetComponent<TMP_Text>();
+            TMP_Text rpmValueR = FindChildByName(nrIndicator, "NR Value R")?.GetComponent<TMP_Text>();
+            List<Component> nrScaleLabels = FindEngineScaleLabels(nrIndicator, "NR Scale ", 7);
+
+            SerializedObject serializedPrimary = new SerializedObject(primary);
+            SetObject(serializedPrimary, "nrFrame", frame);
+            SetObject(serializedPrimary, "rpmCenterPointer", center);
+            SetObject(serializedPrimary, "rpmPointerL", left);
+            SetObject(serializedPrimary, "rpmPointerR", right);
+            SetObject(serializedPrimary, "rpmValueCenter", rpmValueCenter);
+            SetObject(serializedPrimary, "rpmValueL", rpmValueL);
+            SetObject(serializedPrimary, "rpmValueR", rpmValueR);
+            SetObjectArray(serializedPrimary, "nrScaleLabels", nrScaleLabels);
+            SetBool(serializedPrimary, "enableAnimation", center != null || left != null || right != null);
+            SetBool(serializedPrimary, "simulateFromThrottle", false);
+            SetFloat(serializedPrimary, "pointerMinimumY", 0.03f);
+            SetFloat(serializedPrimary, "pointerTravelY", 0.24f);
+            SetFloat(serializedPrimary, "maxRPMPercent", 110f);
+            SetBool(serializedPrimary, "showNumericReadouts", true);
+            // Scale labels are intentionally omitted from the compact pilot
+            // layout; the bars and live value readouts remain visible.
+            SetBool(serializedPrimary, "showScaleLabels", false);
+            SetInt(serializedPrimary, "scaleLabelStepPercent", 20);
+            SetFloat(serializedPrimary, "scaleLabelFontSize", 16f);
+            SetFloat(serializedPrimary, "scaleLabelGap", 0.045f);
+            SetBool(serializedPrimary, "isEnabled", true);
+            serializedPrimary.ApplyModifiedPropertiesWithoutUndo();
+
+            if (primary is Behaviour primaryBehaviour)
+            {
+                primaryBehaviour.enabled = true;
+            }
+
+            foreach (Component duplicate in nrIndicator.GetComponentsInChildren(nrIndicatorType, true).OfType<Component>())
+            {
+                if (duplicate == null || duplicate == primary)
+                {
+                    continue;
+                }
+
+                SerializedObject serializedDuplicate = new SerializedObject(duplicate);
+                SetBool(serializedDuplicate, "isEnabled", false);
+                serializedDuplicate.ApplyModifiedPropertiesWithoutUndo();
+                if (duplicate is Behaviour duplicateBehaviour)
                 {
                     duplicateBehaviour.enabled = false;
                 }
@@ -2376,6 +3091,7 @@ namespace FAA.Editor
             SetFloat(serializedMenu, "middleRadius", 320f);
             SetFloat(serializedMenu, "outerRadius", 465f);
             SetFloat(serializedMenu, "collapsedButtonSize", 68f);
+            SetBool(serializedMenu, "collapsedButtonTopRight", true);
             SetInt(serializedMenu, "maxSubSegmentCount", 6);
             SetFloat(serializedMenu, "openDuration", 0.28f);
             SetFloat(serializedMenu, "closeDuration", 0.18f);

@@ -1,5 +1,6 @@
 #nullable disable
 using MCPForUnity.Editor.Helpers;
+using MCPForUnity.Runtime.Helpers;
 using Newtonsoft.Json.Linq;
 using UnityEditor;
 using UnityEditor.SceneManagement;
@@ -77,7 +78,7 @@ namespace MCPForUnity.Editor.Tools.GameObjects
                 new
                 {
                     originalName = sourceGo.name,
-                    originalId = sourceGo.GetInstanceID(),
+                    originalId = sourceGo.GetInstanceIDCompat(),
                     duplicatedObject = Helpers.GameObjectSerializer.GetGameObjectData(duplicatedGo)
                 }
             );

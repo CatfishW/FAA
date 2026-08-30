@@ -27,7 +27,7 @@ namespace OnlineMaps.Editors
 
         public static Object GetObject(int tid)
         {
-            return tid != 0 ? EditorUtility.InstanceIDToObject(tid) : null;
+            return tid != 0 ? OnlineMaps.Compatibility.InstanceIDToObjectCompat(tid) : null;
         }
         
         public static IEnumerable<SavableItem> GetSavableItems(ISavable savable)

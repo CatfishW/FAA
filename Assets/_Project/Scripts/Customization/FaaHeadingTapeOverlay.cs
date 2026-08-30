@@ -15,7 +15,8 @@ namespace FAA.Customization
     {
         private const int MarkerCount = 73;
         private const float MarkerSpacingDegrees = 5f;
-        private const float DefaultPixelsPerDegree = 1.65f;
+        private const float DefaultPixelsPerDegree = 1.5f;
+        private static readonly Vector2 DefaultClipAnchoredPosition = new Vector2(0f, -5f);
 
         [Header("Data Sources")]
         [SerializeField] private AviationFlightDataProvider flightDataProvider;
@@ -25,8 +26,9 @@ namespace FAA.Customization
         [SerializeField] private bool autoFindSources = true;
 
         [Header("Layout")]
-        [SerializeField] private Vector2 anchoredPosition = new Vector2(-610f, 430f);
-        [SerializeField] private Vector2 size = new Vector2(600f, 38f);
+        [SerializeField, HideInInspector] private Vector2 anchoredPosition = new Vector2(-610f, 430f);
+        [SerializeField, HideInInspector] private Vector2 size = new Vector2(600f, 38f);
+        [SerializeField, HideInInspector] private Vector2 clipAnchoredPosition = new Vector2(0f, -5f);
         [SerializeField] private float pixelsPerDegree = DefaultPixelsPerDegree;
         [SerializeField] private float smoothing = 0.18f;
 
@@ -71,6 +73,7 @@ namespace FAA.Customization
 
         private void Awake()
         {
+            CaptureEditorLayout();
             EnsureBuilt();
             RefreshDataSources();
             _displayedHeading = ReadHeading();
@@ -79,6 +82,7 @@ namespace FAA.Customization
 
         private void OnEnable()
         {
+            CaptureEditorLayout();
             EnsureBuilt();
             RefreshDataSources();
             _displayedHeading = ReadHeading();
@@ -87,9 +91,10 @@ namespace FAA.Customization
 
         private void OnValidate()
         {
+            CaptureEditorLayout();
             size.x = Mathf.Max(260f, size.x);
             size.y = Mathf.Max(34f, size.y);
-            pixelsPerDegree = Mathf.Clamp(pixelsPerDegree, 1.1f, 8f);
+            pixelsPerDegree = Mathf.Clamp(pixelsPerDegree, 1.1f, GetMaximumPixelsPerDegree(size.x));
             smoothing = Mathf.Clamp01(smoothing);
             EnsureBuilt();
             ApplyLayoutAndStyle();
@@ -98,12 +103,79 @@ namespace FAA.Customization
 
         private void Update()
         {
+            CaptureEditorLayout();
+
             if (autoFindSources && (flightDataProvider == null || aircraftController == null || headingTarget == null))
             {
                 RefreshDataSources();
             }
 
             UpdateTape(false);
+        }
+
+        private void CaptureEditorLayout()
+        {
+            if (Application.isPlaying)
+            {
+                return;
+            }
+
+            // Once the overlay has been generated, its RectTransforms are the source of
+            // truth in edit mode. This keeps ExecuteAlways from undoing Scene view and
+            // Inspector edits on every update.
+            Transform existingClip = transform.Find("Heading Tape Clip");
+            if (existingClip == null)
+            {
+                return;
+            }
+
+            _rectTransform = GetComponent<RectTransform>();
+            _clipRect = existingClip as RectTransform;
+            bool changed = false;
+
+            if (_rectTransform != null)
+            {
+                Vector2 currentPosition = _rectTransform.anchoredPosition;
+                Vector2 currentSize = _rectTransform.sizeDelta;
+                if (!Approximately(anchoredPosition, currentPosition))
+                {
+                    anchoredPosition = currentPosition;
+                    changed = true;
+                }
+
+                if (!Approximately(size, currentSize))
+                {
+                    size = currentSize;
+                    changed = true;
+                }
+            }
+
+            if (_clipRect != null)
+            {
+                Vector2 currentClipPosition = _clipRect.anchoredPosition;
+                if (!IsReasonableClipOffset(currentClipPosition, size))
+                {
+                    // The clip is an internal scrolling viewport. Moving it hundreds of
+                    // pixels away from the overlay detaches the compass labels/ticks from
+                    // the heading index, which is easy to do accidentally in Scene view.
+                    // Keep legitimate small authoring offsets, but repair detached clips.
+                    clipAnchoredPosition = DefaultClipAnchoredPosition;
+                    _clipRect.anchoredPosition = DefaultClipAnchoredPosition;
+                    changed = true;
+                }
+                else if (!Approximately(clipAnchoredPosition, currentClipPosition))
+                {
+                    clipAnchoredPosition = currentClipPosition;
+                    changed = true;
+                }
+            }
+
+#if UNITY_EDITOR
+            if (changed)
+            {
+                UnityEditor.EditorUtility.SetDirty(this);
+            }
+#endif
         }
 
         private void EnsureBuilt()
@@ -159,11 +231,16 @@ namespace FAA.Customization
 
             if (_clipRect != null)
             {
+                if (!IsReasonableClipOffset(clipAnchoredPosition, size))
+                {
+                    clipAnchoredPosition = DefaultClipAnchoredPosition;
+                }
+
                 _clipRect.anchorMin = new Vector2(0.5f, 0.5f);
                 _clipRect.anchorMax = new Vector2(0.5f, 0.5f);
                 _clipRect.pivot = new Vector2(0.5f, 0.5f);
-                _clipRect.anchoredPosition = new Vector2(0f, -5f);
-                _clipRect.sizeDelta = new Vector2(size.x, Mathf.Max(30f, size.y - 8f));
+                _clipRect.anchoredPosition = clipAnchoredPosition;
+                _clipRect.sizeDelta = new Vector2(size.x, Mathf.Max(34f, size.y));
                 _clipRect.localScale = Vector3.one;
                 _clipRect.localRotation = Quaternion.identity;
             }
@@ -264,6 +341,10 @@ namespace FAA.Customization
             int centerStep = Mathf.RoundToInt(_displayedHeading / MarkerSpacingDegrees);
             int halfCount = MarkerCount / 2;
             float halfWidth = size.x * 0.5f;
+            // Keep the opposite cardinal fully inside the mask. A wider scale puts
+            // S at the exact edge when heading north (and likewise for N/E/W), so
+            // the label is clipped even though its tick remains visible.
+            float effectivePixelsPerDegree = Mathf.Min(pixelsPerDegree, GetMaximumPixelsPerDegree(size.x));
 
             for (int i = 0; i < _markers.Count; i++)
             {
@@ -277,7 +358,7 @@ namespace FAA.Customization
                 int markerDegrees = Mathf.RoundToInt(step * MarkerSpacingDegrees);
                 int normalizedDegrees = Mathf.RoundToInt(Normalize360(markerDegrees)) % 360;
                 float delta = Mathf.DeltaAngle(_displayedHeading, markerDegrees);
-                float x = delta * pixelsPerDegree;
+                float x = delta * effectivePixelsPerDegree;
                 bool visible = Mathf.Abs(x) <= halfWidth + 28f;
                 marker.Root.gameObject.SetActive(visible);
                 if (!visible)
@@ -299,13 +380,14 @@ namespace FAA.Customization
                     marker.Label.gameObject.SetActive(labeled);
                     if (labeled)
                     {
+                        EnableTextGraphic(marker.Label);
                         marker.Label.text = GetLabel(normalizedDegrees);
-                        marker.Label.fontSize = cardinal ? 18f : 12f;
+                        marker.Label.fontSize = cardinal ? 20f : 13f;
                         marker.Label.rectTransform.anchorMin = new Vector2(0.5f, 0.5f);
                         marker.Label.rectTransform.anchorMax = new Vector2(0.5f, 0.5f);
                         marker.Label.rectTransform.pivot = new Vector2(0.5f, 0.5f);
                         marker.Label.rectTransform.anchoredPosition = new Vector2(0f, 7f);
-                        marker.Label.rectTransform.sizeDelta = new Vector2(cardinal ? 52f : 42f, 18f);
+                        marker.Label.rectTransform.sizeDelta = new Vector2(cardinal ? 52f : 42f, 24f);
                         ApplyTextColor(marker.Label, cardinal ? hudColor : hudDimColor);
                     }
                 }
@@ -444,6 +526,20 @@ namespace FAA.Customization
             text.gameObject.SetActive(false);
         }
 
+        private static void EnableTextGraphic(TMP_Text text)
+        {
+            if (text == null)
+            {
+                return;
+            }
+
+            text.gameObject.SetActive(true);
+            text.enabled = true;
+            text.raycastTarget = false;
+            text.canvasRenderer.cull = false;
+            text.canvasRenderer.SetAlpha(1f);
+        }
+
         private static void ConfigureLine(Image image, Vector2 lineSize, Vector2 anchored, Color color)
         {
             if (image == null)
@@ -520,6 +616,24 @@ namespace FAA.Customization
             }
 
             return degrees;
+        }
+
+        private static bool Approximately(Vector2 left, Vector2 right)
+        {
+            return (left - right).sqrMagnitude < 0.0001f;
+        }
+
+        private static bool IsReasonableClipOffset(Vector2 offset, Vector2 overlaySize)
+        {
+            float maxHorizontalOffset = Mathf.Max(32f, Mathf.Abs(overlaySize.x) * 0.25f);
+            float maxVerticalOffset = Mathf.Max(24f, Mathf.Abs(overlaySize.y));
+            return Mathf.Abs(offset.x) <= maxHorizontalOffset && Mathf.Abs(offset.y) <= maxVerticalOffset;
+        }
+
+        private static float GetMaximumPixelsPerDegree(float overlayWidth)
+        {
+            const float cardinalLabelWidth = 52f;
+            return Mathf.Max(1.1f, (Mathf.Abs(overlayWidth) - cardinalLabelWidth) / 360f);
         }
 
         private readonly struct CompassMarker

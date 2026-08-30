@@ -191,7 +191,7 @@ namespace OnlineMaps
             JSONItem jitem = base.SaveSettings();
             jitem["settings"].AppendObject(new
             {
-                defaultTexture = defaultTexture != null? defaultTexture.GetInstanceID(): -1,
+                defaultTexture = defaultTexture != null ? Compatibility.GetInstanceIDCompat(defaultTexture) : -1,
                 defaultAlign = (int)defaultAlign,
                 defaultScale,
                 allowAddMarkerByM

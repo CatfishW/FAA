@@ -45,6 +45,8 @@ namespace FAA.XPlaneIntegration.Runtime
         [Header("Terrain Rendering")]
         [SerializeField] private bool enhanceTerrainVisibility = true;
         [SerializeField] private TerrainLayer visibleTerrainLayer;
+        [Tooltip("Replaces every imported terrain material with Visible Terrain Layer. Leave disabled for the terrain's authored natural textures.")]
+        [SerializeField] private bool overrideAuthoredTerrainLayers = false;
         [SerializeField] private float visibleLayerTileSizeMeters = 850f;
         [SerializeField] private float visibleHeightmapPixelError = 1.2f;
         [SerializeField] private float visibleBasemapDistanceMeters = 20000f;
@@ -214,7 +216,7 @@ namespace FAA.XPlaneIntegration.Runtime
                 return;
             }
 
-            TerrainLayer layer = CreateVisibleRuntimeLayer();
+            TerrainLayer layer = overrideAuthoredTerrainLayers ? CreateVisibleRuntimeLayer() : null;
             Terrain[] terrains = target.GetComponentsInChildren<Terrain>(true);
             foreach (Terrain terrain in terrains)
             {
@@ -242,8 +244,13 @@ namespace FAA.XPlaneIntegration.Runtime
 
         private void ApplyVisualTerrainUnderlay(Transform target, Vector3 localCenter, bool followOrigin)
         {
-            if (!Application.isPlaying || !enhanceTerrainVisibility || !createVisibleTerrainUnderlay)
+            if (!Application.isPlaying || !enhanceTerrainVisibility || !createVisibleTerrainUnderlay ||
+                !overrideAuthoredTerrainLayers)
             {
+                if (_visualUnderlay != null)
+                {
+                    _visualUnderlay.SetActive(false);
+                }
                 return;
             }
 
@@ -258,6 +265,8 @@ namespace FAA.XPlaneIntegration.Runtime
             {
                 return;
             }
+
+            _visualUnderlay.SetActive(true);
 
             float size = Mathf.Max(1000f, visibleUnderlaySizeMeters);
             float repeats = Mathf.Max(1f, visibleUnderlayTextureRepeats);

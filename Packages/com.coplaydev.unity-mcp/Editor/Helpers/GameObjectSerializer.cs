@@ -2,6 +2,7 @@ using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Reflection;
+using MCPForUnity.Runtime.Helpers;
 using MCPForUnity.Runtime.Serialization; // For Converters
 using Newtonsoft.Json;
 using Newtonsoft.Json.Linq;
@@ -28,7 +29,7 @@ namespace MCPForUnity.Editor.Helpers
             return new
             {
                 name = go.name,
-                instanceID = go.GetInstanceID(),
+                instanceID = go.GetInstanceIDCompat(),
                 tag = go.tag,
                 layer = go.layer,
                 activeSelf = go.activeSelf,
@@ -88,7 +89,7 @@ namespace MCPForUnity.Editor.Helpers
                         z = go.transform.right.z,
                     },
                 },
-                parentInstanceID = go.transform.parent?.gameObject.GetInstanceID() ?? 0, // 0 if no parent
+                parentInstanceID = go.transform.parent?.gameObject.GetInstanceIDCompat() ?? 0, // 0 if no parent
                 // Optionally include components, but can be large
                 // components = go.GetComponents<Component>().Select(c => GetComponentData(c)).ToList()
                 // Or just component names:
@@ -144,7 +145,7 @@ namespace MCPForUnity.Editor.Helpers
             var result = new Dictionary<string, object>
             {
                 { "name", obj.name },
-                { "instanceID", obj.GetInstanceID() }
+                { "instanceID", obj.GetInstanceIDCompat() }
             };
             
             if (includeAssetPath)
@@ -178,7 +179,7 @@ namespace MCPForUnity.Editor.Helpers
                 return new Dictionary<string, object>
                 {
                     { "typeName", componentType.FullName },
-                    { "instanceID", tr.GetInstanceID() },
+                    { "instanceID", tr.GetInstanceIDCompat() },
                     // Manually extract known-safe properties. Avoid Quaternion 'rotation' and 'lossyScale'.
                     { "position", CreateTokenFromValue(tr.position, typeof(Vector3))?.ToObject<object>() ?? new JObject() },
                     { "localPosition", CreateTokenFromValue(tr.localPosition, typeof(Vector3))?.ToObject<object>() ?? new JObject() },
@@ -188,13 +189,13 @@ namespace MCPForUnity.Editor.Helpers
                     { "right", CreateTokenFromValue(tr.right, typeof(Vector3))?.ToObject<object>() ?? new JObject() },
                     { "up", CreateTokenFromValue(tr.up, typeof(Vector3))?.ToObject<object>() ?? new JObject() },
                     { "forward", CreateTokenFromValue(tr.forward, typeof(Vector3))?.ToObject<object>() ?? new JObject() },
-                    { "parentInstanceID", tr.parent?.gameObject.GetInstanceID() ?? 0 },
-                    { "rootInstanceID", tr.root?.gameObject.GetInstanceID() ?? 0 },
+                    { "parentInstanceID", tr.parent?.gameObject.GetInstanceIDCompat() ?? 0 },
+                    { "rootInstanceID", tr.root?.gameObject.GetInstanceIDCompat() ?? 0 },
                     { "childCount", tr.childCount },
                     // Include standard Object/Component properties
                     { "name", tr.name },
                     { "tag", tr.tag },
-                    { "gameObjectInstanceID", tr.gameObject?.GetInstanceID() ?? 0 }
+                    { "gameObjectInstanceID", tr.gameObject?.GetInstanceIDCompat() ?? 0 }
                 };
             }
             // --- End Special handling for Transform --- 
@@ -233,7 +234,7 @@ namespace MCPForUnity.Editor.Helpers
                     { "enabled", () => cam.enabled },
                     { "name", () => cam.name },
                     { "tag", () => cam.tag },
-                    { "gameObject", () => new { name = cam.gameObject.name, instanceID = cam.gameObject.GetInstanceID() } }
+                    { "gameObject", () => new { name = cam.gameObject.name, instanceID = cam.gameObject.GetInstanceIDCompat() } }
                 };
 
                 foreach (var prop in safeProperties)
@@ -256,7 +257,7 @@ namespace MCPForUnity.Editor.Helpers
                 return new Dictionary<string, object>
                 {
                     { "typeName", componentType.FullName },
-                    { "instanceID", cam.GetInstanceID() },
+                    { "instanceID", cam.GetInstanceIDCompat() },
                     { "properties", cameraProperties }
                 };
             }
@@ -322,7 +323,7 @@ namespace MCPForUnity.Editor.Helpers
                 return new Dictionary<string, object>
                 {
                     { "typeName", componentType.FullName },
-                    { "instanceID", c.GetInstanceID() },
+                    { "instanceID", c.GetInstanceIDCompat() },
                     { "properties", uiDocProperties }
                 };
             }
@@ -331,7 +332,7 @@ namespace MCPForUnity.Editor.Helpers
             var data = new Dictionary<string, object>
             {
                 { "typeName", componentType.FullName },
-                { "instanceID", c.GetInstanceID() }
+                { "instanceID", c.GetInstanceIDCompat() }
             };
 
             // --- Get Cached or Generate Metadata (using new cache key) ---

@@ -231,7 +231,7 @@ namespace OnlineMaps
             jitem["settings"].AppendObject(new
             {
                 allowAddMarker3DByN,
-                defaultPrefab = defaultPrefab? defaultPrefab.GetInstanceID(): -1,
+                defaultPrefab = defaultPrefab ? Compatibility.GetInstanceIDCompat(defaultPrefab) : -1,
                 defaultScale
             });
             return jitem;
