@@ -7,6 +7,13 @@ Shader "TrafficRadar/CircularRadarMask"
         _Color ("Tint", Color) = (1,1,1,1)
         _Opacity ("Background Opacity", Range(0, 1)) = 0.5
         _SoftEdge ("Edge Softness", Range(0, 0.1)) = 0.02
+        // Optional fixed-center mask used by the sectional chart. The chart
+        // RawImage is larger than the radar while panning; keeping the mask
+        // centre/radius independent of that image prevents the circle from
+        // travelling with the map and revealing a transparent crescent.
+        _MaskCenter ("Mask Center (UV)", Vector) = (0.5, 0.5, 0, 0)
+        _MaskRadius ("Mask Radius (UV)", Vector) = (0.5, 0.5, 0, 0)
+        _UseFixedMask ("Use Fixed Mask", Float) = 0
 
         _StencilComp ("Stencil Comparison", Float) = 8
         _Stencil ("Stencil ID", Float) = 0
@@ -80,6 +87,9 @@ Shader "TrafficRadar/CircularRadarMask"
             float4 _MainTex_ST;
             float _Opacity;
             float _SoftEdge;
+            float4 _MaskCenter;
+            float4 _MaskRadius;
+            float _UseFixedMask;
             
             v2f vert(appdata_t v)
             {
@@ -97,16 +107,15 @@ Shader "TrafficRadar/CircularRadarMask"
             
             fixed4 frag(v2f IN) : SV_Target
             {
-                // Calculate distance from center (0.5, 0.5) in UV space
-                float2 centerOffset = IN.texcoord - float2(0.5, 0.5);
-                
-                // Use max of x/y offset to create circle inscribed in the shorter dimension
-                // This ensures a perfect circle even on non-square images
-                float dist = max(abs(centerOffset.x), abs(centerOffset.y)) * 2.0;
-                // For a true circular mask, use length but scale to fit in bounds
-                float circularDist = length(centerOffset) * 2.0;
-                // Use circular distance for the mask
-                dist = circularDist;
+                // The default mask is centred on this RawImage. The chart
+                // display opts into a fixed centre/radius supplied by
+                // TrafficRadarDisplay so map panning does not move the mask.
+                float2 maskCenter = (_UseFixedMask > 0.5) ? _MaskCenter.xy : float2(0.5, 0.5);
+                float2 maskRadius = (_UseFixedMask > 0.5)
+                    ? max(_MaskRadius.xy, float2(0.0001, 0.0001))
+                    : float2(0.5, 0.5);
+                float2 normalizedOffset = (IN.texcoord - maskCenter) / maskRadius;
+                float dist = length(normalizedOffset);
                 
                 // Create circular mask with soft edge
                 float circleMask = 1.0 - smoothstep(1.0 - _SoftEdge, 1.0, dist);

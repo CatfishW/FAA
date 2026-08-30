@@ -222,6 +222,9 @@ namespace TrafficRadar
         private RectTransform _chartBaseRect;
         private bool _chartBaseLayoutStored;
         private const float MapCoverageSafetyPixels = 8f;
+        private const string CircularMaskCenterProperty = "_MaskCenter";
+        private const string CircularMaskRadiusProperty = "_MaskRadius";
+        private const string CircularMaskFixedProperty = "_UseFixedMask";
 
         // Pilot focus/fullscreen layout state.  The radar root stays in the
         // scene hierarchy (rather than cloning or reparenting the display), so
@@ -1086,6 +1089,7 @@ namespace TrafficRadar
                 if (chartRect != null)
                 {
                     chartRect.localRotation = Quaternion.Euler(0, 0, _currentHeadingRotation);
+                    UpdateChartMaskParameters();
                 }
             }
         }
@@ -1646,19 +1650,33 @@ namespace TrafficRadar
                 return;
             }
 
-            if (_fullscreenOriginalParent != null && root.parent != _fullscreenOriginalParent)
+            // RectTransform changes synchronously raise OnRectTransformDimensionsChange.
+            // Keep the display out of fullscreen while restoring so that callback
+            // cannot immediately re-apply the focus layout between property writes.
+            // This is especially important after a drag, where the enlarged chart
+            // and root used to survive a REST press as a 928px stale layout.
+            _isFullscreen = false;
+            _updatingFullscreenLayout = true;
+            try
             {
-                root.SetParent(_fullscreenOriginalParent, false);
-            }
+                if (_fullscreenOriginalParent != null && root.parent != _fullscreenOriginalParent)
+                {
+                    root.SetParent(_fullscreenOriginalParent, false);
+                }
 
-            root.anchorMin = _fullscreenOriginalAnchorMin;
-            root.anchorMax = _fullscreenOriginalAnchorMax;
-            root.pivot = _fullscreenOriginalPivot;
-            root.anchoredPosition = _fullscreenOriginalAnchoredPosition;
-            root.sizeDelta = _fullscreenOriginalSizeDelta;
-            root.localPosition = _fullscreenOriginalLocalPosition;
-            root.localRotation = _fullscreenOriginalLocalRotation;
-            root.localScale = _fullscreenOriginalScale;
+                root.anchorMin = _fullscreenOriginalAnchorMin;
+                root.anchorMax = _fullscreenOriginalAnchorMax;
+                root.pivot = _fullscreenOriginalPivot;
+                root.anchoredPosition = _fullscreenOriginalAnchoredPosition;
+                root.sizeDelta = _fullscreenOriginalSizeDelta;
+                root.localPosition = _fullscreenOriginalLocalPosition;
+                root.localRotation = _fullscreenOriginalLocalRotation;
+                root.localScale = _fullscreenOriginalScale;
+            }
+            finally
+            {
+                _updatingFullscreenLayout = false;
+            }
 
             if (root.parent != null)
             {
@@ -1674,6 +1692,9 @@ namespace TrafficRadar
             {
                 Canvas.ForceUpdateCanvases();
                 SetupDisplay();
+                // A compact HUD chart is intentionally own-ship centred. Do not
+                // carry a focus-mode drag offset into the small circular scope.
+                ResetMapPan(true);
                 MarkRadarDirty();
             }
 
@@ -2009,6 +2030,7 @@ namespace TrafficRadar
                     chartBackgroundImage.material = circularMaskMaterial;
                     UpdateChartEdgeSoftness();
                     ApplyChartVisualOpacity();
+                    UpdateChartMaskParameters();
                 }
                 else
                 {
@@ -2331,7 +2353,12 @@ namespace TrafficRadar
             // on all four sides so the full masked footprint remains covered
             // at the configured pan limit.  The authored sizeDelta is restored
             // when panning is disabled, preserving existing scene layouts.
-            if (enableMapPanning)
+            // Panning is only enabled by the pilot-focus interaction surface.
+            // Keep the compact HUD chart at its authored size; enlarging it in
+            // the normal 296px footprint makes the chart bleed outside the
+            // circular scope and can cover adjacent cockpit readouts. During
+            // focus we enlarge it enough to cover the mask at the pan limit.
+            if (enableMapPanning && _isFullscreen)
             {
                 RectTransform parentRect = chartRect.parent as RectTransform;
                 float parentWidth = parentRect != null && parentRect.rect.width > 1f
@@ -2352,6 +2379,72 @@ namespace TrafficRadar
             }
 
             chartRect.anchoredPosition = _chartBaseAnchoredPosition + offset;
+            UpdateChartMaskParameters();
+        }
+
+        /// <summary>
+        /// Updates the chart material's mask in chart-local UV space. The
+        /// chart image is intentionally larger than the radar while panning,
+        /// so a UV-centred circle would move with the image and expose a
+        /// transparent crescent at the edge. These parameters pin the mask to
+        /// the radar root instead.
+        /// </summary>
+        private void UpdateChartMaskParameters()
+        {
+            if (circularMaskMaterial == null || chartBackgroundImage == null ||
+                rectTransform == null || !circularMaskMaterial.HasProperty(CircularMaskFixedProperty))
+            {
+                return;
+            }
+
+            RectTransform chartRect = chartBackgroundImage.rectTransform;
+            if (chartRect == null)
+            {
+                return;
+            }
+
+            Rect chartBounds = chartRect.rect;
+            float chartWidth = Mathf.Abs(chartBounds.width);
+            float chartHeight = Mathf.Abs(chartBounds.height);
+            if (chartWidth <= 0.001f || chartHeight <= 0.001f)
+            {
+                return;
+            }
+
+            // Work in world space so CanvasScaler, fullscreen animation,
+            // track-up rotation, and XR world-space canvases are all handled
+            // by the same transform path as the rendered vertices.
+            Vector3 rootCenterWorld = rectTransform.TransformPoint(rectTransform.rect.center);
+            float rootRadius = Mathf.Min(rectTransform.rect.width, rectTransform.rect.height) * 0.5f;
+            Vector3 rootRightWorld = rectTransform.TransformPoint(rectTransform.rect.center + Vector2.right * rootRadius);
+            Vector3 rootUpWorld = rectTransform.TransformPoint(rectTransform.rect.center + Vector2.up * rootRadius);
+
+            Vector3 chartCenterLocal = chartRect.InverseTransformPoint(rootCenterWorld);
+            Vector3 chartRightLocal = chartRect.InverseTransformVector(rootRightWorld - rootCenterWorld);
+            Vector3 chartUpLocal = chartRect.InverseTransformVector(rootUpWorld - rootCenterWorld);
+
+            Vector2 center01 = new Vector2(
+                (chartCenterLocal.x - chartBounds.xMin) / chartWidth,
+                (chartCenterLocal.y - chartBounds.yMin) / chartHeight);
+            Vector2 radius01 = new Vector2(
+                Mathf.Sqrt(chartRightLocal.x * chartRightLocal.x + chartUpLocal.x * chartUpLocal.x) / chartWidth,
+                Mathf.Sqrt(chartRightLocal.y * chartRightLocal.y + chartUpLocal.y * chartUpLocal.y) / chartHeight);
+            radius01.x = Mathf.Max(0.0001f, radius01.x);
+            radius01.y = Mathf.Max(0.0001f, radius01.y);
+
+            // RawImage's shader varying includes uvRect (_MainTex_ST), so
+            // express the fixed centre/radius in that same transformed space.
+            Rect uvRect = chartBackgroundImage.uvRect;
+            Vector2 uvCenter = new Vector2(
+                uvRect.x + center01.x * uvRect.width,
+                uvRect.y + center01.y * uvRect.height);
+            Vector2 uvRadius = new Vector2(
+                radius01.x * Mathf.Abs(uvRect.width),
+                radius01.y * Mathf.Abs(uvRect.height));
+
+            circularMaskMaterial.SetVector(CircularMaskCenterProperty, uvCenter);
+            circularMaskMaterial.SetVector(CircularMaskRadiusProperty, uvRadius);
+            circularMaskMaterial.SetFloat(CircularMaskFixedProperty, 1f);
         }
 
         private void ApplyChartVisualOpacity()

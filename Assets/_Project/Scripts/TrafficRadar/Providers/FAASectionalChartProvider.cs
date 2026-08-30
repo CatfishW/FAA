@@ -990,6 +990,14 @@ namespace TrafficRadar
                 return Mathf.Clamp(requested, 10, 12);
             }
 
+            // FAA's VFR Sectional cache is published only at LOD 8-12.
+            // Clamp the wider focus ranges to the lowest available sectional
+            // level so requests resolve to chart tiles instead of 404s.
+            if (mapSource == FAAChartMapSource.Sectional)
+            {
+                return Mathf.Clamp(requested, 8, 12);
+            }
+
             // World Navigation Charts exposes LOD 0-10.  Keep the request in
             // that range while retaining the existing range-to-zoom mapping.
             if (mapSource == FAAChartMapSource.WorldAeronautical)
