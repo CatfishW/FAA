@@ -7,6 +7,7 @@ using UnityEngine.InputSystem.XR;
 using UnityEngine.SceneManagement;
 using UnityEngine.UI;
 using UnityEngine.XR;
+using UnityEngine.XR.Interaction.Toolkit.Inputs.Simulation;
 using WeatherRadar;
 
 #pragma warning disable CS0649 // Serialized fields are configured by the editor setup menu.
@@ -48,6 +49,8 @@ namespace FAA.Headset
         [SerializeField] private bool routeOverlayCanvasesToXrCamera = true;
         [Tooltip("Keep FAA HUD and radar canvases in screen-space overlay mode while using the desktop XR simulator. Native Varjo mode uses camera-space canvases for stereo output.")]
         [SerializeField] private bool useScreenSpaceOverlayForSimulator = true;
+        [Tooltip("Keep the desktop pointer available for FAA's screen-space controls while the Unity XR simulator is running in the Editor. Disable this only when testing controller point-and-click input with a camera-space XR UI.")]
+        [SerializeField] private bool preferEditorPointerInput = true;
         [SerializeField] private string[] overlayCanvasNames =
         {
             "FAASymbologyCanvas",
@@ -72,6 +75,8 @@ namespace FAA.Headset
         private readonly List<GameObject> _suspendedSa147Objects = new List<GameObject>();
         private GameObject _simulatorInstance;
         private bool _ownsSimulatorInstance;
+        private bool _simulatorPointAndClickStateCaptured;
+        private bool _simulatorOriginalPointAndClick;
         private TrackedPoseDriver _trackedPoseDriver;
         private Camera _trackedPoseDriverCamera;
         private bool _createdTrackedPoseDriver;
@@ -166,6 +171,7 @@ namespace FAA.Headset
                 ConfigureXrCamera();
                 EnsureTrackedPoseDriver();
                 RouteOverlayCanvases();
+                ConfigureSimulatorPointerInput();
                 ConfigureSimulatorWeatherFallback(_activeMode == ActivationMode.UnitySimulator);
             }
             else
@@ -258,6 +264,7 @@ namespace FAA.Headset
             if (startSimulator || mode == ActivationMode.UnitySimulator)
             {
                 EnsureSimulator();
+                ConfigureSimulatorPointerInput();
             }
             else
             {
@@ -700,6 +707,59 @@ namespace FAA.Headset
             _ownsSimulatorInstance = true;
         }
 
+        /// <summary>
+        /// XRI's simulator disables XRUI mouse/touch input while its
+        /// point-and-click controller mode is active. FAA's editor simulator
+        /// presents the radar and control strip as ScreenSpaceOverlay, so keep
+        /// the normal desktop pointer path enabled for those controls. Native
+        /// Varjo mode and camera-space XR UI retain the simulator's original
+        /// setting.
+        /// </summary>
+        private void ConfigureSimulatorPointerInput()
+        {
+            if (_simulatorInstance == null)
+            {
+                return;
+            }
+
+            XRInteractionSimulator simulator = _simulatorInstance.GetComponent<XRInteractionSimulator>();
+            if (simulator == null)
+            {
+                return;
+            }
+
+            if (!_simulatorPointAndClickStateCaptured)
+            {
+                _simulatorOriginalPointAndClick = simulator.usePointAndClick;
+                _simulatorPointAndClickStateCaptured = true;
+            }
+
+            bool useEditorPointer = Application.isEditor &&
+                _activeMode == ActivationMode.UnitySimulator &&
+                useScreenSpaceOverlayForSimulator &&
+                preferEditorPointerInput;
+            simulator.usePointAndClick = useEditorPointer ? false : _simulatorOriginalPointAndClick;
+        }
+
+        private void RestoreSimulatorPointerInput()
+        {
+            if (!_simulatorPointAndClickStateCaptured)
+            {
+                return;
+            }
+
+            if (_simulatorInstance != null)
+            {
+                XRInteractionSimulator simulator = _simulatorInstance.GetComponent<XRInteractionSimulator>();
+                if (simulator != null)
+                {
+                    simulator.usePointAndClick = _simulatorOriginalPointAndClick;
+                }
+            }
+
+            _simulatorPointAndClickStateCaptured = false;
+        }
+
         private static GameObject FindSceneSimulator()
         {
             GameObject[] objects = FindObjectsByType<GameObject>(FindObjectsInactive.Include, FindObjectsSortMode.None);
@@ -734,6 +794,8 @@ namespace FAA.Headset
 
         private void DestroySimulator()
         {
+            RestoreSimulatorPointerInput();
+
             if (_simulatorInstance == null)
             {
                 return;

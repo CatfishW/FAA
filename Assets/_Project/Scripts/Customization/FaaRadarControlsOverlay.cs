@@ -26,6 +26,7 @@ namespace FAA.Customization
         private const float TrafficCompactWidth = 382f;
         private const float TrafficAdvancedWidth = 408f;
         private const float ThreeRowStripHeight = 140f;
+        private const float EditorPointerRightMargin = 96f;
         private const string WeatherSizePreferenceKey = "FAA.HUD.WeatherRadarSize";
         private const string TrafficSizePreferenceKey = "FAA.HUD.TrafficRadarSize";
         private static readonly Color StripBackgroundColor = new Color(0.006f, 0.045f, 0.04f, 0.88f);
@@ -1659,13 +1660,13 @@ namespace FAA.Customization
                 createdXrInputModule = true;
             }
 
-            // Do not reset the input toggles on an existing module: the XR
-            // simulator intentionally disables mouse/touch forwarding while
-            // simulated tracked devices are active. Reapplying true on every
-            // control-strip refresh would reintroduce duplicate pointer events.
+            // XR input is required for native Varjo controllers and should be
+            // enabled even when a scene supplied the module. Do not reset the
+            // mouse/touch toggles on an existing module: the XR simulator
+            // intentionally manages those while simulated devices are active.
+            xrInputModule.enableXRInput = true;
             if (createdXrInputModule)
             {
-                xrInputModule.enableXRInput = true;
                 xrInputModule.enableMouseInput = true;
                 xrInputModule.enableTouchInput = true;
                 xrInputModule.enableGamepadInput = true;
@@ -1805,13 +1806,82 @@ namespace FAA.Customization
             {
                 strip.pivot = new Vector2(1f, 0f);
                 float rootRightEdge = rootRect.anchoredPosition.x + (rootWidth * (1f - rootRect.pivot.x));
-                strip.anchoredPosition = new Vector2(rootRightEdge - stripOffset.x, rootRect.anchoredPosition.y + rootHeight + stripOffset.y);
+                float desiredRightAnchorOffset = rootRightEdge - stripOffset.x;
+                // The editor Game view can expose a render target that is
+                // slightly narrower than the Canvas reference resolution
+                // (for example 1830 px against a 1920 px reference). Keep
+                // the escape/fullscreen button inside that visible pointer
+                // region instead of leaving the last controls beyond the
+                // EventSystem's screen bounds.
+                float safeRightAnchorOffset = GetSafeRightAnchorOffset(strip);
+                if (!float.IsPositiveInfinity(safeRightAnchorOffset))
+                {
+                    desiredRightAnchorOffset = Mathf.Min(desiredRightAnchorOffset, safeRightAnchorOffset);
+                }
+
+                strip.anchoredPosition = new Vector2(desiredRightAnchorOffset, rootRect.anchoredPosition.y + rootHeight + stripOffset.y);
                 return;
             }
 
             strip.pivot = new Vector2(0f, 0f);
             float rootLeftEdge = rootRect.anchoredPosition.x - (rootWidth * rootRect.pivot.x);
             strip.anchoredPosition = new Vector2(rootLeftEdge + stripOffset.x, rootRect.anchoredPosition.y + rootHeight + stripOffset.y);
+        }
+
+        private static float GetSafeRightAnchorOffset(RectTransform strip)
+        {
+            RectTransform parent = strip != null ? strip.parent as RectTransform : null;
+            if (parent == null)
+            {
+                return float.PositiveInfinity;
+            }
+
+            float parentWidth = parent.rect.width > 1f ? parent.rect.width : parent.sizeDelta.x;
+            if (parentWidth <= 1f)
+            {
+                return float.PositiveInfinity;
+            }
+
+            Canvas canvas = parent.GetComponentInParent<Canvas>();
+            // Camera-space/native XR layouts have their own projection and
+            // should not inherit the editor Game-view pointer clamp.
+            bool isScreenSpaceOverlay = canvas == null || canvas.renderMode == RenderMode.ScreenSpaceOverlay;
+
+            // Screen.width can briefly report the requested Game-view
+            // reference size while Display.main already reports the actual
+            // drawable/input surface.  Use the smallest valid surface so the
+            // pointer-safe clamp is stable across editor and player startup.
+            float visibleWidth = parentWidth;
+            if (Screen.width > 0)
+            {
+                visibleWidth = Mathf.Min(visibleWidth, Screen.width);
+            }
+
+            if (Display.main != null && Display.main.renderingWidth > 0)
+            {
+                visibleWidth = Mathf.Min(visibleWidth, Display.main.renderingWidth);
+            }
+
+            // Unity's editor Game view can report its requested 1920 px
+            // reference size to a layout pass even when the actual pointer
+            // surface is narrower. Reserve a small, deterministic editor
+            // margin so the FULL/REST escape control remains reachable in
+            // that transient state as well.
+            if (Application.isEditor && isScreenSpaceOverlay)
+            {
+                visibleWidth = Mathf.Min(
+                    visibleWidth,
+                    Mathf.Max(1f, parentWidth - EditorPointerRightMargin));
+            }
+
+            if (visibleWidth >= parentWidth)
+            {
+                return float.PositiveInfinity;
+            }
+
+            const float safeMargin = 8f;
+            float safeRight = Mathf.Max(1f, visibleWidth - safeMargin);
+            return -(parentWidth - safeRight);
         }
 
         private static void HideDirectControlChildren(RectTransform strip, params RectTransform[] rowsToKeep)
