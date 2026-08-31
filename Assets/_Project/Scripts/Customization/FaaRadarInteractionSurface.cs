@@ -244,6 +244,7 @@ namespace FAA.Customization
         private bool _dragging;
         private bool _suppressClick;
         private TrafficRadarDisplay _trafficDisplay;
+        private TrafficRadarContextMenu _trafficContextMenu;
         private float _visualProgress;
 
         public FaaRadarKind RadarKind => radarKind;
@@ -255,6 +256,7 @@ namespace FAA.Customization
             radarKind = kind;
             reducedMotion = useReducedMotion;
             EnsureVisualTree();
+            EnsureTrafficContextMenu();
             UpdateHint();
         }
 
@@ -273,6 +275,7 @@ namespace FAA.Customization
                 // not emit IEndDrag in that path, so explicitly restore the
                 // chart and own-ship overlay before clearing local state.
                 FinishTrafficMapDrag(null);
+                _trafficContextMenu?.Close(true);
             }
 
             _interactionEnabled = value;
@@ -304,13 +307,15 @@ namespace FAA.Customization
             // Never leave the traffic chart panned or its own-ship glyph
             // suppressed across that lifecycle boundary.
             FinishTrafficMapDrag(null);
+            _trafficContextMenu?.Close(true);
         }
 
         private void Update()
         {
             // A faint always-on edge reads as a lightweight glass instrument;
             // hover/open states strengthen the same frame without adding a box.
-            float target = !_interactionEnabled ? 0f : _open ? 1f : _hovered ? 0.62f : 0.06f;
+            bool contextMenuOpen = _trafficContextMenu != null && _trafficContextMenu.IsOpen;
+            float target = !_interactionEnabled ? 0f : (_open || contextMenuOpen) ? 1f : _hovered ? 0.62f : 0.06f;
             float duration = reducedMotion ? 0.08f : target > _visualProgress ? 0.22f : 0.14f;
             _visualProgress = Mathf.MoveTowards(
                 _visualProgress,
@@ -339,15 +344,16 @@ namespace FAA.Customization
                 return;
             }
 
-            // In pilot-focus mode the glass is a navigation surface rather
-            // than a drawer toggle.  The compact focus toolbar owns REST and
-            // the map controls, so a simple click should not reopen the hidden
-            // advanced rows while the pilot is inspecting the chart.
             if (radarKind == FaaRadarKind.Traffic)
             {
                 ResolveTrafficDisplay();
-                if (_trafficDisplay != null && _trafficDisplay.IsFullscreen)
+                EnsureTrafficContextMenu();
+                if (_trafficContextMenu != null)
                 {
+                    // A single tap opens the same adaptive quick-action menu
+                    // in compact and pilot-focus views. Every action carries
+                    // an animated leader to the affected area of the scope.
+                    _trafficContextMenu.ToggleAtScreenPoint(eventData.position, eventData.pressEventCamera);
                     eventData.Use();
                     return;
                 }
@@ -411,6 +417,7 @@ namespace FAA.Customization
 
             _dragging = true;
             _suppressClick = true;
+            _trafficContextMenu?.Close();
             _trafficDisplay.BeginMapDrag();
             eventData.Use();
         }
@@ -484,6 +491,24 @@ namespace FAA.Customization
             {
                 _trafficDisplay = FindAnyObjectByType<TrafficRadarDisplay>(FindObjectsInactive.Include);
             }
+        }
+
+        private void EnsureTrafficContextMenu()
+        {
+            if (radarKind != FaaRadarKind.Traffic)
+            {
+                return;
+            }
+
+            ResolveTrafficDisplay();
+            if (_trafficDisplay == null)
+            {
+                return;
+            }
+
+            _trafficContextMenu = GetComponent<TrafficRadarContextMenu>() ??
+                                  gameObject.AddComponent<TrafficRadarContextMenu>();
+            _trafficContextMenu.Configure(_trafficDisplay, reducedMotion);
         }
 
         private void EnsureVisualTree()

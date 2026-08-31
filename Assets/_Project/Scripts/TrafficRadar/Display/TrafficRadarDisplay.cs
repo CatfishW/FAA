@@ -124,6 +124,13 @@ namespace TrafficRadar
         [Tooltip("Fraction of the radar diameter used for cardinal labels in the maximized view.")]
         [Range(0.34f, 0.46f)]
         [SerializeField] private float fullscreenCompassLabelRadius = 0.42f;
+
+        [Tooltip("Show the range rings, compass ticks, and bearing labels.")]
+        [SerializeField] private bool showReferenceLinework = true;
+
+        [Tooltip("Duration of the reference-line fade used by the contextual pilot menu.")]
+        [Min(0f)]
+        [SerializeField] private float referenceLineworkFadeDuration = 0.18f;
         
         [Header("Zoom Animation")]
         [Tooltip("Enable smooth zoom animation")]
@@ -224,6 +231,11 @@ namespace TrafficRadar
         private RectTransform[] _compassLabelRects;
         private bool _radarTextureDirty = true;
         private float _lastDrawnHeadingRotation = float.NaN;
+        private float _lineworkVisualAlpha = 1f;
+        private float _lineworkFadeFromAlpha = 1f;
+        private float _lineworkFadeToAlpha = 1f;
+        private float _lineworkFadeStartTime;
+        private bool _lineworkFadeAnimating;
 
         // Sectional chart presentation/fetch state.  The chart child remains
         // active in the hierarchy so CHT can be used at runtime even when the
@@ -368,6 +380,9 @@ namespace TrafficRadar
         public bool ChartBackgroundVisible => showChartBackground;
         public FAASectionalChartProvider ChartProvider => chartProvider;
         public int RangeRingCount => rangeRingCount;
+        public bool ReferenceLineworkVisible => showReferenceLinework;
+        public float ReferenceLineworkVisualAlpha => _lineworkVisualAlpha;
+        public bool AutoRangeEnabled => radarController != null && radarController.AutoRangeEnabled;
 
         /// <summary>
         /// Current chart drag offset in display-local pixels.
@@ -419,6 +434,11 @@ namespace TrafficRadar
         /// Raised when the map source changes.
         /// </summary>
         public event Action<FAAChartMapSource> MapSourceChanged;
+
+        /// <summary>
+        /// Raised when the pilot changes range-ring/compass line visibility.
+        /// </summary>
+        public event Action<bool> ReferenceLineworkChanged;
 
         /// <summary>
         /// Raised when a drag/pan settles at a new map offset.
@@ -580,6 +600,9 @@ namespace TrafficRadar
         {
             rectTransform = GetComponent<RectTransform>();
             _chartVisualOpacity = showChartBackground ? Mathf.Clamp01(chartOpacity) : 0f;
+            _lineworkVisualAlpha = showReferenceLinework ? 1f : 0f;
+            _lineworkFadeFromAlpha = _lineworkVisualAlpha;
+            _lineworkFadeToAlpha = _lineworkVisualAlpha;
             NormalizePanelReadability();
             CreateRadarTexture();
             EnsureRadarImageReference();
@@ -920,6 +943,68 @@ namespace TrafficRadar
             }
         }
 
+        private void BeginReferenceLineworkFade(float targetAlpha, bool animate)
+        {
+            targetAlpha = Mathf.Clamp01(targetAlpha);
+            _lineworkFadeFromAlpha = _lineworkVisualAlpha;
+            _lineworkFadeToAlpha = targetAlpha;
+
+            if (!animate || !Application.isPlaying || referenceLineworkFadeDuration <= 0.001f)
+            {
+                _lineworkVisualAlpha = targetAlpha;
+                _lineworkFadeAnimating = false;
+                ApplyPilotLabelStyle();
+                MarkRadarDirty();
+                return;
+            }
+
+            _lineworkFadeStartTime = Time.unscaledTime;
+            _lineworkFadeAnimating = true;
+            MarkRadarDirty();
+        }
+
+        private void UpdateReferenceLineworkFade()
+        {
+            if (!_lineworkFadeAnimating)
+            {
+                return;
+            }
+
+            float duration = Mathf.Max(0.001f, referenceLineworkFadeDuration);
+            float progress = Mathf.Clamp01((Time.unscaledTime - _lineworkFadeStartTime) / duration);
+            float eased = progress * progress * (3f - 2f * progress);
+            _lineworkVisualAlpha = Mathf.Lerp(_lineworkFadeFromAlpha, _lineworkFadeToAlpha, eased);
+            ApplyPilotLabelStyle();
+            MarkRadarDirty();
+
+            if (progress >= 1f)
+            {
+                _lineworkVisualAlpha = _lineworkFadeToAlpha;
+                _lineworkFadeAnimating = false;
+            }
+        }
+
+        private IEnumerator AnimateMapSourceChange()
+        {
+            float targetOpacity = Mathf.Clamp01(chartOpacity);
+            float dippedOpacity = Mathf.Min(targetOpacity, Mathf.Max(0.035f, targetOpacity * 0.18f));
+            float duration = Mathf.Max(0.08f, chartFadeDuration);
+
+            BeginChartFade(dippedOpacity, true);
+            yield return new WaitForSecondsRealtime(duration * 0.58f);
+
+            chartProvider?.CycleMapSource();
+
+            // Bring the retained composite back while new tiles load. The
+            // provider swaps in the replacement texture atomically, so pilots
+            // never see an untextured circular scope.
+            yield return new WaitForSecondsRealtime(duration * 0.28f);
+            if (showChartBackground && !preferXPlaneTrafficTexture)
+            {
+                BeginChartFade(targetOpacity, true);
+            }
+        }
+
         private void OnDestroy()
         {
             // OnDisable runs before destruction and handles any safe layout
@@ -946,6 +1031,7 @@ namespace TrafficRadar
             EnsureRuntimeDisplayReady();
 
             UpdateChartFade();
+            UpdateReferenceLineworkFade();
             TryFetchChartForCurrentPosition(false);
 
             // Handle zoom animation
@@ -1229,6 +1315,23 @@ namespace TrafficRadar
             currentIndex = (currentIndex + 1) % rangeOptionsNM.Length;
             SetRange(rangeOptionsNM[currentIndex]);
         }
+
+        /// <summary>
+        /// Take manual range control and advance to the next range gate. This
+        /// is used by the one-tap menu so its visible result is not immediately
+        /// overwritten by the controller's automatic range selection.
+        /// </summary>
+        public void CycleRangeManual()
+        {
+            if (radarController != null)
+            {
+                radarController.SetAutoRangeEnabled(false);
+            }
+
+            // Use the display's normal cycle path after taking manual control
+            // so the existing smooth-zoom animation remains intact.
+            CycleRange();
+        }
         
         /// <summary>
         /// Zoom in (decrease range) by the zoom speed amount.
@@ -1385,6 +1488,29 @@ namespace TrafficRadar
         public void ToggleChartBackground()
         {
             SetChartBackgroundVisible(!showChartBackground, true);
+        }
+
+        /// <summary>
+        /// Show or hide the pilot reference rings, compass ticks, and their
+        /// labels. The traffic and own-ship symbols remain visible throughout
+        /// the transition so decluttering never removes safety-critical data.
+        /// </summary>
+        public void SetReferenceLineworkVisible(bool visible, bool animate = true)
+        {
+            if (showReferenceLinework == visible &&
+                Mathf.Approximately(_lineworkFadeToAlpha, visible ? 1f : 0f))
+            {
+                return;
+            }
+
+            showReferenceLinework = visible;
+            BeginReferenceLineworkFade(visible ? 1f : 0f, animate);
+            ReferenceLineworkChanged?.Invoke(visible);
+        }
+
+        public void ToggleReferenceLinework()
+        {
+            SetReferenceLineworkVisible(!showReferenceLinework, true);
         }
 
         /// <summary>
@@ -2007,6 +2133,32 @@ namespace TrafficRadar
         public void CycleMapSource()
         {
             chartProvider?.CycleMapSource();
+        }
+
+        /// <summary>
+        /// Cycle the chart source with a restrained dip-and-return transition.
+        /// The previous composite remains available while the provider loads
+        /// replacement tiles, avoiding a blank radar during network latency.
+        /// </summary>
+        public void CycleMapSourceAnimated()
+        {
+            if (chartProvider == null)
+            {
+                return;
+            }
+
+            if (!showChartBackground)
+            {
+                SetChartBackgroundVisible(true, true);
+            }
+
+            if (!Application.isPlaying || !enableChartFadeAnimation || chartFadeDuration <= 0.001f)
+            {
+                chartProvider.CycleMapSource();
+                return;
+            }
+
+            StartCoroutine(AnimateMapSourceChange());
         }
 
         /// <summary>
@@ -2746,11 +2898,13 @@ namespace TrafficRadar
                 DrawFilledCircle(centerX, centerY, (int)radius, backgroundColor);
             }
 
+            // Compass ticks sit beneath the range gates. Drawing the gates
+            // last keeps every circle continuous where the two references
+            // intersect instead of producing dark, broken-looking notches.
+            DrawCompassMarkings(centerX, centerY, radius);
+
             // Draw range rings
             DrawRangeRings(centerX, centerY, radius);
-
-            // Draw compass markings
-            DrawCompassMarkings(centerX, centerY, radius);
 
             // Draw traffic symbols
             DrawTrafficSymbols(centerX, centerY, radius);
@@ -2779,15 +2933,21 @@ namespace TrafficRadar
 
         private void DrawRangeRings(int centerX, int centerY, float radius)
         {
+            if (_lineworkVisualAlpha <= 0.001f)
+            {
+                return;
+            }
+
             int ringCount = Mathf.Clamp(rangeRingCount, 1, 8);
             float lineScale = ResolvePilotLineworkScale();
+            Color visibleRingColor = MultiplyAlpha(rangeRingColor, _lineworkVisualAlpha);
 
             if (!usePilotLinework)
             {
                 for (int i = 1; i <= ringCount; i++)
                 {
                     float ringRadius = radius * i / ringCount;
-                    DrawCircle(centerX, centerY, (int)ringRadius, rangeRingColor, 1);
+                    DrawCircle(centerX, centerY, (int)ringRadius, visibleRingColor, 1);
                 }
 
                 return;
@@ -2799,13 +2959,13 @@ namespace TrafficRadar
             // The small lift in value/alpha is intentional: the chart is
             // rendered beneath this texture and can contain very bright ink.
             Color majorColor = LiftLineColor(
-                rangeRingColor,
+                visibleRingColor,
                 0.20f,
-                Mathf.Clamp01(Mathf.Max(0.96f, rangeRingColor.a + 0.30f)));
+                Mathf.Clamp01(Mathf.Max(0.96f, rangeRingColor.a + 0.30f)) * _lineworkVisualAlpha);
             Color minorColor = LiftLineColor(
-                rangeRingColor,
+                visibleRingColor,
                 0.10f,
-                Mathf.Clamp01(Mathf.Max(0.76f, rangeRingColor.a * 1.25f)));
+                Mathf.Clamp01(Mathf.Max(0.76f, rangeRingColor.a * 1.25f)) * _lineworkVisualAlpha);
             Color haloColor = new Color(0.005f, 0.045f, 0.05f, 0.40f);
             int halfRangeRing = Mathf.Max(1, Mathf.CeilToInt(ringCount * 0.5f));
             for (int i = 1; i <= ringCount; i++)
@@ -2829,7 +2989,7 @@ namespace TrafficRadar
                     centerX,
                     centerY,
                     ringRadius,
-                    WithAlpha(haloColor, isMajor ? 0.42f : 0.24f),
+                    WithAlpha(haloColor, (isMajor ? 0.42f : 0.24f) * _lineworkVisualAlpha),
                     thickness + 2.8f * lineScale);
                 DrawCircleAntiAliased(centerX, centerY, ringRadius, color, thickness);
             }
@@ -2837,6 +2997,11 @@ namespace TrafficRadar
 
         private void DrawCompassMarkings(int centerX, int centerY, float radius)
         {
+            if (_lineworkVisualAlpha <= 0.001f)
+            {
+                return;
+            }
+
             // Apply heading rotation offset for track-up mode.
             float headingOffset = enableTrackUpMode ? _currentHeadingRotation : 0f;
 
@@ -2850,15 +3015,15 @@ namespace TrafficRadar
             Color cardinalColor = LiftLineColor(
                 compassMarkingsColor,
                 0.14f,
-                Mathf.Clamp01(Mathf.Max(0.94f, compassMarkingsColor.a + 0.10f)));
+                Mathf.Clamp01(Mathf.Max(0.94f, compassMarkingsColor.a + 0.10f)) * _lineworkVisualAlpha);
             Color majorColor = LiftLineColor(
                 compassMarkingsColor,
                 0.06f,
-                Mathf.Clamp01(Mathf.Max(0.84f, compassMarkingsColor.a * 0.90f)));
+                Mathf.Clamp01(Mathf.Max(0.84f, compassMarkingsColor.a * 0.90f)) * _lineworkVisualAlpha);
             Color minorColor = LiftLineColor(
                 compassMarkingsColor,
                 0.02f,
-                Mathf.Clamp01(Mathf.Max(0.62f, compassMarkingsColor.a * 0.70f)));
+                Mathf.Clamp01(Mathf.Max(0.62f, compassMarkingsColor.a * 0.70f)) * _lineworkVisualAlpha);
             Color haloColor = new Color(0.005f, 0.045f, 0.05f, 0.34f);
             float outerRadius = Mathf.Max(1f, radius - 3f * lineScale);
 
@@ -2891,7 +3056,7 @@ namespace TrafficRadar
                     y1,
                     x2,
                     y2,
-                    WithAlpha(haloColor, isCardinal ? 0.42f : 0.22f),
+                    WithAlpha(haloColor, (isCardinal ? 0.42f : 0.22f) * _lineworkVisualAlpha),
                     thickness + 2.6f * lineScale);
                 DrawLineAntiAliased(x1, y1, x2, y2, tickColor, thickness);
 
@@ -2910,7 +3075,7 @@ namespace TrafficRadar
                         cy1,
                         cx2,
                         cy2,
-                        WithAlpha(haloColor, 0.12f),
+                        WithAlpha(haloColor, 0.12f * _lineworkVisualAlpha),
                         2f * lineScale);
                     DrawLineAntiAliased(cx1, cy1, cx2, cy2, WithAlpha(cardinalColor, 0.34f), 1.2f * lineScale);
                 }
@@ -2924,7 +3089,10 @@ namespace TrafficRadar
                 return;
             }
 
-            Color labelColor = LiftLineColor(compassMarkingsColor, 0.04f, Mathf.Max(0.86f, compassMarkingsColor.a));
+            Color labelColor = LiftLineColor(
+                compassMarkingsColor,
+                0.04f,
+                Mathf.Max(0.86f, compassMarkingsColor.a) * _lineworkVisualAlpha);
             Color outlineColor = new Color(0.005f, 0.035f, 0.035f, 0.84f);
             float labelFontSize = IsFullscreen
                 ? Mathf.Max(10f, fullscreenCompassFontSize)
@@ -2970,6 +3138,7 @@ namespace TrafficRadar
         {
             // Preserve the original spoke treatment for projects that opt out
             // of the pilot linework pass.
+            Color visibleCompassColor = MultiplyAlpha(compassMarkingsColor, _lineworkVisualAlpha);
             int[] cardinalAngles = { 0, 90, 180, 270 };
             foreach (int angle in cardinalAngles)
             {
@@ -2982,7 +3151,7 @@ namespace TrafficRadar
                 int x2 = centerX + (int)(radius * Mathf.Sin(rad));
                 int y2 = centerY + (int)(radius * Mathf.Cos(rad));
 
-                DrawLine(x1, y1, x2, y2, compassMarkingsColor);
+                DrawLine(x1, y1, x2, y2, visibleCompassColor);
             }
 
             for (int angle = 0; angle < 360; angle += 30)
@@ -3001,7 +3170,16 @@ namespace TrafficRadar
                 int x2 = centerX + (int)(radius * Mathf.Sin(rad));
                 int y2 = centerY + (int)(radius * Mathf.Cos(rad));
 
-                DrawLine(x1, y1, x2, y2, new Color(compassMarkingsColor.r, compassMarkingsColor.g, compassMarkingsColor.b, 0.4f));
+                DrawLine(
+                    x1,
+                    y1,
+                    x2,
+                    y2,
+                    new Color(
+                        compassMarkingsColor.r,
+                        compassMarkingsColor.g,
+                        compassMarkingsColor.b,
+                        0.4f * _lineworkVisualAlpha));
             }
         }
 
@@ -3017,6 +3195,12 @@ namespace TrafficRadar
             return color;
         }
 
+        private static Color MultiplyAlpha(Color color, float multiplier)
+        {
+            color.a *= Mathf.Clamp01(multiplier);
+            return color;
+        }
+
         private static Color LiftLineColor(Color color, float lift, float alpha)
         {
             Color lifted = Color.Lerp(color, Color.white, Mathf.Clamp01(lift));
@@ -3028,29 +3212,39 @@ namespace TrafficRadar
         {
             float safeRadius = Mathf.Max(0f, radius);
             float halfThickness = Mathf.Max(0.5f, thickness * 0.5f);
-            int extent = Mathf.CeilToInt(safeRadius + halfThickness + 1f);
-            int sampleSpan = Mathf.CeilToInt(halfThickness + 1.5f);
-            float radiusSquared = safeRadius * safeRadius;
+            float outerRadius = safeRadius + halfThickness + 0.75f;
+            float innerRadius = Mathf.Max(0f, safeRadius - halfThickness - 0.75f);
+            float outerSquared = outerRadius * outerRadius;
+            float innerSquared = innerRadius * innerRadius;
+            int extent = Mathf.CeilToInt(outerRadius);
 
-            // Rasterize only the narrow annulus around the circumference. The
-            // previous full-square walk was expensive enough to make heading
-            // updates visible on XR hardware; this scan visits O(circumference)
-            // pixels while preserving soft anti-aliased edges.
+            // Walk the exact narrow annulus, including the caps above and
+            // below the mathematical centre line. The old centre-line-only
+            // scan skipped those cap pixels and produced visible gaps at the
+            // cardinal points once the texture was scaled in fullscreen/XR.
             for (int y = -extent; y <= extent; y++)
             {
-                float inside = radiusSquared - y * y;
-                if (inside < -1f)
+                float ySquared = y * y;
+                float outerInside = outerSquared - ySquared;
+                if (outerInside < 0f)
                 {
                     continue;
                 }
 
-                int xRadius = Mathf.RoundToInt(Mathf.Sqrt(Mathf.Max(0f, inside)));
-                for (int offset = -sampleSpan; offset <= sampleSpan; offset++)
+                int outerX = Mathf.CeilToInt(Mathf.Sqrt(outerInside));
+                int innerX = 0;
+                float innerInside = innerSquared - ySquared;
+                if (innerInside > 0f)
                 {
-                    BlendCircleSample(cx + xRadius + offset, cy + y, cx, cy, safeRadius, halfThickness, color);
-                    if (xRadius > 0)
+                    innerX = Mathf.Max(0, Mathf.FloorToInt(Mathf.Sqrt(innerInside)) - 1);
+                }
+
+                for (int x = innerX; x <= outerX; x++)
+                {
+                    BlendCircleSample(cx + x, cy + y, cx, cy, safeRadius, halfThickness, color);
+                    if (x > 0)
                     {
-                        BlendCircleSample(cx - xRadius + offset, cy + y, cx, cy, safeRadius, halfThickness, color);
+                        BlendCircleSample(cx - x, cy + y, cx, cy, safeRadius, halfThickness, color);
                     }
                 }
             }
