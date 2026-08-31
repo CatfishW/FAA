@@ -3341,14 +3341,46 @@ namespace TrafficRadar
 
         private void DrawOwnAircraft(int centerX, int centerY)
         {
-            // Draw own aircraft in the shared HUD green, pointing up.
-            int size = (int)(symbolSize * 1.2f);
-            
-            // Simple aircraft shape (triangle pointing up)
-            DrawFilledTriangle(centerX, centerY + size/2, 
-                               centerX - size/3, centerY - size/2,
-                               centerX + size/3, centerY - size/2,
-                               ownAircraftColor);
+            // A compact top-down aircraft reads much faster than the previous
+            // solid triangle and cannot be mistaken for a traffic-threat
+            // symbol. A dark knockout stroke preserves the silhouette over
+            // dense sectional-chart ink without adding an opaque placard.
+            float scale = Mathf.Max(0.85f, symbolSize / 12f);
+            int noseY = centerY + Mathf.RoundToInt(11f * scale);
+            int tailY = centerY - Mathf.RoundToInt(10f * scale);
+            int wingRootY = centerY + Mathf.RoundToInt(2f * scale);
+            int wingTipY = centerY - Mathf.RoundToInt(2f * scale);
+            int wingHalfSpan = Mathf.RoundToInt(12f * scale);
+            int tailRootY = centerY - Mathf.RoundToInt(6f * scale);
+            int tailTipY = centerY - Mathf.RoundToInt(8f * scale);
+            int tailHalfSpan = Mathf.RoundToInt(6f * scale);
+
+            Color knockout = new Color(0.002f, 0.020f, 0.026f, 0.92f);
+            Color body = LiftLineColor(ownAircraftColor, 0.12f, 1f);
+            float knockoutWidth = Mathf.Max(4.6f, 5.2f * scale);
+            float bodyWidth = Mathf.Max(2.0f, 2.35f * scale);
+
+            // Knockout silhouette.
+            DrawLineAntiAliased(centerX, noseY, centerX, tailY, knockout, knockoutWidth);
+            DrawLineAntiAliased(centerX - wingHalfSpan, wingTipY, centerX, wingRootY, knockout, knockoutWidth);
+            DrawLineAntiAliased(centerX, wingRootY, centerX + wingHalfSpan, wingTipY, knockout, knockoutWidth);
+            DrawLineAntiAliased(centerX - tailHalfSpan, tailTipY, centerX, tailRootY, knockout, knockoutWidth);
+            DrawLineAntiAliased(centerX, tailRootY, centerX + tailHalfSpan, tailTipY, knockout, knockoutWidth);
+
+            // Bright aircraft stroke with swept wings and a distinct tailplane.
+            DrawLineAntiAliased(centerX, noseY, centerX, tailY, body, bodyWidth);
+            DrawLineAntiAliased(centerX - wingHalfSpan, wingTipY, centerX, wingRootY, body, bodyWidth);
+            DrawLineAntiAliased(centerX, wingRootY, centerX + wingHalfSpan, wingTipY, body, bodyWidth);
+            DrawLineAntiAliased(centerX - tailHalfSpan, tailTipY, centerX, tailRootY, body, bodyWidth);
+            DrawLineAntiAliased(centerX, tailRootY, centerX + tailHalfSpan, tailTipY, body, bodyWidth);
+
+            // The small hub marks the exact map/aircraft reference point.
+            DrawCircleAntiAliased(
+                centerX,
+                centerY,
+                Mathf.Max(2.2f, 2.5f * scale),
+                LiftLineColor(ownAircraftColor, 0.38f, 1f),
+                Mathf.Max(1.2f, 1.35f * scale));
         }
 
         private void DrawSymbol(int x, int y, SymbolType type, Color color, int size)

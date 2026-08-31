@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using TMPro;
 using TrafficRadar;
 using UnityEngine;
+using UnityEngine.EventSystems;
 using UnityEngine.UI;
 
 namespace FAA.Customization
@@ -18,21 +19,22 @@ namespace FAA.Customization
     [AddComponentMenu("FAA/Customization/Traffic Radar Context Menu")]
     public sealed class TrafficRadarContextMenu : MonoBehaviour
     {
-        private const float CompactPanelWidth = 188f;
-        private const float FocusPanelWidth = 244f;
-        private const float CompactRowHeight = 40f;
-        private const float FocusRowHeight = 50f;
-        private const float RowGap = 7f;
-        private const float HeaderHeight = 48f;
-        private const float PanelPadding = 12f;
-        private const float RadarGap = 16f;
+        private const float CompactPanelWidth = 246f;
+        private const float FocusPanelWidth = 350f;
+        private const float CompactRowHeight = 50f;
+        private const float FocusRowHeight = 64f;
+        private const float RowGap = 10f;
+        private const float HeaderHeight = 68f;
+        private const float PanelPadding = 14f;
+        private const float RadarGap = 22f;
 
-        private static readonly Color Accent = new Color(0.25f, 0.96f, 0.91f, 1f);
-        private static readonly Color PanelColor = new Color(0.012f, 0.052f, 0.064f, 0.965f);
-        private static readonly Color ButtonColor = new Color(0.018f, 0.105f, 0.115f, 0.94f);
-        private static readonly Color ButtonPressColor = new Color(0.02f, 0.28f, 0.25f, 1f);
-        private static readonly Color TextColor = new Color(0.84f, 1f, 0.96f, 1f);
-        private static readonly Color StateColor = new Color(0.50f, 0.88f, 0.82f, 1f);
+        private static readonly Color Accent = FaaRadarVisualStyle.Accent;
+        private static readonly Color PanelColor = FaaRadarVisualStyle.Glass;
+        private static readonly Color ButtonColor = FaaRadarVisualStyle.GlassRaised;
+        private static readonly Color ButtonFocusColor = FaaRadarVisualStyle.GlassHover;
+        private static readonly Color ButtonPressColor = FaaRadarVisualStyle.GlassPressed;
+        private static readonly Color TextColor = FaaRadarVisualStyle.TextPrimary;
+        private static readonly Color StateColor = FaaRadarVisualStyle.TextSecondary;
 
         private enum ActionKind
         {
@@ -48,6 +50,9 @@ namespace FAA.Customization
             public ActionKind Kind;
             public RectTransform Rect;
             public Image Background;
+            public Image Accent;
+            public Image IconPlate;
+            public TMP_Text Icon;
             public TMP_Text Title;
             public TMP_Text State;
             public GameObject GameObject;
@@ -72,6 +77,8 @@ namespace FAA.Customization
         private Vector2 _panelRestPosition;
         private Coroutine _actionRoutine;
         private ActionKind? _selectedAction;
+        private ActionKind? _focusedAction;
+        private bool _layoutFocused;
 
         public bool IsOpen => _targetOpen || _progress > 0.01f;
 
@@ -125,6 +132,7 @@ namespace FAA.Customization
             _visualRoot.gameObject.SetActive(true);
             _interactionLocked = false;
             _selectedAction = null;
+            _focusedAction = null;
             RefreshActionLabels();
             LayoutForCurrentRadar(localPoint);
             _targetOpen = true;
@@ -136,6 +144,7 @@ namespace FAA.Customization
             _targetOpen = false;
             _interactionLocked = false;
             _selectedAction = null;
+            _focusedAction = null;
             if (_actionRoutine != null)
             {
                 StopCoroutine(_actionRoutine);
@@ -185,6 +194,10 @@ namespace FAA.Customization
 
             if (_targetOpen)
             {
+                if (_display != null && _layoutFocused != _display.IsFullscreen)
+                {
+                    LayoutForCurrentRadar(Vector2.zero);
+                }
                 RefreshActionLabels();
                 UpdateLeaderGeometry();
             }
@@ -233,31 +246,15 @@ namespace FAA.Customization
             _panel.anchorMax = new Vector2(0.5f, 0.5f);
             _panel.pivot = new Vector2(0.5f, 0.5f);
             Image panelImage = panelObject.GetComponent<Image>() ?? panelObject.AddComponent<Image>();
-            panelImage.color = PanelColor;
+            FaaRadarVisualStyle.ApplyRounded(panelImage, PanelColor, 15);
             panelImage.raycastTarget = true;
             Outline outline = panelObject.GetComponent<Outline>() ?? panelObject.AddComponent<Outline>();
-            outline.effectColor = new Color(Accent.r, Accent.g, Accent.b, 0.58f);
+            outline.effectColor = new Color(Accent.r, Accent.g, Accent.b, 0.20f);
             outline.effectDistance = new Vector2(1f, -1f);
-            Shadow shadow = null;
-            foreach (Shadow candidate in panelObject.GetComponents<Shadow>())
-            {
-                // Outline derives from Shadow. Require an exact Shadow here so
-                // the drop shadow and cyan one-pixel outline keep independent
-                // colors/distances instead of overwriting one another.
-                if (candidate != null && candidate.GetType() == typeof(Shadow))
-                {
-                    shadow = candidate;
-                    break;
-                }
-            }
-
-            if (shadow == null)
-            {
-                shadow = panelObject.AddComponent<Shadow>();
-            }
-
-            shadow.effectColor = new Color(0f, 0.015f, 0.02f, 0.72f);
-            shadow.effectDistance = new Vector2(8f, -10f);
+            FaaRadarVisualStyle.EnsureDropShadow(
+                panelObject,
+                new Color(0f, 0.012f, 0.018f, 0.78f),
+                new Vector2(9f, -12f));
 
             EnsureHeader();
             EnsureActions();
@@ -270,10 +267,10 @@ namespace FAA.Customization
             titleRect.anchorMin = new Vector2(0f, 1f);
             titleRect.anchorMax = new Vector2(1f, 1f);
             titleRect.pivot = new Vector2(0.5f, 1f);
-            titleRect.offsetMin = new Vector2(PanelPadding, -HeaderHeight + 4f);
-            titleRect.offsetMax = new Vector2(-PanelPadding, -5f);
-            title.text = "TRAFFIC · QUICK ACTIONS";
-            title.fontSize = 13f;
+            titleRect.offsetMin = new Vector2(PanelPadding, -HeaderHeight + 8f);
+            titleRect.offsetMax = new Vector2(-PanelPadding, -8f);
+            title.text = "TRAFFIC CONTROLS";
+            title.fontSize = 15f;
             title.fontStyle = FontStyles.Bold;
             title.alignment = TextAlignmentOptions.TopLeft;
             title.color = TextColor;
@@ -283,10 +280,10 @@ namespace FAA.Customization
             hintRect.anchorMin = new Vector2(0f, 1f);
             hintRect.anchorMax = new Vector2(1f, 1f);
             hintRect.pivot = new Vector2(0.5f, 1f);
-            hintRect.offsetMin = new Vector2(PanelPadding, -HeaderHeight + 2f);
-            hintRect.offsetMax = new Vector2(-PanelPadding, -23f);
-            hint.text = "SELECT ONCE · MENU AUTO-CLOSES";
-            hint.fontSize = 9.5f;
+            hintRect.offsetMin = new Vector2(PanelPadding, -HeaderHeight + 8f);
+            hintRect.offsetMax = new Vector2(-PanelPadding, -30f);
+            hint.text = "TAP TO APPLY  ·  TAP RADAR TO CLOSE";
+            hint.fontSize = 10f;
             hint.fontStyle = FontStyles.Normal;
             hint.alignment = TextAlignmentOptions.BottomLeft;
             hint.color = StateColor;
@@ -316,52 +313,69 @@ namespace FAA.Customization
             actionRect.pivot = new Vector2(0.5f, 0.5f);
 
             Image background = actionObject.GetComponent<Image>() ?? actionObject.AddComponent<Image>();
-            background.color = ButtonColor;
+            FaaRadarVisualStyle.ApplyRounded(background, ButtonColor, 10);
             Button button = actionObject.GetComponent<Button>() ?? actionObject.AddComponent<Button>();
-            button.targetGraphic = background;
-            button.transition = Selectable.Transition.ColorTint;
-            ColorBlock colors = button.colors;
-            colors.normalColor = Color.white;
-            colors.highlightedColor = new Color(1.18f, 1.34f, 1.28f, 1f);
-            colors.pressedColor = new Color(1.06f, 1.52f, 1.36f, 1f);
-            colors.selectedColor = new Color(1.14f, 1.30f, 1.24f, 1f);
-            colors.disabledColor = new Color(0.4f, 0.5f, 0.5f, 0.5f);
-            colors.colorMultiplier = 1f;
-            colors.fadeDuration = 0.09f;
-            button.colors = colors;
+            FaaRadarVisualStyle.ConfigureButton(button, background);
             button.onClick.RemoveAllListeners();
             ActionKind capturedKind = kind;
             button.onClick.AddListener(() => BeginAction(capturedKind));
 
+            FaaRadarButtonMotion motion = actionObject.GetComponent<FaaRadarButtonMotion>() ??
+                                          actionObject.AddComponent<FaaRadarButtonMotion>();
+            motion.Configure(reducedMotion, 1.012f);
+            TrafficRadarActionFocus focus = actionObject.GetComponent<TrafficRadarActionFocus>() ??
+                                            actionObject.AddComponent<TrafficRadarActionFocus>();
+            focus.Configure(this, (int)kind);
+
             Outline outline = actionObject.GetComponent<Outline>() ?? actionObject.AddComponent<Outline>();
-            outline.effectColor = new Color(Accent.r, Accent.g, Accent.b, 0.22f);
+            outline.effectColor = new Color(Accent.r, Accent.g, Accent.b, 0.10f);
             outline.effectDistance = new Vector2(1f, -1f);
 
             RectTransform accentRect = EnsureImageRect(actionRect, "Accent", out Image accent);
             accentRect.anchorMin = new Vector2(0f, 0.5f);
             accentRect.anchorMax = new Vector2(0f, 0.5f);
             accentRect.pivot = new Vector2(0f, 0.5f);
-            accentRect.anchoredPosition = new Vector2(5f, 0f);
-            accentRect.sizeDelta = new Vector2(3f, 23f);
-            accent.color = Accent;
+            accentRect.anchoredPosition = new Vector2(4f, 0f);
+            accentRect.sizeDelta = new Vector2(3f, 20f);
+            FaaRadarVisualStyle.ApplyRounded(accent, Accent, 4);
             accent.raycastTarget = false;
+
+            RectTransform iconPlateRect = EnsureImageRect(actionRect, "IconPlate", out Image iconPlate);
+            iconPlateRect.anchorMin = new Vector2(0f, 0.5f);
+            iconPlateRect.anchorMax = new Vector2(0f, 0.5f);
+            iconPlateRect.pivot = new Vector2(0f, 0.5f);
+            iconPlateRect.anchoredPosition = new Vector2(12f, 0f);
+            iconPlateRect.sizeDelta = new Vector2(31f, 31f);
+            FaaRadarVisualStyle.ApplyRounded(
+                iconPlate,
+                new Color(Accent.r, Accent.g, Accent.b, 0.13f),
+                9);
+            iconPlate.raycastTarget = false;
+
+            RectTransform iconRect = EnsureTextRect(iconPlateRect, "Glyph", out TMP_Text icon);
+            Stretch(iconRect);
+            icon.text = ActionIcon(kind);
+            icon.fontSize = 10.5f;
+            icon.fontStyle = FontStyles.Bold;
+            icon.alignment = TextAlignmentOptions.Center;
+            icon.color = Accent;
 
             RectTransform titleRect = EnsureTextRect(actionRect, "Label", out TMP_Text title);
             titleRect.anchorMin = new Vector2(0f, 0f);
-            titleRect.anchorMax = new Vector2(0.57f, 1f);
-            titleRect.offsetMin = new Vector2(15f, 0f);
+            titleRect.anchorMax = new Vector2(0.61f, 1f);
+            titleRect.offsetMin = new Vector2(51f, 0f);
             titleRect.offsetMax = new Vector2(0f, 0f);
-            title.fontSize = 12f;
+            title.fontSize = 13f;
             title.fontStyle = FontStyles.Bold;
             title.alignment = TextAlignmentOptions.MidlineLeft;
             title.color = TextColor;
 
             RectTransform stateRect = EnsureTextRect(actionRect, "State", out TMP_Text state);
-            stateRect.anchorMin = new Vector2(0.52f, 0f);
+            stateRect.anchorMin = new Vector2(0.57f, 0f);
             stateRect.anchorMax = new Vector2(1f, 1f);
             stateRect.offsetMin = Vector2.zero;
-            stateRect.offsetMax = new Vector2(-9f, 0f);
-            state.fontSize = 10f;
+            stateRect.offsetMax = new Vector2(-12f, 0f);
+            state.fontSize = 10.5f;
             state.fontStyle = FontStyles.Bold;
             state.alignment = TextAlignmentOptions.MidlineRight;
             state.color = StateColor;
@@ -371,6 +385,9 @@ namespace FAA.Customization
                 Kind = kind,
                 Rect = actionRect,
                 Background = background,
+                Accent = accent,
+                IconPlate = iconPlate,
+                Icon = icon,
                 Title = title,
                 State = state,
                 GameObject = actionObject
@@ -380,6 +397,11 @@ namespace FAA.Customization
         private void LayoutForCurrentRadar(Vector2 localPoint)
         {
             bool focused = _display != null && _display.IsFullscreen;
+            _layoutFocused = focused;
+            if (_leaders != null)
+            {
+                _leaders.IdleAlpha = focused ? 0.24f : 0.17f;
+            }
             float panelWidth = focused ? FocusPanelWidth : CompactPanelWidth;
             float rowHeight = focused ? FocusRowHeight : CompactRowHeight;
             int visibleCount = focused ? 5 : 4;
@@ -400,8 +422,17 @@ namespace FAA.Customization
                 }
 
                 action.Rect.sizeDelta = new Vector2(panelWidth - PanelPadding * 2f, rowHeight);
-                action.Title.fontSize = focused ? 13.5f : 12f;
-                action.State.fontSize = focused ? 10.8f : 10f;
+                action.Title.fontSize = focused ? 16f : 13.5f;
+                action.State.fontSize = focused ? 12.5f : 11f;
+                if (action.IconPlate != null)
+                {
+                    float iconSize = focused ? 36f : 31f;
+                    action.IconPlate.rectTransform.sizeDelta = new Vector2(iconSize, iconSize);
+                }
+                if (action.Icon != null)
+                {
+                    action.Icon.fontSize = focused ? 12f : 10.5f;
+                }
                 float y = -HeaderHeight - PanelPadding - rowHeight * 0.5f -
                           visibleIndex * (rowHeight + RowGap);
                 action.Rect.anchoredPosition = new Vector2(0f, y);
@@ -410,12 +441,12 @@ namespace FAA.Customization
 
             if (_headerTitle != null)
             {
-                _headerTitle.fontSize = focused ? 14.5f : 13f;
+                _headerTitle.fontSize = focused ? 18f : 15.5f;
             }
 
             if (_headerHint != null)
             {
-                _headerHint.fontSize = focused ? 10f : 9.5f;
+                _headerHint.fontSize = focused ? 11.5f : 10f;
             }
 
             Rect radarRect = _hostRect.rect;
@@ -494,7 +525,7 @@ namespace FAA.Customization
                 ActionView action = _actions[i];
                 if (!action.GameObject.activeSelf)
                 {
-                    _leaders.SetConnector(i, Vector2.zero, Vector2.zero, false, false);
+                    _leaders.SetConnector(i, Vector2.zero, Vector2.zero, false, false, false, Color.clear);
                     continue;
                 }
 
@@ -529,8 +560,26 @@ namespace FAA.Customization
                     source,
                     target,
                     true,
-                    _selectedAction.HasValue && _selectedAction.Value == action.Kind);
+                    _selectedAction.HasValue && _selectedAction.Value == action.Kind,
+                    _focusedAction.HasValue && _focusedAction.Value == action.Kind,
+                    GetActionColor(action.Kind));
             }
+        }
+
+        internal void SetFocusedAction(int actionIndex, bool focused)
+        {
+            ActionKind kind = (ActionKind)Mathf.Clamp(actionIndex, 0, (int)ActionKind.View);
+            if (focused)
+            {
+                _focusedAction = kind;
+            }
+            else if (_focusedAction.HasValue && _focusedAction.Value == kind && !_selectedAction.HasValue)
+            {
+                _focusedAction = null;
+            }
+
+            RefreshActionLabels();
+            UpdateLeaderGeometry();
         }
 
         private void RefreshActionLabels()
@@ -568,9 +617,37 @@ namespace FAA.Customization
                         break;
                 }
 
-                action.Background.color = _selectedAction.HasValue && _selectedAction.Value == action.Kind
+                bool selected = _selectedAction.HasValue && _selectedAction.Value == action.Kind;
+                bool focused = _focusedAction.HasValue && _focusedAction.Value == action.Kind;
+                Color actionColor = GetActionColor(action.Kind);
+                action.Background.color = selected
                     ? ButtonPressColor
-                    : ButtonColor;
+                    : focused ? ButtonFocusColor : ButtonColor;
+                if (action.Accent != null)
+                {
+                    action.Accent.color = new Color(
+                        actionColor.r,
+                        actionColor.g,
+                        actionColor.b,
+                        selected || focused ? 1f : 0.40f);
+                }
+                if (action.IconPlate != null)
+                {
+                    action.IconPlate.color = new Color(
+                        actionColor.r,
+                        actionColor.g,
+                        actionColor.b,
+                        selected ? 0.30f : focused ? 0.22f : 0.11f);
+                }
+                if (action.Icon != null)
+                {
+                    action.Icon.color = new Color(
+                        actionColor.r,
+                        actionColor.g,
+                        actionColor.b,
+                        selected || focused ? 1f : 0.78f);
+                }
+                action.State.color = selected || focused ? actionColor : StateColor;
             }
         }
 
@@ -593,6 +670,7 @@ namespace FAA.Customization
         {
             _interactionLocked = true;
             _selectedAction = kind;
+            _focusedAction = kind;
             RefreshActionLabels();
             UpdateLeaderGeometry();
 
@@ -609,17 +687,17 @@ namespace FAA.Customization
                 yield return null;
             }
 
-            // VIEW changes the coordinate system of this menu's parent. Close
-            // first, then start the existing full-screen radar animation so
-            // the popup never jumps across the pilot's field of view.
+            ApplyAction(kind);
             if (kind == ActionKind.View)
             {
-                _targetOpen = false;
-                yield return new WaitForSecondsRealtime(reducedMotion ? 0.03f : 0.10f);
+                // The radar root changes size and anchor during FULL/REST.
+                // Keep the menu open, wait for that animation to settle, then
+                // dock the same persistent panel against the new scope bounds.
+                yield return new WaitForSecondsRealtime(reducedMotion ? 0.08f : 0.34f);
+                LayoutForCurrentRadar(Vector2.zero);
             }
 
-            ApplyAction(kind);
-            _targetOpen = false;
+            _targetOpen = true;
             _interactionLocked = false;
             _selectedAction = null;
             if (_leaders != null)
@@ -711,6 +789,30 @@ namespace FAA.Customization
             return upper.Length <= 7 ? upper : upper.Substring(0, 7);
         }
 
+        private static string ActionIcon(ActionKind kind)
+        {
+            switch (kind)
+            {
+                case ActionKind.Linework: return "LN";
+                case ActionKind.Map: return "MAP";
+                case ActionKind.Range: return "NM";
+                case ActionKind.Center: return "AC";
+                default: return "FIT";
+            }
+        }
+
+        private static Color GetActionColor(ActionKind kind)
+        {
+            switch (kind)
+            {
+                case ActionKind.Linework: return new Color(0.31f, 0.95f, 0.89f, 1f);
+                case ActionKind.Map: return new Color(0.40f, 0.77f, 1f, 1f);
+                case ActionKind.Range: return new Color(1f, 0.78f, 0.35f, 1f);
+                case ActionKind.Center: return new Color(0.55f, 1f, 0.62f, 1f);
+                default: return new Color(0.69f, 0.74f, 1f, 1f);
+            }
+        }
+
         private static RectTransform EnsureTextRect(RectTransform parent, string name, out TMP_Text text)
         {
             Transform existing = parent.Find(name);
@@ -751,6 +853,45 @@ namespace FAA.Customization
     }
 
     /// <summary>
+    /// Keeps the action-to-radar relationship discoverable for mouse, touch,
+    /// keyboard, and XR ray pointers without making every connector equally
+    /// prominent all the time.
+    /// </summary>
+    [DisallowMultipleComponent]
+    internal sealed class TrafficRadarActionFocus : MonoBehaviour,
+        IPointerEnterHandler,
+        IPointerExitHandler,
+        ISelectHandler,
+        IDeselectHandler
+    {
+        private TrafficRadarContextMenu _owner;
+        private int _actionIndex;
+
+        public void Configure(TrafficRadarContextMenu owner, int actionIndex)
+        {
+            _owner = owner;
+            _actionIndex = actionIndex;
+        }
+
+        private void OnDisable()
+        {
+            _owner?.SetFocusedAction(_actionIndex, false);
+        }
+
+        public void OnPointerEnter(PointerEventData eventData) =>
+            _owner?.SetFocusedAction(_actionIndex, true);
+
+        public void OnPointerExit(PointerEventData eventData) =>
+            _owner?.SetFocusedAction(_actionIndex, false);
+
+        public void OnSelect(BaseEventData eventData) =>
+            _owner?.SetFocusedAction(_actionIndex, true);
+
+        public void OnDeselect(BaseEventData eventData) =>
+            _owner?.SetFocusedAction(_actionIndex, false);
+    }
+
+    /// <summary>
     /// Lightweight UI mesh for animated action leader lines and target pulses.
     /// It avoids LineRenderer/world-space conversion so the same geometry is
     /// sharp in desktop, XR simulator, and screen-space overlay canvases.
@@ -764,11 +905,14 @@ namespace FAA.Customization
             public Vector2 Target;
             public bool Visible;
             public bool Selected;
+            public bool Focused;
+            public Color Tint;
         }
 
         private readonly List<Connector> _connectors = new List<Connector>();
         public float Reveal { get; set; }
         public float Pulse { get; set; }
+        public float IdleAlpha { get; set; } = 0.24f;
 
         public void BeginLayout(int count)
         {
@@ -783,7 +927,14 @@ namespace FAA.Customization
             }
         }
 
-        public void SetConnector(int index, Vector2 source, Vector2 target, bool visible, bool selected)
+        public void SetConnector(
+            int index,
+            Vector2 source,
+            Vector2 target,
+            bool visible,
+            bool selected,
+            bool focused,
+            Color tint)
         {
             if (index < 0 || index >= _connectors.Count)
             {
@@ -795,7 +946,9 @@ namespace FAA.Customization
                 Source = source,
                 Target = target,
                 Visible = visible,
-                Selected = selected
+                Selected = selected,
+                Focused = focused,
+                Tint = tint
             };
             SetVerticesDirty();
         }
@@ -818,23 +971,37 @@ namespace FAA.Customization
                 }
 
                 float stagedReveal = Mathf.Clamp01(reveal * 1.22f - i * 0.055f);
-                Color main = connector.Selected
-                    ? new Color(0.66f, 1f, 0.94f, 0.98f)
-                    : new Color(0.25f, 0.96f, 0.91f, 0.84f);
-                main.a *= stagedReveal;
-                Color halo = new Color(0.005f, 0.025f, 0.034f, 0.80f * stagedReveal);
+                bool emphasized = connector.Selected || connector.Focused;
+                float baseAlpha = connector.Selected ? 1f : connector.Focused ? 0.98f : IdleAlpha;
+                Color tint = connector.Tint.a > 0f ? connector.Tint : FaaRadarVisualStyle.Accent;
+                Color main = new Color(tint.r, tint.g, tint.b, baseAlpha * stagedReveal);
 
-                Vector2 direction = connector.Target.x >= connector.Source.x ? Vector2.right : Vector2.left;
-                Vector2 kneeA = connector.Source + direction * 17f;
-                Vector2 kneeB = kneeA + new Vector2(direction.x * 23f, connector.Target.y - kneeA.y);
-                Vector2[] points = { connector.Source, kneeA, kneeB, connector.Target };
-                DrawPartialPolyline(vertexHelper, points, stagedReveal, 5.2f, halo);
-                DrawPartialPolyline(vertexHelper, points, stagedReveal, connector.Selected ? 2.5f : 1.8f, main);
+                IReadOnlyList<Vector2> points = BuildConnectorCurve(connector.Source, connector.Target);
+                if (emphasized)
+                {
+                    Color halo = new Color(0.004f, 0.018f, 0.025f, 0.82f * stagedReveal);
+                    DrawPartialPolyline(vertexHelper, points, stagedReveal, 6.2f, halo);
+                }
+                DrawPartialPolyline(
+                    vertexHelper,
+                    points,
+                    stagedReveal,
+                    connector.Selected ? 3.2f : connector.Focused ? 2.8f : 1.25f,
+                    main);
 
                 if (stagedReveal >= 0.96f)
                 {
-                    AddDisc(vertexHelper, connector.Target, connector.Selected ? 4.2f : 3.1f, main, 14);
-                    AddRing(vertexHelper, connector.Target, 7f, 1.3f, new Color(main.r, main.g, main.b, main.a * 0.62f), 24);
+                    AddDisc(vertexHelper, connector.Target, emphasized ? 4.2f : 2.1f, main, 14);
+                    if (emphasized)
+                    {
+                        AddRing(
+                            vertexHelper,
+                            connector.Target,
+                            8f,
+                            1.4f,
+                            new Color(main.r, main.g, main.b, main.a * 0.68f),
+                            24);
+                    }
                 }
 
                 if (connector.Selected && Pulse > 0f)
@@ -851,6 +1018,25 @@ namespace FAA.Customization
                         32);
                 }
             }
+        }
+
+        private static IReadOnlyList<Vector2> BuildConnectorCurve(Vector2 source, Vector2 target)
+        {
+            const int segmentCount = 10;
+            Vector2[] points = new Vector2[segmentCount + 1];
+            float direction = target.x >= source.x ? 1f : -1f;
+            Vector2 controlA = source + Vector2.right * (direction * 34f);
+            Vector2 controlB = target - Vector2.right * (direction * 52f);
+            for (int i = 0; i <= segmentCount; i++)
+            {
+                float t = i / (float)segmentCount;
+                float inverse = 1f - t;
+                points[i] = inverse * inverse * inverse * source +
+                            3f * inverse * inverse * t * controlA +
+                            3f * inverse * t * t * controlB +
+                            t * t * t * target;
+            }
+            return points;
         }
 
         private static void DrawPartialPolyline(

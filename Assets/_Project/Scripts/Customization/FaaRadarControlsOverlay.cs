@@ -18,27 +18,25 @@ namespace FAA.Customization
     [AddComponentMenu("FAA/Customization/FAA Radar Controls Overlay")]
     public class FaaRadarControlsOverlay : MonoBehaviour
     {
-        private const float CompactStripHeight = 56f;
-        private const float RowHeight = 40f;
-        private const float WeatherCollapsedWidth = 214f;
-        private const float WeatherCompactWidth = 352f;
-        private const float WeatherAdvancedWidth = 392f;
-        private const float TrafficCollapsedWidth = 292f;
-        private const float TrafficCompactWidth = 382f;
-        private const float TrafficAdvancedWidth = 408f;
-        private const float TrafficFocusToolbarWidth = 430f;
-        private const float ThreeRowStripHeight = 140f;
+        private const float CompactStripHeight = 60f;
+        private const float RowHeight = 44f;
+        private const float WeatherCollapsedWidth = 254f;
+        private const float WeatherCompactWidth = 382f;
+        private const float WeatherAdvancedWidth = 420f;
+        private const float TrafficCollapsedWidth = 346f;
+        private const float TrafficCompactWidth = 476f;
+        private const float TrafficAdvancedWidth = 488f;
+        private const float TrafficFocusToolbarWidth = 448f;
+        private const float ThreeRowStripHeight = 156f;
         private const float EditorPointerRightMargin = 96f;
         private const string WeatherSizePreferenceKey = "FAA.HUD.WeatherRadarSize";
         private const string TrafficSizePreferenceKey = "FAA.HUD.TrafficRadarSize";
-        private static readonly Color StripBackgroundColor = new Color(0.006f, 0.045f, 0.04f, 0.88f);
-        private static readonly Color StripStrokeColor = new Color(0.20f, 0.96f, 0.58f, 0.62f);
-        private static readonly Color ButtonNormalColor = new Color(0.018f, 0.15f, 0.105f, 0.84f);
-        private static readonly Color ButtonHighlightedColor = new Color(0.055f, 0.29f, 0.19f, 0.96f);
-        private static readonly Color ButtonPressedColor = new Color(0.012f, 0.10f, 0.075f, 0.98f);
-        private static readonly Color ButtonActiveColor = new Color(0.075f, 0.32f, 0.22f, 0.96f);
-        private static readonly Color PrimaryTextColor = new Color(0.64f, 1f, 0.68f, 1f);
-        private static readonly Color SecondaryTextColor = new Color(0.76f, 1f, 0.78f, 1f);
+        private static readonly Color StripBackgroundColor = FaaRadarVisualStyle.Glass;
+        private static readonly Color StripStrokeColor = FaaRadarVisualStyle.Stroke;
+        private static readonly Color ButtonNormalColor = FaaRadarVisualStyle.GlassRaised;
+        private static readonly Color ButtonActiveColor = new Color(0.035f, 0.235f, 0.205f, 1f);
+        private static readonly Color PrimaryTextColor = FaaRadarVisualStyle.TextPrimary;
+        private static readonly Color SecondaryTextColor = FaaRadarVisualStyle.TextSecondary;
 
         [Header("Scene Names")]
         [SerializeField] private string weatherRadarRootName = "X-Plane Weather Radar System";
@@ -1306,7 +1304,7 @@ namespace FAA.Customization
                                   (stripName.Contains("Weather") ? enableWeatherControls : enableTrafficControls));
 
             Image background = stripObject.GetComponent<Image>() ?? stripObject.AddComponent<Image>();
-            background.color = StripBackgroundColor;
+            FaaRadarVisualStyle.ApplyRounded(background, StripBackgroundColor, 14);
             background.raycastTarget = true;
 
             Outline outline = stripObject.GetComponent<Outline>() ?? stripObject.AddComponent<Outline>();
@@ -1320,27 +1318,10 @@ namespace FAA.Customization
             // Outline derives from Shadow, so GetComponent<Shadow>() can
             // return the outline itself. Find a dedicated drop-shadow
             // component first to avoid overwriting the green outline offset.
-            Shadow shadow = null;
-            // Query all components and compare the runtime type exactly;
-            // Unity's generic GetComponent<Shadow>() may return the first
-            // derived Outline component instead of a dedicated Shadow.
-            foreach (Component candidate in stripObject.GetComponents<Component>())
-            {
-                if (candidate != null && candidate.GetType() == typeof(Shadow))
-                {
-                    shadow = candidate as Shadow;
-                    break;
-                }
-            }
-
-            if (shadow == null)
-            {
-                shadow = stripObject.AddComponent<Shadow>();
-            }
-
-            shadow.effectColor = new Color(0f, 0f, 0f, 0.34f);
-            shadow.effectDistance = new Vector2(0f, -3f);
-            shadow.useGraphicAlpha = true;
+            FaaRadarVisualStyle.EnsureDropShadow(
+                stripObject,
+                new Color(0f, 0.01f, 0.015f, 0.64f),
+                new Vector2(0f, -5f));
 
             HorizontalLayoutGroup oldHorizontalLayout = stripObject.GetComponent<HorizontalLayoutGroup>();
             if (oldHorizontalLayout != null)
@@ -1349,8 +1330,8 @@ namespace FAA.Customization
             }
 
             VerticalLayoutGroup layout = stripObject.GetComponent<VerticalLayoutGroup>() ?? stripObject.AddComponent<VerticalLayoutGroup>();
-            layout.padding = new RectOffset(4, 4, 4, 4);
-            layout.spacing = 2f;
+            layout.padding = new RectOffset(6, 6, 6, 6);
+            layout.spacing = 6f;
             layout.childAlignment = TextAnchor.MiddleCenter;
             layout.childForceExpandWidth = false;
             layout.childForceExpandHeight = false;
@@ -1370,19 +1351,19 @@ namespace FAA.Customization
 
             if (_weatherExpanded)
             {
-                _weatherExpandText = GetButtonLabel(EnsureButton(primaryRow, "WXExpandToggle", "<", ToggleWeatherExpanded, 24f));
-                _weatherRangeText = EnsureLabel(primaryRow, "WXRangeValue", "WX 160", 58f);
-                EnsureButton(primaryRow, "WXRangeDown", "-", WeatherRangeDown, 30f);
-                EnsureButton(primaryRow, "WXRangeUp", "+", WeatherRangeUp, 30f);
-                _weatherModeText = GetButtonLabel(EnsureButton(primaryRow, "WXModeCycle", "WX", CycleWeatherMode, 48f));
-                _weatherAdvancedText = GetButtonLabel(EnsureButton(primaryRow, "WXAdvancedToggle", "MORE", ToggleWeatherAdvanced, 58f));
+                _weatherExpandText = GetButtonLabel(EnsureButton(primaryRow, "WXExpandToggle", "‹", ToggleWeatherExpanded, 30f));
+                _weatherRangeText = EnsureLabel(primaryRow, "WXRangeValue", "160 NM", 72f);
+                EnsureButton(primaryRow, "WXRangeDown", "−", WeatherRangeDown, 34f);
+                EnsureButton(primaryRow, "WXRangeUp", "+", WeatherRangeUp, 34f);
+                _weatherModeText = GetButtonLabel(EnsureButton(primaryRow, "WXModeCycle", "WX", CycleWeatherMode, 52f));
+                _weatherAdvancedText = GetButtonLabel(EnsureButton(primaryRow, "WXAdvancedToggle", "MORE", ToggleWeatherAdvanced, 64f));
                 HideUnexpectedRowChildren(
                     primaryRow,
                     "WXExpandToggle", "WXRangeValue", "WXRangeDown", "WXRangeUp", "WXModeCycle", "WXAdvancedToggle");
             }
             else
             {
-                _weatherSummaryText = GetButtonLabel(EnsureButton(primaryRow, "WXSummaryToggle", "CONFIG WX · 160NM", ToggleWeatherExpanded, WeatherCollapsedWidth - 10f));
+                _weatherSummaryText = GetButtonLabel(EnsureButton(primaryRow, "WXSummaryToggle", "WEATHER · WX · 160 NM", ToggleWeatherExpanded, WeatherCollapsedWidth - 12f));
                 _weatherExpandText = null;
                 HideUnexpectedRowChildren(primaryRow, "WXSummaryToggle");
             }
@@ -1419,14 +1400,14 @@ namespace FAA.Customization
 
             if (_trafficExpanded)
             {
-                _trafficExpandText = GetButtonLabel(EnsureButton(primaryRow, "TCASExpandToggle", "<", ToggleTrafficExpanded, 24f));
-                _trafficRangeText = EnsureLabel(primaryRow, "TCASRangeValue", "TRF 40", 64f);
-                EnsureButton(primaryRow, "TCASRangeDown", "-", TrafficRangeDown, 30f);
-                EnsureButton(primaryRow, "TCASRangeUp", "+", TrafficRangeUp, 30f);
-                _trafficTargetText = EnsureLabel(primaryRow, "TCASTargetValue", "0/50", 54f);
-                _trafficAutoText = GetButtonLabel(EnsureButton(primaryRow, "TCASAutoToggle", "AUTO", ToggleTrafficAutoRange, 48f));
-                _trafficAdvancedText = GetButtonLabel(EnsureButton(primaryRow, "TCASAdvancedToggle", "MORE", ToggleTrafficAdvanced, 58f));
-                _trafficFullscreenText = GetButtonLabel(EnsureButton(primaryRow, "TCASFullscreenToggle", "FULL", ToggleTrafficFullscreen, 48f));
+                _trafficExpandText = GetButtonLabel(EnsureButton(primaryRow, "TCASExpandToggle", "‹", ToggleTrafficExpanded, 30f));
+                _trafficRangeText = EnsureLabel(primaryRow, "TCASRangeValue", "40 NM", 72f);
+                EnsureButton(primaryRow, "TCASRangeDown", "−", TrafficRangeDown, 34f);
+                EnsureButton(primaryRow, "TCASRangeUp", "+", TrafficRangeUp, 34f);
+                _trafficTargetText = EnsureLabel(primaryRow, "TCASTargetValue", "0 / 50", 60f);
+                _trafficAutoText = GetButtonLabel(EnsureButton(primaryRow, "TCASAutoToggle", "AUTO", ToggleTrafficAutoRange, 54f));
+                _trafficAdvancedText = GetButtonLabel(EnsureButton(primaryRow, "TCASAdvancedToggle", "MORE", ToggleTrafficAdvanced, 64f));
+                _trafficFullscreenText = GetButtonLabel(EnsureButton(primaryRow, "TCASFullscreenToggle", "FULL", ToggleTrafficFullscreen, 58f));
                 HideUnexpectedRowChildren(
                     primaryRow,
                     "TCASExpandToggle", "TCASRangeValue", "TCASRangeDown", "TCASRangeUp", "TCASTargetValue",
@@ -1434,8 +1415,8 @@ namespace FAA.Customization
             }
             else
             {
-                _trafficSummaryText = GetButtonLabel(EnsureButton(primaryRow, "TCASSummaryToggle", "CONFIG TRF · 0/50 · 40NM", ToggleTrafficExpanded, TrafficCollapsedWidth - 62f));
-                _trafficFullscreenText = GetButtonLabel(EnsureButton(primaryRow, "TCASFullscreenToggle", "FULL", ToggleTrafficFullscreen, 48f));
+                _trafficSummaryText = GetButtonLabel(EnsureButton(primaryRow, "TCASSummaryToggle", "TRAFFIC · 0 / 50 · 40 NM", ToggleTrafficExpanded, TrafficCollapsedWidth - 77f));
+                _trafficFullscreenText = GetButtonLabel(EnsureButton(primaryRow, "TCASFullscreenToggle", "FULL", ToggleTrafficFullscreen, 60f));
                 _trafficExpandText = null;
                 HideUnexpectedRowChildren(primaryRow, "TCASSummaryToggle", "TCASFullscreenToggle");
             }
@@ -1511,7 +1492,7 @@ namespace FAA.Customization
             _trafficFocusRangeText = EnsureLabel(row, "TCASFocusRangeValue", "40NM", 56f);
             EnsureButton(row, "TCASFocusZoomUp", "+", TrafficSizeUp, 30f);
             EnsureButton(row, "TCASFocusRecenter", "CTR", RecenterTrafficMap, 48f);
-            GetButtonLabel(EnsureButton(row, "TCASFocusRestore", "REST", ToggleTrafficFullscreen, 50f));
+            GetButtonLabel(EnsureButton(row, "TCASFocusRestore", "REST", ToggleTrafficFullscreen, 54f));
             HideUnexpectedRowChildren(
                 row,
                 "TCASFocusSource", "TCASFocusOpacityDown", "TCASFocusOpacityValue", "TCASFocusOpacityUp",
@@ -1529,18 +1510,18 @@ namespace FAA.Customization
             RectTransform rectTransform = rowObject.GetComponent<RectTransform>();
             rectTransform.SetParent(strip, false);
             rectTransform.SetAsLastSibling();
-            rectTransform.sizeDelta = new Vector2(strip.sizeDelta.x - 10f, RowHeight);
+            rectTransform.sizeDelta = new Vector2(strip.sizeDelta.x - 12f, RowHeight);
             rectTransform.localScale = Vector3.one;
             rectTransform.localRotation = Quaternion.identity;
 
             LayoutElement layoutElement = rowObject.GetComponent<LayoutElement>() ?? rowObject.AddComponent<LayoutElement>();
-            layoutElement.preferredWidth = Mathf.Max(1f, strip.sizeDelta.x - 10f);
+            layoutElement.preferredWidth = Mathf.Max(1f, strip.sizeDelta.x - 12f);
             layoutElement.preferredHeight = RowHeight;
             layoutElement.minHeight = RowHeight;
 
             HorizontalLayoutGroup layout = rowObject.GetComponent<HorizontalLayoutGroup>() ?? rowObject.AddComponent<HorizontalLayoutGroup>();
             layout.padding = new RectOffset(0, 0, 0, 0);
-            layout.spacing = 2f;
+            layout.spacing = 5f;
             layout.childAlignment = TextAnchor.MiddleCenter;
             layout.childForceExpandWidth = false;
             layout.childForceExpandHeight = false;
@@ -1566,24 +1547,19 @@ namespace FAA.Customization
             layout.minHeight = RowHeight;
 
             Image image = buttonObject.GetComponent<Image>() ?? buttonObject.AddComponent<Image>();
-            image.color = ButtonNormalColor;
+            FaaRadarVisualStyle.ApplyRounded(image, ButtonNormalColor, 9);
             image.raycastTarget = true;
 
             Button button = buttonObject.GetComponent<Button>() ?? buttonObject.AddComponent<Button>();
             button.onClick.RemoveAllListeners();
             button.onClick.AddListener(action);
-            button.targetGraphic = image;
-            button.transition = Selectable.Transition.ColorTint;
-            ColorBlock colors = button.colors;
-            colors.normalColor = ButtonNormalColor;
-            colors.highlightedColor = ButtonHighlightedColor;
-            colors.pressedColor = ButtonPressedColor;
-            colors.selectedColor = colors.highlightedColor;
-            colors.disabledColor = new Color(0.02f, 0.05f, 0.025f, 0.5f);
-            colors.colorMultiplier = 1f;
-            button.colors = colors;
+            FaaRadarVisualStyle.ConfigureButton(button, image);
 
-            TMP_Text label = EnsureText(buttonObject.transform, "Label", text, 15f);
+            FaaRadarButtonMotion motion = buttonObject.GetComponent<FaaRadarButtonMotion>() ??
+                                          buttonObject.AddComponent<FaaRadarButtonMotion>();
+            motion.Configure(reducedMotion, 1.035f);
+
+            TMP_Text label = EnsureText(buttonObject.transform, "Label", text, 14.5f);
             StretchToParent(label.rectTransform);
             label.alignment = TextAlignmentOptions.Center;
             label.fontStyle = FontStyles.Bold;
@@ -1607,7 +1583,14 @@ namespace FAA.Customization
             layout.minWidth = width;
             layout.minHeight = RowHeight;
 
-            TMP_Text label = EnsureText(labelObject.transform, "Text", text, 14f);
+            Image plate = labelObject.GetComponent<Image>() ?? labelObject.AddComponent<Image>();
+            FaaRadarVisualStyle.ApplyRounded(
+                plate,
+                new Color(0.020f, 0.080f, 0.092f, 0.92f),
+                9);
+            plate.raycastTarget = false;
+
+            TMP_Text label = EnsureText(labelObject.transform, "Text", text, 14.5f);
             StretchToParent(label.rectTransform);
             label.alignment = TextAlignmentOptions.Center;
             label.fontStyle = FontStyles.Bold;
@@ -1644,8 +1627,8 @@ namespace FAA.Customization
                 string modeText = data.currentMode.ToString().Replace("_", "+");
                 bool bridgeHasWeatherTexture = _xPlaneBridge != null && _xPlaneBridge.LatestWeatherTexture != null;
                 string powerText = _weatherProvider != null && _weatherProvider.Status == ProviderStatus.Inactive && !bridgeHasWeatherTexture ? "OFF" : modeText;
-                SetText(_weatherSummaryText, $"CONFIG {powerText} · {data.currentRange:0}NM");
-                SetText(_weatherRangeText, $"WX {data.currentRange:0}");
+                SetText(_weatherSummaryText, $"WEATHER · {powerText} · {data.currentRange:0} NM");
+                SetText(_weatherRangeText, $"{data.currentRange:0} NM");
                 SetText(_weatherTiltText, $"T{Signed(data.tiltAngle, "0.0")}");
                 SetText(_weatherGainText, $"G{Signed(data.gainOffset, "0")}");
                 SetText(_weatherModeText, modeText);
@@ -1665,9 +1648,9 @@ namespace FAA.Customization
                 int liveTrafficCount = _xPlaneBridge != null && _xPlaneBridge.IsFeedHealthy
                     ? _xPlaneBridge.TrafficCount
                     : _trafficController.TargetCount;
-                SetText(_trafficSummaryText, $"CONFIG TRF · {liveTrafficCount}/{_trafficController.MaxTargets} · {_trafficController.RangeNM:0}NM");
-                SetText(_trafficRangeText, $"TRF {_trafficController.RangeNM:0}");
-                SetText(_trafficTargetText, $"{liveTrafficCount}/{_trafficController.MaxTargets}");
+                SetText(_trafficSummaryText, $"TRAFFIC · {liveTrafficCount} / {_trafficController.MaxTargets} · {_trafficController.RangeNM:0} NM");
+                SetText(_trafficRangeText, $"{_trafficController.RangeNM:0} NM");
+                SetText(_trafficTargetText, $"{liveTrafficCount} / {_trafficController.MaxTargets}");
                 SetText(_trafficMaxText, $"MAX {_trafficController.MaxTargets}");
                 SetText(_trafficAutoText, _trafficController.AutoRangeEnabled ? "AUTO" : "MAN");
             }
@@ -1694,8 +1677,8 @@ namespace FAA.Customization
 
             SetText(_weatherAdvancedText, _showWeatherAdvancedControls ? "LESS" : "MORE");
             SetText(_trafficAdvancedText, _showTrafficAdvancedControls ? "LESS" : "MORE");
-            SetText(_weatherExpandText, _weatherExpanded ? "<" : ">");
-            SetText(_trafficExpandText, _trafficExpanded ? "<" : ">");
+            SetText(_weatherExpandText, _weatherExpanded ? "‹" : "›");
+            SetText(_trafficExpandText, _trafficExpanded ? "‹" : "›");
             SetButtonActive(_weatherAdvancedText, _showWeatherAdvancedControls);
             SetButtonActive(_trafficAdvancedText, _showTrafficAdvancedControls);
             SetButtonActive(_weatherPowerText, _weatherProvider != null && _weatherProvider.Status != ProviderStatus.Inactive);

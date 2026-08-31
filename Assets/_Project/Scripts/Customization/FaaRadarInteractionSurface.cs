@@ -417,7 +417,6 @@ namespace FAA.Customization
 
             _dragging = true;
             _suppressClick = true;
-            _trafficContextMenu?.Close();
             _trafficDisplay.BeginMapDrag();
             eventData.Use();
         }
