@@ -105,6 +105,25 @@ namespace TrafficRadar
 
         [Tooltip("Show a small, low-contrast cardinal bearing cue inside the perimeter ticks.")]
         [SerializeField] private bool showCardinalBearingCues = true;
+
+        [Tooltip("Show the 15-degree secondary bearing ticks. Disable for a cleaner scan at wide ranges.")]
+        [SerializeField] private bool showMinorBearingTicks;
+
+        [Tooltip("Inset for the primary perimeter stroke so it remains readable inside the softened circular mask.")]
+        [Min(2f)]
+        [SerializeField] private float perimeterInsetPixels = 9f;
+
+        [Tooltip("Cardinal label size in the compact HUD footprint.")]
+        [Min(8f)]
+        [SerializeField] private float compactCompassFontSize = 16f;
+
+        [Tooltip("Cardinal label size in the maximized pilot-focus view.")]
+        [Min(10f)]
+        [SerializeField] private float fullscreenCompassFontSize = 24f;
+
+        [Tooltip("Fraction of the radar diameter used for cardinal labels in the maximized view.")]
+        [Range(0.34f, 0.46f)]
+        [SerializeField] private float fullscreenCompassLabelRadius = 0.42f;
         
         [Header("Zoom Animation")]
         [Tooltip("Enable smooth zoom animation")]
@@ -486,22 +505,11 @@ namespace TrafficRadar
                 enableTrackUpMode = value;
                 if (!enableTrackUpMode)
                 {
-                    _currentHeadingRotation = 0f;
-                    _targetHeadingRotation = 0f;
+                    ResetHeadingPresentation();
+                }
+                else
+                {
                     MarkRadarDirty();
-                    if (compassTicksContainer != null)
-                    {
-                        compassTicksContainer.localRotation = Quaternion.identity;
-                    }
-
-                    if (chartBackgroundImage != null)
-                    {
-                        RectTransform chartRect = chartBackgroundImage.GetComponent<RectTransform>();
-                        if (chartRect != null)
-                        {
-                            chartRect.localRotation = Quaternion.identity;
-                        }
-                    }
                 }
             }
         }
@@ -1067,6 +1075,15 @@ namespace TrafficRadar
         /// </summary>
         private void UpdateHeadingRotation()
         {
+            // Track-up can be switched off while the last heading update is
+            // still visible. Reset every rotated presentation element here so
+            // north-up ticks, labels, and the chart never drift out of sync.
+            if (!enableTrackUpMode)
+            {
+                ResetHeadingPresentation();
+                return;
+            }
+
             if (radarController == null) return;
             
             float heading = radarController.OwnPosition.HeadingDegrees;
@@ -1089,37 +1106,8 @@ namespace TrafficRadar
                 compassTicksContainer.localRotation = Quaternion.Euler(0, 0, _currentHeadingRotation);
             }
             
-            // Rotate compass labels around center, keeping text upright
-            if (_compassLabelRects != null && _compassLabelRects.Length > 0)
-            {
-                // Base angles for N, E, S, W (in order of array)
-                float[] baseAngles = { 0f, 90f, 180f, 270f };
-                float radius = GetCompassLabelRadius();
-                
-                for (int i = 0; i < _compassLabelRects.Length && i < 4; i++)
-                {
-                    if (_compassLabelRects[i] == null) continue;
-                    
-                    // Ensure label anchors are centered for proper positioning
-                    // This makes anchoredPosition relative to parent's center
-                    _compassLabelRects[i].anchorMin = new Vector2(0.5f, 0.5f);
-                    _compassLabelRects[i].anchorMax = new Vector2(0.5f, 0.5f);
-                    _compassLabelRects[i].pivot = new Vector2(0.5f, 0.5f);
-                    
-                    // Calculate new position around center
-                    float angle = baseAngles[i] + _currentHeadingRotation;
-                    float radians = angle * Mathf.Deg2Rad;
-                    
-                    // Position around center (N at top = angle 0 = up)
-                    float x = Mathf.Sin(radians) * radius;
-                    float y = Mathf.Cos(radians) * radius;
-                    
-                    _compassLabelRects[i].anchoredPosition = new Vector2(x, y);
-                    
-                    // Keep text upright
-                    _compassLabelRects[i].localRotation = Quaternion.identity;
-                }
-            }
+            // Rotate compass labels around center, keeping text upright.
+            PositionCompassLabels(_currentHeadingRotation);
             
             // Also rotate the chart background image
             if (chartBackgroundImage != null)
@@ -1145,10 +1133,78 @@ namespace TrafficRadar
                 // cardinal labels slightly inside the perimeter in that mode
                 // so the north cue cannot be hidden behind the toolbar while
                 // keeping the compact HUD labels on their authored track.
-                float labelRadiusFactor = IsFullscreen ? 0.40f : 0.45f;
-                return Mathf.Min(size.x, size.y) * labelRadiusFactor;
+                float labelRadiusFactor = IsFullscreen
+                    ? Mathf.Clamp(fullscreenCompassLabelRadius, 0.34f, 0.46f)
+                    : 0.45f;
+                float diameter = Mathf.Min(size.x, size.y);
+                float halfExtent = diameter * 0.5f;
+                float labelInset = IsFullscreen
+                    ? Mathf.Max(28f, fullscreenCompassFontSize * 0.9f)
+                    : Mathf.Max(16f, compactCompassFontSize * 0.9f);
+                // The serialized factor is expressed against the diameter so
+                // the compact and fullscreen layouts use the same visual
+                // language.  Applying it to the radius would pull labels
+                // into the inner traffic gates and make the scope read like
+                // four unrelated annotations.
+                return Mathf.Min(diameter * labelRadiusFactor, Mathf.Max(0f, halfExtent - labelInset));
             }
-            return displaySize * 0.45f;
+            return displaySize * (IsFullscreen ? fullscreenCompassLabelRadius : 0.45f);
+        }
+
+        private void ResetHeadingPresentation()
+        {
+            bool changed = !Mathf.Approximately(_currentHeadingRotation, 0f) ||
+                           !Mathf.Approximately(_targetHeadingRotation, 0f);
+            _currentHeadingRotation = 0f;
+            _targetHeadingRotation = 0f;
+            if (compassTicksContainer != null)
+            {
+                compassTicksContainer.localRotation = Quaternion.identity;
+            }
+
+            if (chartBackgroundImage != null)
+            {
+                RectTransform chartRect = chartBackgroundImage.GetComponent<RectTransform>();
+                if (chartRect != null)
+                {
+                    chartRect.localRotation = Quaternion.identity;
+                }
+            }
+
+            PositionCompassLabels(0f);
+            if (changed)
+            {
+                MarkRadarDirty();
+            }
+            UpdateChartMaskParameters();
+        }
+
+        private void PositionCompassLabels(float headingRotation)
+        {
+            if (_compassLabelRects == null || _compassLabelRects.Length == 0)
+            {
+                return;
+            }
+
+            float[] baseAngles = { 0f, 90f, 180f, 270f };
+            float radius = GetCompassLabelRadius();
+            for (int i = 0; i < _compassLabelRects.Length && i < 4; i++)
+            {
+                RectTransform labelRect = _compassLabelRects[i];
+                if (labelRect == null)
+                {
+                    continue;
+                }
+
+                labelRect.anchorMin = new Vector2(0.5f, 0.5f);
+                labelRect.anchorMax = new Vector2(0.5f, 0.5f);
+                labelRect.pivot = new Vector2(0.5f, 0.5f);
+                float radians = (baseAngles[i] + headingRotation) * Mathf.Deg2Rad;
+                labelRect.anchoredPosition = new Vector2(
+                    Mathf.Sin(radians) * radius,
+                    Mathf.Cos(radians) * radius);
+                labelRect.localRotation = Quaternion.identity;
+            }
         }
 
         #endregion
@@ -1411,6 +1467,8 @@ namespace TrafficRadar
             SetupDisplay();
             MarkRadarDirty();
             FullscreenChanged?.Invoke(true);
+            ApplyPilotLabelStyle();
+            PositionCompassLabels(_currentHeadingRotation);
 
             if (ShouldAnimateFullscreen(animate))
             {
@@ -1434,6 +1492,8 @@ namespace TrafficRadar
             if (canvasRect != null)
             {
                 ApplyFullscreenLayout(_fullscreenRoot, canvasRect);
+                ApplyPilotLabelStyle();
+                PositionCompassLabels(_currentHeadingRotation);
             }
         }
 
@@ -1750,6 +1810,9 @@ namespace TrafficRadar
                 ResetMapPan(true);
                 MarkRadarDirty();
             }
+
+            ApplyPilotLabelStyle();
+            PositionCompassLabels(_currentHeadingRotation);
 
             ClearFullscreenState(notify);
         }
@@ -2752,7 +2815,9 @@ namespace TrafficRadar
                 float ringRadius = radius * i / ringCount;
                 if (i == ringCount)
                 {
-                    ringRadius = Mathf.Max(1f, ringRadius - 2.5f * lineScale);
+                    ringRadius = Mathf.Max(
+                        1f,
+                        ringRadius - Mathf.Max(perimeterInsetPixels, 7f * lineScale));
                 }
 
                 bool isMajor = i == ringCount || i == halfRangeRing;
@@ -2805,6 +2870,10 @@ namespace TrafficRadar
             {
                 bool isCardinal = angle % 90 == 0;
                 bool isMajor = angle % 30 == 0;
+                if (!isCardinal && !isMajor && !showMinorBearingTicks)
+                {
+                    continue;
+                }
                 float length = isCardinal ? 24f : isMajor ? 15f : 9f;
                 float innerRadius = outerRadius - length * lineScale;
                 float adjustedAngle = angle + headingOffset;
@@ -2816,7 +2885,7 @@ namespace TrafficRadar
                 int y2 = centerY + Mathf.RoundToInt(outerRadius * Mathf.Cos(rad));
 
                 Color tickColor = isCardinal ? cardinalColor : isMajor ? majorColor : minorColor;
-                float thickness = (isCardinal ? 2.7f : isMajor ? 1.8f : 1.25f) * lineScale;
+                float thickness = (isCardinal ? 2.7f : isMajor ? 1.8f : 1.15f) * lineScale;
                 DrawLineAntiAliased(
                     x1,
                     y1,
@@ -2857,6 +2926,12 @@ namespace TrafficRadar
 
             Color labelColor = LiftLineColor(compassMarkingsColor, 0.04f, Mathf.Max(0.86f, compassMarkingsColor.a));
             Color outlineColor = new Color(0.005f, 0.035f, 0.035f, 0.84f);
+            float labelFontSize = IsFullscreen
+                ? Mathf.Max(10f, fullscreenCompassFontSize)
+                : Mathf.Max(8f, compactCompassFontSize);
+            Vector2 labelSize = IsFullscreen
+                ? new Vector2(48f, 34f)
+                : new Vector2(32f, 24f);
             foreach (TextMeshProUGUI label in compassLabels)
             {
                 if (label == null)
@@ -2865,19 +2940,27 @@ namespace TrafficRadar
                 }
 
                 label.fontStyle = FontStyles.Bold;
+                label.fontSize = labelFontSize;
+                label.enableAutoSizing = false;
                 label.extraPadding = true;
                 label.color = labelColor;
-                label.outlineWidth = 0.16f;
+                label.outlineWidth = IsFullscreen ? 0.22f : 0.18f;
                 label.outlineColor = outlineColor;
                 label.raycastTarget = false;
+                RectTransform labelRect = label.rectTransform;
+                if (labelRect != null)
+                {
+                    labelRect.sizeDelta = labelSize;
+                }
             }
 
             if (rangeLabel != null)
             {
                 rangeLabel.fontStyle = FontStyles.Bold;
+                rangeLabel.fontSize = IsFullscreen ? 16f : 14f;
                 rangeLabel.extraPadding = true;
                 rangeLabel.color = labelColor;
-                rangeLabel.outlineWidth = 0.16f;
+                rangeLabel.outlineWidth = IsFullscreen ? 0.20f : 0.16f;
                 rangeLabel.outlineColor = outlineColor;
                 rangeLabel.raycastTarget = false;
             }

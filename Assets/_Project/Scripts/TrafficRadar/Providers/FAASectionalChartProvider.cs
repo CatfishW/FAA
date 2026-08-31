@@ -88,6 +88,9 @@ namespace TrafficRadar
         [Header("Fallback")]
         [Tooltip("Use procedural background when tiles unavailable")]
         [SerializeField] private bool useProceduralFallback = true;
+
+        [Tooltip("When an FAA chart has no coverage at the aircraft position, automatically use the global World Aeronautical Chart source instead of leaving a stale/blank map.")]
+        [SerializeField] private bool fallbackToWorldAeronautical = true;
         
         [SerializeField] private Color fallbackBackgroundColor = new Color(0.1f, 0.15f, 0.2f, 1f);
 
@@ -123,6 +126,11 @@ namespace TrafficRadar
         private float lastSuccessfulLatitude;
         private float lastSuccessfulLongitude;
         private float lastSuccessfulRangeNM;
+        // A no-coverage fallback waits one frame before changing the source.
+        // Display updates can arrive during that window; suppress duplicate
+        // requests for the failed source until the fallback has resolved.
+        private bool worldFallbackPending;
+        private FAAChartMapSource worldFallbackPendingSource;
         private bool isDestroying;
 
         private const float MaxMercatorLatitude = 85.05112878f;
@@ -211,12 +219,14 @@ namespace TrafficRadar
 
         private void OnDisable()
         {
+            worldFallbackPending = false;
             CancelActiveFetch(true);
         }
 
         private void OnDestroy()
         {
             isDestroying = true;
+            worldFallbackPending = false;
             CancelActiveFetch(false);
 
             // Clean up textures
@@ -240,6 +250,15 @@ namespace TrafficRadar
         /// </summary>
         public void FetchChartTiles(float latitude, float longitude, float rangeNM)
         {
+            // BeginWorldAeronauticalFallback intentionally yields one frame so
+            // the failed generation can unwind.  Ignore display-driven retries
+            // for that same source during the hand-off; otherwise a moving
+            // aircraft can create an unbounded stream of duplicate 404s.
+            if (worldFallbackPending && mapSource == worldFallbackPendingSource)
+            {
+                return;
+            }
+
             // Every call supersedes an in-flight request, including malformed
             // input.  Otherwise a previous request could complete later and
             // unexpectedly replace the HUD texture/status.
@@ -306,6 +325,7 @@ namespace TrafficRadar
                 return;
             }
 
+            worldFallbackPending = false;
             mapSource = source;
             ClearCache();
             try
@@ -413,6 +433,7 @@ namespace TrafficRadar
         /// </summary>
         public void CancelFetch()
         {
+            worldFallbackPending = false;
             CancelActiveFetch(true);
         }
 
@@ -421,6 +442,7 @@ namespace TrafficRadar
         /// </summary>
         public void ClearCache()
         {
+            worldFallbackPending = false;
             CancelActiveFetch(true);
             foreach (var tile in tileCache.Values)
             {
@@ -491,6 +513,9 @@ namespace TrafficRadar
 
             List<Texture2D> fetchedTiles = new List<Texture2D>();
             List<(int offsetX, int offsetY)> tileOffsets = new List<(int, int)>();
+            int failedTileCount = 0;
+            int notFoundTileCount = 0;
+            string firstTileError = string.Empty;
 
             foreach (var tile in tilesToFetch)
             {
@@ -532,12 +557,37 @@ namespace TrafficRadar
                     tileCache[cacheKey] = new CachedTile { texture = tex, timestamp = Time.time };
                     fetchedTiles.Add(tex);
                     tileOffsets.Add((tile.offsetX, tile.offsetY));
+                }, (error, responseCode) =>
+                {
+                    failedTileCount++;
+                    if (responseCode == 404)
+                    {
+                        notFoundTileCount++;
+                    }
+                    if (string.IsNullOrEmpty(firstTileError))
+                    {
+                        firstTileError = error;
+                    }
                 });
             }
 
             if (requestGeneration != fetchGeneration)
             {
                 yield break;
+            }
+
+            if (failedTileCount > 0)
+            {
+                string failureSummary = $"{failedTileCount}/{tilesToFetch.Count} chart tiles unavailable" +
+                                         (string.IsNullOrEmpty(firstTileError) ? "." : $" ({firstTileError}).");
+                // One concise diagnostic per generation is considerably more
+                // useful than nine identical 404 warnings for a chart that is
+                // simply outside FAA coverage.
+                RecordLoadError(failureSummary, false);
+                if (fetchedTiles.Count == 0)
+                {
+                    Debug.LogWarning($"[FAASectionalChartProvider] {failureSummary} (source {mapSource}).");
+                }
             }
 
             // Composite tiles into single texture
@@ -557,6 +607,32 @@ namespace TrafficRadar
                 lastSuccessfulRangeNM = rangeNM;
                 lastError = string.Empty;
                 SetStatus(ChartLoadStatus.Ready);
+            }
+            else if (fetchedTiles.Count == 0 &&
+                     tilesToFetch.Count > 0 &&
+                     failedTileCount == tilesToFetch.Count &&
+                     notFoundTileCount == tilesToFetch.Count &&
+                     fallbackToWorldAeronautical &&
+                     (mapSource == FAAChartMapSource.Sectional || mapSource == FAAChartMapSource.TerminalArea))
+            {
+                // FAA sectional and terminal charts are intentionally bounded
+                // to their published coverage.  X-Plane can place an aircraft
+                // offshore or outside the CONUS, where every FAA tile returns
+                // 404.  Switch to the worldwide aeronautical source on the
+                // next frame so the pilot receives a useful map without a
+                // re-entrant CancelCoroutine call from this enumerator.
+                FAAChartMapSource failedSource = mapSource;
+                worldFallbackPending = true;
+                worldFallbackPendingSource = failedSource;
+                isLoading = false;
+                fetchCoroutine = null;
+                StartCoroutine(BeginWorldAeronauticalFallback(
+                    failedSource,
+                    latitude,
+                    longitude,
+                    rangeNM,
+                    requestGeneration));
+                yield break;
             }
             else if (!hasLastGoodTexture && useProceduralFallback)
             {
@@ -585,12 +661,45 @@ namespace TrafficRadar
             PublishChartTexture();
         }
 
+        private IEnumerator BeginWorldAeronauticalFallback(
+            FAAChartMapSource failedSource,
+            float latitude,
+            float longitude,
+            float rangeNM,
+            int failedGeneration)
+        {
+            // Let the failed generation finish unwinding before changing the
+            // source.  This keeps Unity's coroutine bookkeeping deterministic
+            // when a tile callback completes on the same frame.
+            yield return null;
+
+            if (isDestroying || failedGeneration != fetchGeneration || mapSource != failedSource)
+            {
+                if (worldFallbackPending && worldFallbackPendingSource == failedSource)
+                {
+                    worldFallbackPending = false;
+                }
+                yield break;
+            }
+
+            worldFallbackPending = false;
+            SetMapSource(FAAChartMapSource.WorldAeronautical);
+            // SetMapSource normally refetches from the last requested
+            // position.  Explicitly use the captured values when a provider
+            // was refreshed before its first successful request.
+            if (!isLoading && isActiveAndEnabled)
+            {
+                FetchChartTiles(latitude, longitude, rangeNM);
+            }
+        }
+
         private IEnumerator FetchSingleTile(
             int x,
             int y,
             int requestZoom,
             int requestGeneration,
-            System.Action<Texture2D> callback)
+            System.Action<Texture2D> callback,
+            System.Action<string, long> errorCallback)
         {
             string url = BuildTileUrl(x, y, requestZoom);
 
@@ -619,8 +728,10 @@ namespace TrafficRadar
                         : 0;
                     // Keep diagnostics useful without echoing a custom URL
                     // that may contain an access token or other query secret.
-                    Debug.LogWarning($"[FAASectionalChartProvider] Failed to fetch tile: {error} (HTTP {request.responseCode}, {byteCount} bytes, source {mapSource})");
-                    RecordLoadError(error, true);
+                    string detail = request.responseCode > 0
+                        ? $"{error} HTTP {request.responseCode}, {byteCount} bytes"
+                        : error;
+                    errorCallback?.Invoke(detail, request.responseCode);
                     callback?.Invoke(null);
                 }
             }

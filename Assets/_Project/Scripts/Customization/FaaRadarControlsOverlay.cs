@@ -1313,6 +1313,35 @@ namespace FAA.Customization
             outline.effectColor = StripStrokeColor;
             outline.effectDistance = new Vector2(1f, -1f);
 
+            // Keep the generated strip legible against bright sky, terrain,
+            // and chart ink without adding another opaque plate.  A small,
+            // low-alpha drop shadow gives the pilot controls a clean lifted
+            // edge in both compact HUD and fullscreen focus layouts.
+            // Outline derives from Shadow, so GetComponent<Shadow>() can
+            // return the outline itself. Find a dedicated drop-shadow
+            // component first to avoid overwriting the green outline offset.
+            Shadow shadow = null;
+            // Query all components and compare the runtime type exactly;
+            // Unity's generic GetComponent<Shadow>() may return the first
+            // derived Outline component instead of a dedicated Shadow.
+            foreach (Component candidate in stripObject.GetComponents<Component>())
+            {
+                if (candidate != null && candidate.GetType() == typeof(Shadow))
+                {
+                    shadow = candidate as Shadow;
+                    break;
+                }
+            }
+
+            if (shadow == null)
+            {
+                shadow = stripObject.AddComponent<Shadow>();
+            }
+
+            shadow.effectColor = new Color(0f, 0f, 0f, 0.34f);
+            shadow.effectDistance = new Vector2(0f, -3f);
+            shadow.useGraphicAlpha = true;
+
             HorizontalLayoutGroup oldHorizontalLayout = stripObject.GetComponent<HorizontalLayoutGroup>();
             if (oldHorizontalLayout != null)
             {
@@ -2235,18 +2264,22 @@ namespace FAA.Customization
             // A focused traffic root is centered on the Canvas.  The normal
             // right-anchored formula below uses the root's bottom edge, but a
             // centered RectTransform's anchored Y is relative to the Canvas
-            // midpoint.  Dock the strip just inside the map's top edge (with a
-            // top pivot) so it remains below the flight HUD and never clips at
-            // the edge of a 16:9 XR view.
+            // midpoint.  Dock the focus strip just *outside* the map's top
+            // edge (with a top pivot).  Keeping the controls in their own
+            // quiet band prevents the NORTH cue and perimeter stroke from
+            // being hidden beneath the toolbar while leaving REST reachable
+            // in an XR view.
             if (root == _trafficRoot && _trafficDisplay != null && _trafficDisplay.IsFullscreen)
             {
                 strip.anchorMin = new Vector2(0.5f, 0.5f);
                 strip.anchorMax = new Vector2(0.5f, 0.5f);
                 strip.pivot = new Vector2(0.5f, 1f);
                 float focusedRootHeight = rootRect.rect.height > 1f ? rootRect.rect.height : rootRect.sizeDelta.y;
+                float stripHeight = strip.rect.height > 1f ? strip.rect.height : strip.sizeDelta.y;
                 strip.anchoredPosition = new Vector2(
                     rootRect.anchoredPosition.x,
-                    rootRect.anchoredPosition.y + focusedRootHeight * 0.5f - Mathf.Max(4f, stripOffset.y));
+                    rootRect.anchoredPosition.y + focusedRootHeight * 0.5f +
+                    Mathf.Max(8f, stripOffset.y) + stripHeight);
                 return;
             }
 
