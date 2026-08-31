@@ -38,6 +38,9 @@ namespace FAA.Headset
         private const string SimulatorPlayModeMenuName = "PlayModeMenu";
         private const string SimulatorInputSelectionWindowName = "InputSelectionWindow";
         private const string SimulatorInputSelectionClosedWindowName = "InputSelectionClosedWindow";
+        // The simulator canvas is 1920x1080. The FAA heading tape occupies the
+        // top 129 reference pixels, so 150 leaves a small, intentional gap.
+        private const float SimulatorInputSelectionBelowHeadingTapeTopMargin = 150f;
 
         [Header("Activation")]
         [SerializeField] private ActivationMode activationMode = ActivationMode.Auto;
@@ -56,10 +59,12 @@ namespace FAA.Headset
         [Tooltip("Keep the desktop pointer available for FAA's screen-space controls while the Unity XR simulator is running in the Editor. Disable this only when testing controller point-and-click input with a camera-space XR UI.")]
         [SerializeField] private bool preferEditorPointerInput = true;
         [Header("Simulator UI Layout")]
-        [Tooltip("Move the XR Interaction Simulator input-selection menu to the upper-left safe area so it does not cover the FAA weather/traffic radar pair.")]
+        [Tooltip("Move the XR Interaction Simulator input-selection menu below the FAA horizontal heading tape so it does not cover the radar pair.")]
         [SerializeField] private bool repositionSimulatorInputSelection = true;
-        [Tooltip("Margin in simulator canvas reference pixels from the upper-left safe area.")]
+        [Tooltip("Horizontal and minimum vertical margin in simulator canvas reference pixels. Vertical placement is clamped below the heading tape when enabled.")]
         [SerializeField] private Vector2 simulatorInputSelectionMargin = new Vector2(18f, 18f);
+        [Tooltip("Keep the simulator input-selection menu below the FAA horizontal heading tape in both compact and expanded states.")]
+        [SerializeField] private bool placeSimulatorInputSelectionBelowHeadingTape = true;
         [SerializeField] private string[] overlayCanvasNames =
         {
             "FAASymbologyCanvas",
@@ -774,7 +779,9 @@ namespace FAA.Headset
         /// move both its collapsed and expanded windows into the upper-left
         /// safe area. The windows are children of a VerticalLayoutGroup; an
         /// ignored LayoutElement is required so that group's next rebuild does
-        /// not snap them back to the lower-left position.
+        /// not snap them back to the lower-left position. The vertical margin
+        /// is clamped below the heading tape so the same layout is safe in the
+        /// serialized prefab and in a runtime-instantiated sample UI.
         /// </summary>
         private void ConfigureSimulatorInputSelectionLayout()
         {
@@ -809,13 +816,21 @@ namespace FAA.Headset
                 menuRect = playModeMenu.GetComponent<RectTransform>();
             }
 
+            RectTransform canvasRect = simulatorUi as RectTransform;
+            if (canvasRect == null)
+            {
+                canvasRect = simulatorUi.GetComponent<RectTransform>();
+            }
+
             bool configured = false;
             configured |= PositionSimulatorInputSelectionWindow(
                 FindDescendantByName(playModeMenu, SimulatorInputSelectionClosedWindowName),
-                menuRect);
+                menuRect,
+                canvasRect);
             configured |= PositionSimulatorInputSelectionWindow(
                 FindDescendantByName(playModeMenu, SimulatorInputSelectionWindowName),
-                menuRect);
+                menuRect,
+                canvasRect);
 
             if (configured)
             {
@@ -880,7 +895,10 @@ namespace FAA.Headset
             return null;
         }
 
-        private bool PositionSimulatorInputSelectionWindow(Transform window, RectTransform menuRect)
+        private bool PositionSimulatorInputSelectionWindow(
+            Transform window,
+            RectTransform menuRect,
+            RectTransform canvasRect)
         {
             if (window == null)
             {
@@ -907,10 +925,50 @@ namespace FAA.Headset
             layoutElement.ignoreLayout = true;
             rect.anchorMin = new Vector2(0f, 1f);
             rect.anchorMax = new Vector2(0f, 1f);
-            rect.pivot = new Vector2(0f, 1f);
-            rect.anchoredPosition = new Vector2(
+            // Preserve XRI's centered pivot. Its child labels and buttons are
+            // laid out around that pivot; changing it to top-left clips the
+            // closed tab and makes only a small dark corner visible. We move
+            // the center to the desired top-left margin instead.
+            rect.pivot = new Vector2(0.5f, 0.5f);
+            Vector2 margin = new Vector2(
                 Mathf.Max(0f, simulatorInputSelectionMargin.x),
-                -Mathf.Max(0f, simulatorInputSelectionMargin.y));
+                Mathf.Max(0f, simulatorInputSelectionMargin.y));
+            if (placeSimulatorInputSelectionBelowHeadingTape)
+            {
+                margin.y = Mathf.Max(margin.y, SimulatorInputSelectionBelowHeadingTapeTopMargin);
+            }
+
+            float width = Mathf.Max(0f, rect.rect.width);
+            float height = Mathf.Max(0f, rect.rect.height);
+            if (width <= 0f)
+            {
+                width = Mathf.Max(0f, rect.sizeDelta.x);
+            }
+
+            if (height <= 0f)
+            {
+                height = Mathf.Max(0f, rect.sizeDelta.y);
+            }
+
+            if (canvasRect != null)
+            {
+                // The XRI windows live inside PlayModeMenu's layout tree,
+                // whose origin is near the lower-left. Position in the root
+                // simulator canvas instead so the window's top edge is truly
+                // `margin.y` pixels below the FAA heading tape in Edit and
+                // Play Mode, independent of the parent layout geometry.
+                Vector3 canvasLocalPosition = new Vector3(
+                    canvasRect.rect.xMin + margin.x + width * 0.5f,
+                    canvasRect.rect.yMax - margin.y - height * 0.5f,
+                    0f);
+                rect.position = canvasRect.TransformPoint(canvasLocalPosition);
+            }
+            else
+            {
+                rect.anchoredPosition = new Vector2(
+                    margin.x + width * 0.5f,
+                    -(margin.y + height * 0.5f));
+            }
 
             // Keep the menu above other simulator controls while preserving
             // XRI's own interaction and active-state toggling.

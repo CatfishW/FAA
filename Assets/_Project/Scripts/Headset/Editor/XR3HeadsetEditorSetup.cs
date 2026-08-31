@@ -233,6 +233,8 @@ namespace FAA.Headset.Editor
             SetBool(serialized, "enableSimulatorInPlayer", false);
             SetObject(serialized, "simulatorPrefab", simulatorPrefab);
             SetBool(serialized, "routeOverlayCanvasesToXrCamera", true);
+            SetVector2(serialized, "simulatorInputSelectionMargin", new Vector2(18f, 150f));
+            SetBool(serialized, "placeSimulatorInputSelectionBelowHeadingTape", true);
             SetBool(serialized, "suspendLegacySa147WhileActive", true);
             SetBool(serialized, "logActivation", true);
             serialized.ApplyModifiedPropertiesWithoutUndo();
@@ -328,6 +330,12 @@ namespace FAA.Headset.Editor
         {
             SerializedProperty property = serialized.FindProperty(name);
             if (property != null) property.objectReferenceValue = value;
+        }
+
+        private static void SetVector2(SerializedObject serialized, string name, Vector2 value)
+        {
+            SerializedProperty property = serialized.FindProperty(name);
+            if (property != null) property.vector2Value = value;
         }
     }
 
