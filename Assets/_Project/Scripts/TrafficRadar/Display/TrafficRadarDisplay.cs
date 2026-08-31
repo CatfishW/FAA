@@ -94,6 +94,17 @@ namespace TrafficRadar
         
         [Tooltip("Number of range rings to display")]
         [SerializeField] private int rangeRingCount = 4;
+
+        [Header("Pilot Linework")]
+        [Tooltip("Use a clear hierarchy of major/minor range rings and bearing ticks for quick pilot scanability.")]
+        [SerializeField] private bool usePilotLinework = true;
+
+        [Tooltip("Scale the line strokes with the generated radar texture so fullscreen and headset views stay crisp.")]
+        [Range(0.5f, 3f)]
+        [SerializeField] private float pilotLineworkScale = 1f;
+
+        [Tooltip("Show a small, low-contrast cardinal bearing cue inside the perimeter ticks.")]
+        [SerializeField] private bool showCardinalBearingCues = true;
         
         [Header("Zoom Animation")]
         [Tooltip("Enable smooth zoom animation")]
@@ -663,11 +674,14 @@ namespace TrafficRadar
                         Debug.Log($"[TrafficRadarDisplay] Compass label {i} '{compassLabels[i].text}' found at position {_compassLabelRects[i].anchoredPosition}");
                     }
                 }
+
             }
             else
             {
                 Debug.LogWarning("[TrafficRadarDisplay] No compass labels found! Cardinal directions will not rotate with heading.");
             }
+
+            ApplyPilotLabelStyle();
         }
         
         /// <summary>
@@ -1127,7 +1141,12 @@ namespace TrafficRadar
             if (rectTransform != null)
             {
                 Vector2 size = rectTransform.rect.size;
-                return Mathf.Min(size.x, size.y) * 0.45f;
+                // The focused toolbar docks just above the scope. Pull the
+                // cardinal labels slightly inside the perimeter in that mode
+                // so the north cue cannot be hidden behind the toolbar while
+                // keeping the compact HUD labels on their authored track.
+                float labelRadiusFactor = IsFullscreen ? 0.40f : 0.45f;
+                return Mathf.Min(size.x, size.y) * labelRadiusFactor;
             }
             return displaySize * 0.45f;
         }
@@ -2697,50 +2716,333 @@ namespace TrafficRadar
 
         private void DrawRangeRings(int centerX, int centerY, float radius)
         {
-            for (int i = 1; i <= rangeRingCount; i++)
+            int ringCount = Mathf.Clamp(rangeRingCount, 1, 8);
+            float lineScale = ResolvePilotLineworkScale();
+
+            if (!usePilotLinework)
             {
-                float ringRadius = radius * i / rangeRingCount;
-                DrawCircle(centerX, centerY, (int)ringRadius, rangeRingColor, 1);
+                for (int i = 1; i <= ringCount; i++)
+                {
+                    float ringRadius = radius * i / ringCount;
+                    DrawCircle(centerX, centerY, (int)ringRadius, rangeRingColor, 1);
+                }
+
+                return;
+            }
+
+            // The outside and half-range gates are the two lines pilots use
+            // most often. Give them a deliberate visual weight while keeping
+            // the intermediate gates quiet over a dense sectional chart.
+            // The small lift in value/alpha is intentional: the chart is
+            // rendered beneath this texture and can contain very bright ink.
+            Color majorColor = LiftLineColor(
+                rangeRingColor,
+                0.20f,
+                Mathf.Clamp01(Mathf.Max(0.96f, rangeRingColor.a + 0.30f)));
+            Color minorColor = LiftLineColor(
+                rangeRingColor,
+                0.10f,
+                Mathf.Clamp01(Mathf.Max(0.76f, rangeRingColor.a * 1.25f)));
+            Color haloColor = new Color(0.005f, 0.045f, 0.05f, 0.40f);
+            int halfRangeRing = Mathf.Max(1, Mathf.CeilToInt(ringCount * 0.5f));
+            for (int i = 1; i <= ringCount; i++)
+            {
+                // Pull the outside stroke in slightly so the circular mask's
+                // feathered edge cannot erase the pilot's primary reference.
+                float ringRadius = radius * i / ringCount;
+                if (i == ringCount)
+                {
+                    ringRadius = Mathf.Max(1f, ringRadius - 2.5f * lineScale);
+                }
+
+                bool isMajor = i == ringCount || i == halfRangeRing;
+                float thickness = (isMajor ? 2.35f : 1.35f) * lineScale;
+                Color color = isMajor ? majorColor : minorColor;
+                // A restrained dark halo keeps the line legible over bright
+                // chart ink without turning the scope into a glowing cage.
+                DrawCircleAntiAliased(
+                    centerX,
+                    centerY,
+                    ringRadius,
+                    WithAlpha(haloColor, isMajor ? 0.42f : 0.24f),
+                    thickness + 2.8f * lineScale);
+                DrawCircleAntiAliased(centerX, centerY, ringRadius, color, thickness);
             }
         }
 
         private void DrawCompassMarkings(int centerX, int centerY, float radius)
         {
-            // Apply heading rotation offset for track-up mode
+            // Apply heading rotation offset for track-up mode.
             float headingOffset = enableTrackUpMode ? _currentHeadingRotation : 0f;
-            
-            // Draw cardinal direction lines
+
+            if (!usePilotLinework)
+            {
+                DrawLegacyCompassMarkings(centerX, centerY, radius, headingOffset);
+                return;
+            }
+
+            float lineScale = ResolvePilotLineworkScale();
+            Color cardinalColor = LiftLineColor(
+                compassMarkingsColor,
+                0.14f,
+                Mathf.Clamp01(Mathf.Max(0.94f, compassMarkingsColor.a + 0.10f)));
+            Color majorColor = LiftLineColor(
+                compassMarkingsColor,
+                0.06f,
+                Mathf.Clamp01(Mathf.Max(0.84f, compassMarkingsColor.a * 0.90f)));
+            Color minorColor = LiftLineColor(
+                compassMarkingsColor,
+                0.02f,
+                Mathf.Clamp01(Mathf.Max(0.62f, compassMarkingsColor.a * 0.70f)));
+            Color haloColor = new Color(0.005f, 0.045f, 0.05f, 0.34f);
+            float outerRadius = Mathf.Max(1f, radius - 3f * lineScale);
+
+            // A 15-degree tick cadence reads cleanly in peripheral vision;
+            // 30-degree ticks establish the larger bearing rhythm and the
+            // four cardinal ticks remain unmistakable without long spokes.
+            const int tickSpacingDegrees = 15;
+            for (int angle = 0; angle < 360; angle += tickSpacingDegrees)
+            {
+                bool isCardinal = angle % 90 == 0;
+                bool isMajor = angle % 30 == 0;
+                float length = isCardinal ? 24f : isMajor ? 15f : 9f;
+                float innerRadius = outerRadius - length * lineScale;
+                float adjustedAngle = angle + headingOffset;
+                float rad = adjustedAngle * Mathf.Deg2Rad;
+
+                int x1 = centerX + Mathf.RoundToInt(innerRadius * Mathf.Sin(rad));
+                int y1 = centerY + Mathf.RoundToInt(innerRadius * Mathf.Cos(rad));
+                int x2 = centerX + Mathf.RoundToInt(outerRadius * Mathf.Sin(rad));
+                int y2 = centerY + Mathf.RoundToInt(outerRadius * Mathf.Cos(rad));
+
+                Color tickColor = isCardinal ? cardinalColor : isMajor ? majorColor : minorColor;
+                float thickness = (isCardinal ? 2.7f : isMajor ? 1.8f : 1.25f) * lineScale;
+                DrawLineAntiAliased(
+                    x1,
+                    y1,
+                    x2,
+                    y2,
+                    WithAlpha(haloColor, isCardinal ? 0.42f : 0.22f),
+                    thickness + 2.6f * lineScale);
+                DrawLineAntiAliased(x1, y1, x2, y2, tickColor, thickness);
+
+                if (showCardinalBearingCues && isCardinal)
+                {
+                    // Keep a small interior cue for orientation, rather than
+                    // drawing a full spoke that competes with traffic targets.
+                    float cueInner = radius * 0.78f;
+                    float cueOuter = radius * 0.84f;
+                    int cx1 = centerX + Mathf.RoundToInt(cueInner * Mathf.Sin(rad));
+                    int cy1 = centerY + Mathf.RoundToInt(cueInner * Mathf.Cos(rad));
+                    int cx2 = centerX + Mathf.RoundToInt(cueOuter * Mathf.Sin(rad));
+                    int cy2 = centerY + Mathf.RoundToInt(cueOuter * Mathf.Cos(rad));
+                    DrawLineAntiAliased(
+                        cx1,
+                        cy1,
+                        cx2,
+                        cy2,
+                        WithAlpha(haloColor, 0.12f),
+                        2f * lineScale);
+                    DrawLineAntiAliased(cx1, cy1, cx2, cy2, WithAlpha(cardinalColor, 0.34f), 1.2f * lineScale);
+                }
+            }
+        }
+
+        private void ApplyPilotLabelStyle()
+        {
+            if (!usePilotLinework || compassLabels == null)
+            {
+                return;
+            }
+
+            Color labelColor = LiftLineColor(compassMarkingsColor, 0.04f, Mathf.Max(0.86f, compassMarkingsColor.a));
+            Color outlineColor = new Color(0.005f, 0.035f, 0.035f, 0.84f);
+            foreach (TextMeshProUGUI label in compassLabels)
+            {
+                if (label == null)
+                {
+                    continue;
+                }
+
+                label.fontStyle = FontStyles.Bold;
+                label.extraPadding = true;
+                label.color = labelColor;
+                label.outlineWidth = 0.16f;
+                label.outlineColor = outlineColor;
+                label.raycastTarget = false;
+            }
+
+            if (rangeLabel != null)
+            {
+                rangeLabel.fontStyle = FontStyles.Bold;
+                rangeLabel.extraPadding = true;
+                rangeLabel.color = labelColor;
+                rangeLabel.outlineWidth = 0.16f;
+                rangeLabel.outlineColor = outlineColor;
+                rangeLabel.raycastTarget = false;
+            }
+        }
+
+        private void DrawLegacyCompassMarkings(int centerX, int centerY, float radius, float headingOffset)
+        {
+            // Preserve the original spoke treatment for projects that opt out
+            // of the pilot linework pass.
             int[] cardinalAngles = { 0, 90, 180, 270 };
             foreach (int angle in cardinalAngles)
             {
                 float adjustedAngle = angle + headingOffset;
                 float rad = adjustedAngle * Mathf.Deg2Rad;
                 float innerRadius = radius * 0.85f;
-                
+
                 int x1 = centerX + (int)(innerRadius * Mathf.Sin(rad));
                 int y1 = centerY + (int)(innerRadius * Mathf.Cos(rad));
                 int x2 = centerX + (int)(radius * Mathf.Sin(rad));
                 int y2 = centerY + (int)(radius * Mathf.Cos(rad));
-                
+
                 DrawLine(x1, y1, x2, y2, compassMarkingsColor);
             }
 
-            // Draw minor tick marks every 30 degrees
             for (int angle = 0; angle < 360; angle += 30)
             {
-                if (angle % 90 == 0) continue; // Skip cardinals
-                
+                if (angle % 90 == 0)
+                {
+                    continue;
+                }
+
                 float adjustedAngle = angle + headingOffset;
                 float rad = adjustedAngle * Mathf.Deg2Rad;
                 float innerRadius = radius * 0.92f;
-                
+
                 int x1 = centerX + (int)(innerRadius * Mathf.Sin(rad));
                 int y1 = centerY + (int)(innerRadius * Mathf.Cos(rad));
                 int x2 = centerX + (int)(radius * Mathf.Sin(rad));
                 int y2 = centerY + (int)(radius * Mathf.Cos(rad));
-                
+
                 DrawLine(x1, y1, x2, y2, new Color(compassMarkingsColor.r, compassMarkingsColor.g, compassMarkingsColor.b, 0.4f));
             }
+        }
+
+        private float ResolvePilotLineworkScale()
+        {
+            float textureScale = displaySize > 0 ? displaySize / 512f : 1f;
+            return Mathf.Clamp(textureScale * pilotLineworkScale, 0.5f, 3f);
+        }
+
+        private static Color WithAlpha(Color color, float alpha)
+        {
+            color.a = Mathf.Clamp01(alpha);
+            return color;
+        }
+
+        private static Color LiftLineColor(Color color, float lift, float alpha)
+        {
+            Color lifted = Color.Lerp(color, Color.white, Mathf.Clamp01(lift));
+            lifted.a = Mathf.Clamp01(alpha);
+            return lifted;
+        }
+
+        private void DrawCircleAntiAliased(int cx, int cy, float radius, Color color, float thickness)
+        {
+            float safeRadius = Mathf.Max(0f, radius);
+            float halfThickness = Mathf.Max(0.5f, thickness * 0.5f);
+            int extent = Mathf.CeilToInt(safeRadius + halfThickness + 1f);
+            int sampleSpan = Mathf.CeilToInt(halfThickness + 1.5f);
+            float radiusSquared = safeRadius * safeRadius;
+
+            // Rasterize only the narrow annulus around the circumference. The
+            // previous full-square walk was expensive enough to make heading
+            // updates visible on XR hardware; this scan visits O(circumference)
+            // pixels while preserving soft anti-aliased edges.
+            for (int y = -extent; y <= extent; y++)
+            {
+                float inside = radiusSquared - y * y;
+                if (inside < -1f)
+                {
+                    continue;
+                }
+
+                int xRadius = Mathf.RoundToInt(Mathf.Sqrt(Mathf.Max(0f, inside)));
+                for (int offset = -sampleSpan; offset <= sampleSpan; offset++)
+                {
+                    BlendCircleSample(cx + xRadius + offset, cy + y, cx, cy, safeRadius, halfThickness, color);
+                    if (xRadius > 0)
+                    {
+                        BlendCircleSample(cx - xRadius + offset, cy + y, cx, cy, safeRadius, halfThickness, color);
+                    }
+                }
+            }
+        }
+
+        private void BlendCircleSample(
+            int x,
+            int y,
+            int centerX,
+            int centerY,
+            float radius,
+            float halfThickness,
+            Color color)
+        {
+            float distance = Mathf.Sqrt((x - centerX) * (x - centerX) + (y - centerY) * (y - centerY));
+            float edgeDistance = Mathf.Abs(distance - radius);
+            float coverage = Mathf.Clamp01(halfThickness + 0.5f - edgeDistance);
+            if (coverage > 0f)
+            {
+                BlendPixelSafe(x, y, WithAlpha(color, color.a * coverage));
+            }
+        }
+
+        private void DrawLineAntiAliased(int x1, int y1, int x2, int y2, Color color, float thickness)
+        {
+            float halfThickness = Mathf.Max(0.5f, thickness * 0.5f);
+            int minX = Mathf.FloorToInt(Mathf.Min(x1, x2) - halfThickness - 1f);
+            int maxX = Mathf.CeilToInt(Mathf.Max(x1, x2) + halfThickness + 1f);
+            int minY = Mathf.FloorToInt(Mathf.Min(y1, y2) - halfThickness - 1f);
+            int maxY = Mathf.CeilToInt(Mathf.Max(y1, y2) + halfThickness + 1f);
+
+            Vector2 start = new Vector2(x1, y1);
+            Vector2 end = new Vector2(x2, y2);
+            Vector2 segment = end - start;
+            float segmentLengthSquared = segment.sqrMagnitude;
+
+            for (int y = minY; y <= maxY; y++)
+            {
+                for (int x = minX; x <= maxX; x++)
+                {
+                    Vector2 point = new Vector2(x, y);
+                    float t = segmentLengthSquared > 0.0001f
+                        ? Mathf.Clamp01(Vector2.Dot(point - start, segment) / segmentLengthSquared)
+                        : 0f;
+                    float distance = Vector2.Distance(point, start + segment * t);
+                    float coverage = Mathf.Clamp01(halfThickness + 0.5f - distance);
+                    if (coverage > 0f)
+                    {
+                        BlendPixelSafe(x, y, WithAlpha(color, color.a * coverage));
+                    }
+                }
+            }
+        }
+
+        private void BlendPixelSafe(int x, int y, Color color)
+        {
+            if (x < 0 || x >= displaySize || y < 0 || y >= displaySize)
+            {
+                return;
+            }
+
+            int index = y * displaySize + x;
+            Color32 destination = drawPixels[index];
+            float sourceAlpha = Mathf.Clamp01(color.a);
+            float destinationAlpha = destination.a / 255f;
+            float outputAlpha = sourceAlpha + destinationAlpha * (1f - sourceAlpha);
+            if (outputAlpha <= 0.0001f)
+            {
+                return;
+            }
+
+            Color destinationColor = destination;
+            Color output = (color * sourceAlpha + destinationColor * (destinationAlpha * (1f - sourceAlpha))) / outputAlpha;
+            output.a = outputAlpha;
+            drawPixels[index] = output;
         }
 
         private void DrawTrafficSymbols(int centerX, int centerY, float radius)
