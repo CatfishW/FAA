@@ -2,6 +2,7 @@ using System.Collections.Generic;
 using AircraftControl.Core;
 using AviationUI;
 using TMPro;
+using TrafficRadar;
 using UnityEngine;
 using UnityEngine.UI;
 
@@ -23,6 +24,7 @@ namespace FAA.Customization
         [SerializeField] private AircraftController aircraftController;
         [SerializeField] private global::HeadingHUD headingHud;
         [SerializeField] private Transform headingTarget;
+        [SerializeField] private TrafficRadarDisplay navigationDisplay;
         [SerializeField] private bool autoFindSources = true;
 
         [Header("Layout")]
@@ -44,6 +46,10 @@ namespace FAA.Customization
         private Image _topRule;
         private Image _centerTick;
         private TMP_Text _headingReadout;
+        private RectTransform _navigationTargetCue;
+        private Image _navigationTargetStem;
+        private Image _navigationTargetDiamond;
+        private TMP_Text _navigationTargetLabel;
         private float _displayedHeading;
 
         public void Configure(Vector2 overlayAnchoredPosition, Vector2 overlaySize, Color primaryColor, Color dimColor)
@@ -69,6 +75,11 @@ namespace FAA.Customization
             {
                 headingTarget = fallbackHeadingTarget;
             }
+        }
+
+        public void SetNavigationDisplay(TrafficRadarDisplay display)
+        {
+            navigationDisplay = display;
         }
 
         private void Awake()
@@ -194,6 +205,7 @@ namespace FAA.Customization
             _topRule = GetOrCreateImageChild(transform, "Heading Tape Top Rule");
             _centerTick = GetOrCreateImageChild(transform, "Current Heading Index");
             _headingReadout = GetOrCreateTextChild(transform, "Current Heading Readout");
+            EnsureNavigationTargetCue(clip);
             EnsureFixedCardinalLabels();
 
             while (_markers.Count < MarkerCount)
@@ -206,6 +218,88 @@ namespace FAA.Customization
             }
 
             ApplyLayoutAndStyle();
+        }
+
+        private void EnsureNavigationTargetCue(RectTransform clip)
+        {
+            if (clip == null)
+            {
+                return;
+            }
+
+            // UpdateTape runs every frame (and also in ExecuteAlways edit
+            // previews). Once the cue has been built, keep its current
+            // active state intact; reactivating it here would make the
+            // no-target path toggle the object on and off every frame.
+            if (_navigationTargetCue != null)
+            {
+                return;
+            }
+
+            // Keep the cue outside the scrolling/masked tick viewport.  The
+            // bearing marker can sit at the edge of the tape and its compact
+            // bearing/distance label must remain readable instead of being
+            // clipped by the 38px tick viewport.
+            RectTransform cue = GetOrCreateRectChild(transform, "Navigation Target Cue");
+            _navigationTargetCue = cue;
+            _navigationTargetStem = GetOrCreateImageChild(cue, "Target Stem");
+            _navigationTargetDiamond = GetOrCreateImageChild(cue, "Target Diamond");
+            _navigationTargetLabel = GetOrCreateTextChild(cue, "Target Label");
+            _navigationTargetCue.SetAsLastSibling();
+        }
+
+        private void ConfigureNavigationTargetCueLayout()
+        {
+            if (_navigationTargetCue == null)
+            {
+                return;
+            }
+
+            _navigationTargetCue.anchorMin = new Vector2(0.5f, 0.5f);
+            _navigationTargetCue.anchorMax = new Vector2(0.5f, 0.5f);
+            _navigationTargetCue.pivot = new Vector2(0.5f, 0.5f);
+            _navigationTargetCue.sizeDelta = new Vector2(96f, 38f);
+            _navigationTargetCue.localScale = Vector3.one;
+            _navigationTargetCue.localRotation = Quaternion.identity;
+
+            ConfigureLine(
+                _navigationTargetStem,
+                new Vector2(2f, 22f),
+                new Vector2(0f, -5f),
+                hudColor);
+
+            if (_navigationTargetDiamond != null)
+            {
+                RectTransform diamondRect = _navigationTargetDiamond.rectTransform;
+                diamondRect.anchorMin = new Vector2(0.5f, 0.5f);
+                diamondRect.anchorMax = new Vector2(0.5f, 0.5f);
+                diamondRect.pivot = new Vector2(0.5f, 0.5f);
+                diamondRect.anchoredPosition = new Vector2(0f, 6f);
+                diamondRect.sizeDelta = new Vector2(11f, 11f);
+                diamondRect.localRotation = Quaternion.Euler(0f, 0f, 45f);
+                diamondRect.localScale = Vector3.one;
+                _navigationTargetDiamond.color = hudColor;
+                _navigationTargetDiamond.raycastTarget = false;
+            }
+
+            if (_navigationTargetLabel != null)
+            {
+                RectTransform labelRect = _navigationTargetLabel.rectTransform;
+                labelRect.anchorMin = new Vector2(0.5f, 0.5f);
+                labelRect.anchorMax = new Vector2(0.5f, 0.5f);
+                labelRect.pivot = new Vector2(0.5f, 0.5f);
+                labelRect.anchoredPosition = new Vector2(0f, 21f);
+                labelRect.sizeDelta = new Vector2(150f, 18f);
+                _navigationTargetLabel.alignment = TextAlignmentOptions.Center;
+                _navigationTargetLabel.fontStyle = FontStyles.Bold;
+                _navigationTargetLabel.fontSize = 10f;
+                _navigationTargetLabel.raycastTarget = false;
+            }
+
+            // Keep the current visibility while the layout is reapplied.
+            // UpdateNavigationTargetCue owns the show/hide decision; toggling
+            // this object here every frame causes unnecessary OnEnable/
+            // OnDisable churn in ExecuteAlways mode.
         }
 
         private void ApplyRootLayout()
@@ -257,6 +351,8 @@ namespace FAA.Customization
             {
                 DisableTextGraphic(_headingReadout);
             }
+
+            ConfigureNavigationTargetCueLayout();
 
             foreach (CompassMarker marker in _markers)
             {
@@ -392,6 +488,67 @@ namespace FAA.Customization
                     }
                 }
             }
+
+            UpdateNavigationTargetCue(effectivePixelsPerDegree, halfWidth);
+        }
+
+        private void UpdateNavigationTargetCue(float effectivePixelsPerDegree, float halfWidth)
+        {
+            if (_navigationTargetCue == null)
+            {
+                return;
+            }
+
+            if (navigationDisplay == null && autoFindSources)
+            {
+                navigationDisplay = FindNavigationDisplay();
+            }
+
+            if (navigationDisplay == null ||
+                !navigationDisplay.HasNavigationTarget ||
+                !navigationDisplay.ShowNavigationTarget)
+            {
+                _navigationTargetCue.gameObject.SetActive(false);
+                return;
+            }
+
+            RadarNavigationTarget target = navigationDisplay.CurrentNavigationTarget;
+            float targetDelta = Mathf.DeltaAngle(_displayedHeading, target.BearingDegrees);
+            float targetX = targetDelta * effectivePixelsPerDegree;
+            float edgePadding = 13f;
+            bool clamped = Mathf.Abs(targetX) > halfWidth - edgePadding;
+            float cueX = Mathf.Clamp(targetX, -halfWidth + edgePadding, halfWidth - edgePadding);
+            _navigationTargetCue.gameObject.SetActive(true);
+            _navigationTargetCue.anchoredPosition = new Vector2(cueX, 0f);
+
+            if (_navigationTargetStem != null)
+            {
+                _navigationTargetStem.color = clamped
+                    ? new Color(1f, 0.68f, 0.20f, 0.92f)
+                    : hudColor;
+            }
+
+            if (_navigationTargetDiamond != null)
+            {
+                _navigationTargetDiamond.color = clamped
+                    ? new Color(1f, 0.68f, 0.20f, 1f)
+                    : hudColor;
+                _navigationTargetDiamond.rectTransform.localRotation =
+                    Quaternion.Euler(0f, 0f, clamped && targetX < 0f ? -45f : 45f);
+            }
+
+            if (_navigationTargetLabel != null)
+            {
+                EnableTextGraphic(_navigationTargetLabel);
+                string prefix = string.IsNullOrWhiteSpace(target.Identifier) ? "TGT" : target.Identifier;
+                string distance = target.DistanceNM >= 10f
+                    ? $"{target.DistanceNM:0}NM"
+                    : $"{target.DistanceNM:0.0}NM";
+                _navigationTargetLabel.text = $"{prefix}  {target.BearingDegrees:000}°  {distance}";
+                ApplyTextColor(
+                    _navigationTargetLabel,
+                    clamped ? new Color(1f, 0.68f, 0.20f, 1f) : hudColor);
+            }
         }
 
         private void RefreshDataSources()
@@ -414,6 +571,11 @@ namespace FAA.Customization
             if (headingHud == null)
             {
                 headingHud = FindAnyObjectByType<global::HeadingHUD>(FindObjectsInactive.Include);
+            }
+
+            if (navigationDisplay == null)
+            {
+                navigationDisplay = FindNavigationDisplay();
             }
 
             if (headingTarget == null && aircraftController != null)
@@ -455,6 +617,19 @@ namespace FAA.Customization
             }
 
             return Normalize360(_displayedHeading);
+        }
+
+        /// <summary>
+        /// ExperimentScene contains a disabled legacy radar beside the active
+        /// XR-3 radar. Prefer the active instance so the heading cue follows
+        /// the display the pilot can actually see.
+        /// </summary>
+        private static TrafficRadarDisplay FindNavigationDisplay()
+        {
+            TrafficRadarDisplay active = FindAnyObjectByType<TrafficRadarDisplay>();
+            return active != null
+                ? active
+                : FindAnyObjectByType<TrafficRadarDisplay>(FindObjectsInactive.Include);
         }
 
         private static RectTransform GetOrCreateRectChild(Transform parent, string childName)

@@ -1,6 +1,7 @@
 using System.Collections.Generic;
 using AircraftControl.Core;
 using AviationUI;
+using TrafficRadar;
 using UnityEngine;
 using UnityEngine.UIElements;
 
@@ -14,6 +15,7 @@ namespace FAA.HUDToolkit
         [Header("Data Sources")]
         [SerializeField] private AviationFlightDataProvider flightDataProvider;
         [SerializeField] private AircraftController aircraftController;
+        [SerializeField] private TrafficRadarDisplay navigationDisplay;
         [SerializeField] private bool autoFindSources = true;
 
         [Header("Appearance")]
@@ -40,6 +42,9 @@ namespace FAA.HUDToolkit
         private VisualElement _navDeviationNeedle;
         private VisualElement _navLeftDot;
         private VisualElement _navRightDot;
+        private VisualElement _navTargetStem;
+        private Label _navTargetMarker;
+        private Label _navTargetLabel;
         private Label _bankPointer;
         private Label _statusLabel;
         private Label _airspeedValue;
@@ -115,6 +120,11 @@ namespace FAA.HUDToolkit
                 aircraftController = FindAnyObjectByType<AircraftController>(FindObjectsInactive.Include);
             }
 
+            if (navigationDisplay == null && autoFindSources)
+            {
+                navigationDisplay = FindNavigationDisplay();
+            }
+
             if (oldProvider != flightDataProvider)
             {
                 if (oldProvider != null)
@@ -136,6 +146,20 @@ namespace FAA.HUDToolkit
             flightDataProvider = provider;
             aircraftController = controller;
             SubscribeProvider();
+        }
+
+        public void Configure(
+            AviationFlightDataProvider provider,
+            AircraftController controller,
+            TrafficRadarDisplay display)
+        {
+            Configure(provider, controller);
+            navigationDisplay = display;
+        }
+
+        public void SetNavigationDisplay(TrafficRadarDisplay display)
+        {
+            navigationDisplay = display;
         }
 
         public void SetVisible(bool visible)
@@ -270,11 +294,22 @@ namespace FAA.HUDToolkit
             _navRightDot.style.borderBottomRightRadius = 4f;
             _navLeftDot.style.backgroundColor = hudColor;
             _navRightDot.style.backgroundColor = hudColor;
+            _navTargetStem = MakeLine();
+            _navTargetMarker = MakeLabel("◆", 18, TextAnchor.MiddleCenter);
+            _navTargetLabel = MakeLabel(string.Empty, 10, TextAnchor.MiddleCenter);
+            _navTargetMarker.style.color = new Color(1f, 0.78f, 0.28f, 1f);
+            _navTargetLabel.style.color = new Color(1f, 0.86f, 0.48f, 1f);
+            _navTargetMarker.style.display = DisplayStyle.None;
+            _navTargetLabel.style.display = DisplayStyle.None;
+            _navTargetStem.style.display = DisplayStyle.None;
             _hudRoot.Add(_navReferenceLine);
             _hudRoot.Add(_navCenterTick);
             _hudRoot.Add(_navDeviationNeedle);
             _hudRoot.Add(_navLeftDot);
             _hudRoot.Add(_navRightDot);
+            _hudRoot.Add(_navTargetStem);
+            _hudRoot.Add(_navTargetMarker);
+            _hudRoot.Add(_navTargetLabel);
 
             _bankPointer = MakeLabel("^", 22, TextAnchor.MiddleCenter);
             _hudRoot.Add(_bankPointer);
@@ -496,6 +531,56 @@ namespace FAA.HUDToolkit
             SetBox(_navDeviationNeedle, centerX + deviationPixels - scale, navY - 18f * scale, Mathf.Max(1f, 2f * scale), 36f * scale);
             SetBox(_navLeftDot, centerX - 38f * scale - dotSize * 0.5f, navY - dotSize * 0.5f, dotSize, dotSize);
             SetBox(_navRightDot, centerX + 38f * scale - dotSize * 0.5f, navY - dotSize * 0.5f, dotSize, dotSize);
+
+            bool hasTarget = navigationDisplay != null &&
+                             navigationDisplay.HasNavigationTarget &&
+                             navigationDisplay.ShowNavigationTarget;
+            if (!hasTarget)
+            {
+                _navTargetStem.style.display = DisplayStyle.None;
+                _navTargetMarker.style.display = DisplayStyle.None;
+                _navTargetLabel.style.display = DisplayStyle.None;
+                return;
+            }
+
+            RadarNavigationTarget target = navigationDisplay.CurrentNavigationTarget;
+            // TrafficRadarDisplay already resolves the target against the
+            // same own-ship heading that drives the radar. Reuse that
+            // pilot-relative bearing instead of subtracting a potentially
+            // lagging UI-provider heading a second time.
+            float targetDelta = Mathf.DeltaAngle(0f, target.RelativeBearingDegrees);
+            // The line is a compact ±30° course window. Targets outside that
+            // window pin to the edge, while the readout retains the true
+            // bearing and distance so the pilot can turn toward the cue.
+            float targetPixels = Mathf.Clamp(targetDelta, -30f, 30f) / 30f * (lineWidth * 0.5f - 8f);
+            float targetX = centerX + targetPixels;
+            bool clamped = Mathf.Abs(targetDelta) > 30f;
+            Color targetColor = clamped
+                ? new Color(1f, 0.68f, 0.20f, 1f)
+                : new Color(1f, 0.84f, 0.32f, 1f);
+
+            _navTargetStem.style.display = DisplayStyle.Flex;
+            _navTargetStem.style.backgroundColor = targetColor;
+            SetBox(_navTargetStem, targetX - Mathf.Max(1f, scale), navY - 22f * scale,
+                Mathf.Max(1f, 2f * scale), 44f * scale);
+
+            _navTargetMarker.style.display = DisplayStyle.Flex;
+            _navTargetMarker.style.color = targetColor;
+            _navTargetMarker.text = clamped
+                ? (targetDelta < 0f ? "◀" : "▶")
+                : "◆";
+            SetBox(_navTargetMarker, targetX - 12f * scale, navY - 12f * scale,
+                24f * scale, 24f * scale);
+
+            _navTargetLabel.style.display = DisplayStyle.Flex;
+            _navTargetLabel.style.color = targetColor;
+            string targetId = string.IsNullOrWhiteSpace(target.Identifier) ? "TGT" : target.Identifier;
+            string targetDistance = target.DistanceNM >= 10f
+                ? $"{target.DistanceNM:0}NM"
+                : $"{target.DistanceNM:0.0}NM";
+            _navTargetLabel.text = $"{targetId}  {target.BearingDegrees:000}°  {targetDistance}";
+            SetBox(_navTargetLabel, centerX - 105f * scale, navY + 12f * scale,
+                210f * scale, 22f * scale);
         }
 
         private void UpdateReadouts(
@@ -547,6 +632,19 @@ namespace FAA.HUDToolkit
             }
 
             return resolved;
+        }
+
+        /// <summary>
+        /// ExperimentScene contains a disabled legacy radar beside the active
+        /// XR-3 radar. Prefer the active instance so the HUD guidance bar
+        /// follows the display the pilot can actually see.
+        /// </summary>
+        private static TrafficRadarDisplay FindNavigationDisplay()
+        {
+            TrafficRadarDisplay active = Object.FindAnyObjectByType<TrafficRadarDisplay>();
+            return active != null
+                ? active
+                : Object.FindAnyObjectByType<TrafficRadarDisplay>(FindObjectsInactive.Include);
         }
 
         private static AviationFlightData FromAircraftState(AircraftState state)

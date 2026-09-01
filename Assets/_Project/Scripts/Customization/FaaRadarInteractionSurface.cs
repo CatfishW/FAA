@@ -334,11 +334,19 @@ namespace FAA.Customization
                 _focusFrame.localScale = new Vector3(revealScale * pressScale, revealScale * pressScale, 1f);
             }
 
+            // The target action intentionally leaves the quick menu open.
+            // Refresh the small surface hint while it is open so the pilot
+            // gets immediate confirmation that a navigation target is active.
+            if (radarKind == FaaRadarKind.Traffic && (_open || contextMenuOpen))
+            {
+                UpdateHint();
+            }
+
         }
 
         public void OnPointerClick(PointerEventData eventData)
         {
-            if (!_interactionEnabled || _suppressClick || eventData.button != PointerEventData.InputButton.Left)
+            if (!_interactionEnabled || _suppressClick)
             {
                 _suppressClick = false;
                 return;
@@ -348,6 +356,27 @@ namespace FAA.Customization
             {
                 ResolveTrafficDisplay();
                 EnsureTrafficContextMenu();
+
+                // A secondary click (or a deliberate double-tap) is a fast
+                // map-target gesture. The one-tap context menu remains the
+                // discoverable path for XR controllers and touch surfaces.
+                if (_trafficDisplay != null &&
+                    (eventData.button == PointerEventData.InputButton.Right || eventData.clickCount >= 2))
+                {
+                    _trafficDisplay.SetNavigationTargetFromScreenPoint(
+                        eventData.position,
+                        eventData.pressEventCamera,
+                        "MAP");
+                    eventData.Use();
+                    return;
+                }
+
+                if (eventData.button != PointerEventData.InputButton.Left)
+                {
+                    _suppressClick = false;
+                    return;
+                }
+
                 if (_trafficContextMenu != null)
                 {
                     // A single tap opens the same adaptive quick-action menu
@@ -357,6 +386,12 @@ namespace FAA.Customization
                     eventData.Use();
                     return;
                 }
+            }
+
+            if (eventData.button != PointerEventData.InputButton.Left)
+            {
+                _suppressClick = false;
+                return;
             }
 
             owner?.ToggleRadarConfiguration(radarKind);
@@ -483,12 +518,30 @@ namespace FAA.Customization
             Transform systemRoot = transform.parent;
             if (systemRoot != null)
             {
-                _trafficDisplay = systemRoot.GetComponentInChildren<TrafficRadarDisplay>(true);
+                TrafficRadarDisplay[] candidates =
+                    systemRoot.GetComponentsInChildren<TrafficRadarDisplay>(true);
+                for (int i = 0; i < candidates.Length; i++)
+                {
+                    if (candidates[i] != null && candidates[i].gameObject.activeInHierarchy)
+                    {
+                        _trafficDisplay = candidates[i];
+                        break;
+                    }
+                }
+
+                if (_trafficDisplay == null && candidates.Length > 0)
+                {
+                    _trafficDisplay = candidates[0];
+                }
             }
 
             if (_trafficDisplay == null)
             {
-                _trafficDisplay = FindAnyObjectByType<TrafficRadarDisplay>(FindObjectsInactive.Include);
+                _trafficDisplay = FindAnyObjectByType<TrafficRadarDisplay>();
+                if (_trafficDisplay == null)
+                {
+                    _trafficDisplay = FindAnyObjectByType<TrafficRadarDisplay>(FindObjectsInactive.Include);
+                }
             }
         }
 
@@ -597,7 +650,12 @@ namespace FAA.Customization
                 return;
             }
 
-            _hintText.text = _open ? "TRAFFIC CONFIG ACTIVE" : "CLICK · CONFIGURE TRAFFIC";
+            bool targetActive = _trafficDisplay != null && _trafficDisplay.HasNavigationTarget;
+            _hintText.text = _open
+                ? targetActive
+                    ? "TRAFFIC CONFIG · TARGET ACTIVE"
+                    : "TRAFFIC CONFIG · SELECT ACTION"
+                : "TAP · CONTROLS  ·  2× TARGET";
         }
 
         private static void DisableLegacyEdge(RectTransform parent, string name)

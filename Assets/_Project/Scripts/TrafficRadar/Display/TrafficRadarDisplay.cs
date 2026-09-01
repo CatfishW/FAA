@@ -9,6 +9,49 @@ using TrafficRadar.Core;
 namespace TrafficRadar
 {
     /// <summary>
+    /// Pilot-selected point on the sectional/radar map.  The geographic
+    /// position is retained so the cue can move with the aircraft while the
+    /// radar range, heading, or map source changes.
+    /// </summary>
+    [Serializable]
+    public struct RadarNavigationTarget
+    {
+        public bool IsValid;
+        public string Identifier;
+        public bool HasGeoPosition;
+        public double Latitude;
+        public double Longitude;
+        public float BearingDegrees;
+        public float DistanceNM;
+        public float RelativeBearingDegrees;
+        public Vector2 RadarPosition;
+        /// <summary>
+        /// Target vector in the aircraft's frame (x = right/left, y =
+        /// ahead/behind).  Unlike <see cref="RadarPosition"/>, this remains
+        /// useful to HUD course bars when the radar is in north-up mode.
+        /// </summary>
+        public Vector2 AircraftRelativePosition;
+        public bool IsWithinRange;
+
+        public bool IsOffscreen => IsValid && !IsWithinRange;
+
+        public static RadarNavigationTarget Empty => new RadarNavigationTarget
+        {
+            IsValid = false,
+            Identifier = string.Empty,
+            HasGeoPosition = false,
+            Latitude = 0d,
+            Longitude = 0d,
+            BearingDegrees = 0f,
+            DistanceNM = 0f,
+            RelativeBearingDegrees = 0f,
+            RadarPosition = Vector2.zero,
+            AircraftRelativePosition = Vector2.zero,
+            IsWithinRange = false
+        };
+    }
+
+    /// <summary>
     /// Main traffic radar display panel.
     /// Renders a circular radar display with aircraft symbols, range rings, and compass markings.
     /// </summary>
@@ -169,6 +212,21 @@ namespace TrafficRadar
         [SerializeField] private Color compassMarkingsColor = new Color(0.74f, 1f, 0.95f, 0.88f);
         [SerializeField] private Color ownAircraftColor = new Color(0.35f, 1f, 0.55f, 1f);
 
+        [Header("Navigation Target")]
+        [Tooltip("Accent used for the pilot-selected map target and HUD guidance cue.")]
+        [SerializeField] private Color navigationTargetColor = new Color(1f, 0.78f, 0.28f, 1f);
+
+        [Tooltip("Show the selected target cue on the radar and HUD.")]
+        [SerializeField] private bool showNavigationTarget = true;
+
+        [Tooltip("Pulse speed for the selected target cue.")]
+        [Min(0f)]
+        [SerializeField] private float navigationTargetPulseSpeed = 2.2f;
+
+        [Tooltip("Maximum radial position used when a target is beyond the selected range.")]
+        [Range(0.72f, 0.96f)]
+        [SerializeField] private float navigationTargetEdgeFraction = 0.90f;
+
         [Header("Symbol Settings")]
         [Tooltip("Size of aircraft symbols in pixels")]
         [SerializeField] private float symbolSize = 12f;
@@ -213,6 +271,19 @@ namespace TrafficRadar
         private Texture2D _blackPlaceholder;
         private RectTransform rectTransform;
         private List<RadarTrafficTarget> currentTargets = new List<RadarTrafficTarget>();
+
+        // Pilot-selected navigation cue.  The marker is a separate crisp UI
+        // graphic rather than texture pixels, so it remains sharp in the XR-3
+        // simulator and in the maximized map view.
+        private RadarNavigationTargetGraphic _navigationTargetGraphic;
+        private RadarNavigationTarget _navigationTarget = RadarNavigationTarget.Empty;
+        private RadarNavigationTarget _lastPublishedNavigationTarget = RadarNavigationTarget.Empty;
+        private Vector2 _navigationTargetLocalNormalized;
+        private bool _navigationTargetHasGeoPosition;
+        private double _navigationTargetLatitude;
+        private double _navigationTargetLongitude;
+        private float _navigationTargetPulse;
+        private bool _hasPublishedNavigationTarget;
 
         // Symbol drawing
         private Color32[] clearPixels;
@@ -405,6 +476,45 @@ namespace TrafficRadar
 
         public bool MapPanningEnabled => enableMapPanning;
 
+        /// <summary>
+        /// Current pilot-selected map target.  The value is empty when no
+        /// target has been placed.
+        /// </summary>
+        public RadarNavigationTarget CurrentNavigationTarget => _navigationTarget;
+
+        /// <summary>
+        /// True after a pilot has placed a navigation target on the map.
+        /// </summary>
+        public bool HasNavigationTarget => _navigationTarget.IsValid;
+
+        /// <summary>
+        /// Whether the selected target cue is painted over the radar.
+        /// </summary>
+        public bool ShowNavigationTarget
+        {
+            get => showNavigationTarget;
+            set
+            {
+                if (showNavigationTarget == value)
+                {
+                    return;
+                }
+
+                showNavigationTarget = value;
+                ApplyNavigationTargetVisual(true);
+            }
+        }
+
+        public Color NavigationTargetColor
+        {
+            get => navigationTargetColor;
+            set
+            {
+                navigationTargetColor = value;
+                ApplyNavigationTargetVisual(true);
+            }
+        }
+
         public FAAChartMapSource MapSource => chartProvider != null
             ? chartProvider.MapSource
             : FAAChartMapSource.Sectional;
@@ -444,6 +554,11 @@ namespace TrafficRadar
         /// Raised when a drag/pan settles at a new map offset.
         /// </summary>
         public event Action<Vector2> MapPanChanged;
+
+        /// <summary>
+        /// Raised when a pilot places, moves, or clears the map target.
+        /// </summary>
+        public event Action<RadarNavigationTarget> NavigationTargetChanged;
 
         /// <summary>
         /// Gets or sets the radar background color.
@@ -553,6 +668,7 @@ namespace TrafficRadar
         public bool UsesXPlaneTrafficTexture => preferXPlaneTrafficTexture;
         public Texture XPlaneTrafficTexture => _xPlaneTrafficTexture;
         public RawImage RadarImage => radarImage;
+        public RectTransform DisplayRectTransform => rectTransform;
 
         public void ConfigureHudPresentation(float panelOpacity, float requestedChartOpacity)
         {
@@ -607,7 +723,9 @@ namespace TrafficRadar
             CreateRadarTexture();
             EnsureRadarImageReference();
             EnsureChartImageReference();
+            EnsureNavigationTargetGraphic();
             ApplyMapPanVisual(true);
+            ApplyNavigationTargetVisual(true);
         }
 
         private void OnEnable()
@@ -631,6 +749,8 @@ namespace TrafficRadar
 
             SubscribeToChartProvider();
             ApplyMapPanVisual(true);
+            EnsureNavigationTargetGraphic();
+            ApplyNavigationTargetVisual(true);
         }
 
         private void OnDisable()
@@ -1048,6 +1168,8 @@ namespace TrafficRadar
                     UpdateHeadingRotation();
                 }
             }
+
+            UpdateNavigationTarget();
             
             DrawRadarIfNeeded();
             UpdateMapPan();
@@ -2115,6 +2237,184 @@ namespace TrafficRadar
         }
 
         /// <summary>
+        /// Place (or replace) the pilot's navigation target using a point in
+        /// this display's local coordinate space.  The point is projected to
+        /// the current range and then converted to a geographic coordinate
+        /// when own-ship data is available.
+        /// </summary>
+        public bool SetNavigationTargetFromLocalPoint(Vector2 localPoint, string identifier = "MAP")
+        {
+            if (rectTransform == null)
+            {
+                rectTransform = GetComponent<RectTransform>();
+            }
+
+            if (rectTransform == null)
+            {
+                return false;
+            }
+
+            Rect displayRect = rectTransform.rect;
+            float radius = Mathf.Min(displayRect.width, displayRect.height) * 0.5f;
+            if (radius <= 1f)
+            {
+                return false;
+            }
+
+            // The chart is the layer that moves during a focused drag while
+            // the radar/own-ship frame stays fixed. Convert the tapped screen
+            // point back into chart coordinates before projecting it to a
+            // geographic waypoint; otherwise a panned map would select a
+            // point offset by the drag distance.
+            Vector2 chartRelativePoint = localPoint - _mapPan;
+            Vector2 normalized = (chartRelativePoint - displayRect.center) / radius;
+            float magnitude = normalized.magnitude;
+            if (magnitude <= 0.0001f)
+            {
+                // A target exactly under own-ship is difficult to read. Keep
+                // the cue just above the centre while preserving the zero-ish
+                // range semantics.
+                normalized = Vector2.up * 0.035f;
+                magnitude = normalized.magnitude;
+            }
+
+            float maximum = Mathf.Clamp(navigationTargetEdgeFraction + 0.035f, 0.76f, 0.97f);
+            if (magnitude > maximum)
+            {
+                normalized = normalized.normalized * maximum;
+                magnitude = maximum;
+            }
+
+            _navigationTargetLocalNormalized = normalized;
+            _navigationTargetHasGeoPosition = false;
+            _navigationTargetLatitude = 0d;
+            _navigationTargetLongitude = 0d;
+
+            _navigationTarget = RadarNavigationTarget.Empty;
+            _navigationTarget.IsValid = true;
+            _navigationTarget.Identifier = SanitizeNavigationTargetIdentifier(identifier);
+
+            // Capture the map point immediately when possible. If the bridge
+            // is still warming up, UpdateNavigationTarget will promote the
+            // local cue to a geographic target as soon as coordinates arrive.
+            if (TryResolveNavigationOwnShip(out double ownLatitude, out double ownLongitude, out float ownHeading))
+            {
+                float relativeBearing = Mathf.Atan2(normalized.x, normalized.y) * Mathf.Rad2Deg;
+                float absoluteBearing = enableTrackUpMode
+                    ? NormalizeDegrees(ownHeading + relativeBearing)
+                    : NormalizeDegrees(relativeBearing);
+                float distance = Mathf.Max(0.05f, magnitude * Mathf.Max(0.1f, rangeNM));
+                CalculateDestination(
+                    ownLatitude,
+                    ownLongitude,
+                    absoluteBearing,
+                    distance,
+                    out _navigationTargetLatitude,
+                    out _navigationTargetLongitude);
+                _navigationTargetHasGeoPosition = true;
+            }
+
+            RefreshNavigationTarget(true);
+            ApplyNavigationTargetVisual(true);
+            return true;
+        }
+
+        /// <summary>
+        /// Place a target directly from a screen-space pointer event. This is
+        /// useful for mouse, touch, and XR ray adapters that already have an
+        /// event camera.
+        /// </summary>
+        public bool SetNavigationTargetFromScreenPoint(
+            Vector2 screenPoint,
+            Camera eventCamera,
+            string identifier = "MAP")
+        {
+            if (rectTransform == null)
+            {
+                rectTransform = GetComponent<RectTransform>();
+            }
+
+            if (rectTransform == null ||
+                !RectTransformUtility.ScreenPointToLocalPointInRectangle(
+                    rectTransform,
+                    screenPoint,
+                    eventCamera,
+                    out Vector2 localPoint))
+            {
+                return false;
+            }
+
+            return SetNavigationTargetFromLocalPoint(localPoint, identifier);
+        }
+
+        /// <summary>
+        /// Place a target from a world-space point. Context-menu leaders use
+        /// this overload so a menu attached to a sibling interaction surface
+        /// remains aligned with the actual radar display.
+        /// </summary>
+        public bool SetNavigationTargetFromWorldPoint(Vector3 worldPoint, string identifier = "MAP")
+        {
+            if (rectTransform == null)
+            {
+                rectTransform = GetComponent<RectTransform>();
+            }
+
+            return rectTransform != null &&
+                   SetNavigationTargetFromLocalPoint(
+                       rectTransform.InverseTransformPoint(worldPoint),
+                       identifier);
+        }
+
+        /// <summary>
+        /// Place a geographic navigation target. This is also useful for
+        /// future waypoint/FMS adapters that already own latitude/longitude.
+        /// </summary>
+        public bool SetNavigationTarget(double latitude, double longitude, string identifier = "MAP")
+        {
+            if (!IsValidGeoPosition(latitude, longitude))
+            {
+                return false;
+            }
+
+            _navigationTarget = RadarNavigationTarget.Empty;
+            _navigationTarget.IsValid = true;
+            _navigationTarget.Identifier = SanitizeNavigationTargetIdentifier(identifier);
+            _navigationTargetHasGeoPosition = true;
+            _navigationTargetLatitude = latitude;
+            _navigationTargetLongitude = longitude;
+            RefreshNavigationTarget(true);
+            ApplyNavigationTargetVisual(true);
+            return true;
+        }
+
+        /// <summary>
+        /// Remove the active map target and hide its radar/HUD cues.
+        /// </summary>
+        public void ClearNavigationTarget()
+        {
+            if (!_navigationTarget.IsValid && !_navigationTargetHasGeoPosition)
+            {
+                return;
+            }
+
+            _navigationTarget = RadarNavigationTarget.Empty;
+            _navigationTargetHasGeoPosition = false;
+            _navigationTargetLatitude = 0d;
+            _navigationTargetLongitude = 0d;
+            _navigationTargetLocalNormalized = Vector2.zero;
+            _navigationTargetPulse = 0f;
+            _lastPublishedNavigationTarget = RadarNavigationTarget.Empty;
+            _hasPublishedNavigationTarget = true;
+            ApplyNavigationTargetVisual(true);
+            NavigationTargetChanged?.Invoke(_navigationTarget);
+        }
+
+        public void ToggleNavigationTargetVisibility()
+        {
+            ShowNavigationTarget = !showNavigationTarget;
+        }
+
+        /// <summary>
         /// Select a chart/basemap source and refresh its tiles.
         /// </summary>
         public void SetMapSource(FAAChartMapSource source)
@@ -2868,6 +3168,359 @@ namespace TrafficRadar
             MapSourceChanged?.Invoke(source);
         }
 
+        private void EnsureNavigationTargetGraphic()
+        {
+            if (_navigationTargetGraphic != null)
+            {
+                if (!_navigationTargetGraphic.gameObject.activeSelf)
+                {
+                    _navigationTargetGraphic.gameObject.SetActive(true);
+                }
+                _navigationTargetGraphic.raycastTarget = false;
+                _navigationTargetGraphic.transform.SetAsLastSibling();
+                return;
+            }
+
+            Transform existing = transform.Find("Navigation Target Overlay");
+            GameObject targetObject = existing != null
+                ? existing.gameObject
+                : new GameObject(
+                    "Navigation Target Overlay",
+                    typeof(RectTransform),
+                    typeof(CanvasRenderer),
+                    typeof(RadarNavigationTargetGraphic));
+            targetObject.transform.SetParent(transform, false);
+            targetObject.SetActive(true);
+            RectTransform targetRect = targetObject.GetComponent<RectTransform>() ??
+                                       targetObject.AddComponent<RectTransform>();
+            targetRect.anchorMin = Vector2.zero;
+            targetRect.anchorMax = Vector2.one;
+            targetRect.offsetMin = Vector2.zero;
+            targetRect.offsetMax = Vector2.zero;
+            targetRect.pivot = new Vector2(0.5f, 0.5f);
+            targetRect.localScale = Vector3.one;
+            targetRect.localRotation = Quaternion.identity;
+
+            _navigationTargetGraphic = targetObject.GetComponent<RadarNavigationTargetGraphic>() ??
+                                        targetObject.AddComponent<RadarNavigationTargetGraphic>();
+            _navigationTargetGraphic.raycastTarget = false;
+            targetObject.transform.SetAsLastSibling();
+        }
+
+        private void UpdateNavigationTarget()
+        {
+            if (!_navigationTarget.IsValid)
+            {
+                ApplyNavigationTargetVisual(false);
+                return;
+            }
+
+            _navigationTargetPulse += Time.unscaledDeltaTime * Mathf.Max(0f, navigationTargetPulseSpeed);
+            RefreshNavigationTarget(false);
+            ApplyNavigationTargetVisual(false);
+        }
+
+        private void RefreshNavigationTarget(bool notify)
+        {
+            if (!_navigationTarget.IsValid)
+            {
+                return;
+            }
+
+            bool ownPositionValid = TryResolveNavigationOwnShip(
+                out double ownLatitude,
+                out double ownLongitude,
+                out float ownHeading);
+
+            if (!_navigationTargetHasGeoPosition && ownPositionValid)
+            {
+                float localRelativeBearing = Mathf.Atan2(
+                    _navigationTargetLocalNormalized.x,
+                    _navigationTargetLocalNormalized.y) * Mathf.Rad2Deg;
+                float absoluteBearing = enableTrackUpMode
+                    ? NormalizeDegrees(ownHeading + localRelativeBearing)
+                    : NormalizeDegrees(localRelativeBearing);
+                float localDistance = _navigationTargetLocalNormalized.magnitude *
+                                      Mathf.Max(0.1f, rangeNM);
+                CalculateDestination(
+                    ownLatitude,
+                    ownLongitude,
+                    absoluteBearing,
+                    Mathf.Max(0.05f, localDistance),
+                    out _navigationTargetLatitude,
+                    out _navigationTargetLongitude);
+                _navigationTargetHasGeoPosition = true;
+            }
+
+            RadarNavigationTarget next = _navigationTarget;
+            next.IsValid = true;
+            next.HasGeoPosition = _navigationTargetHasGeoPosition;
+            next.Latitude = _navigationTargetHasGeoPosition ? _navigationTargetLatitude : 0d;
+            next.Longitude = _navigationTargetHasGeoPosition ? _navigationTargetLongitude : 0d;
+
+            float bearing = 0f;
+            float distance = _navigationTargetLocalNormalized.magnitude * Mathf.Max(0.1f, rangeNM);
+            float displayRelativeBearing = Mathf.Atan2(
+                _navigationTargetLocalNormalized.x,
+                _navigationTargetLocalNormalized.y) * Mathf.Rad2Deg;
+            float pilotRelativeBearing = displayRelativeBearing;
+
+            if (_navigationTargetHasGeoPosition && ownPositionValid)
+            {
+                distance = (float)CalculateDistanceNM(
+                    ownLatitude,
+                    ownLongitude,
+                    _navigationTargetLatitude,
+                    _navigationTargetLongitude);
+                bearing = CalculateBearingDegrees(
+                    ownLatitude,
+                    ownLongitude,
+                    _navigationTargetLatitude,
+                    _navigationTargetLongitude);
+                // The radar vector follows the selected presentation (track
+                // up or north up), while HUD course bars always need the
+                // bearing relative to the aircraft nose.
+                pilotRelativeBearing = Mathf.DeltaAngle(ownHeading, bearing);
+                displayRelativeBearing = enableTrackUpMode
+                    ? Mathf.DeltaAngle(ownHeading, bearing)
+                    : bearing;
+            }
+            else
+            {
+                bearing = enableTrackUpMode && ownPositionValid
+                    ? NormalizeDegrees(ownHeading + displayRelativeBearing)
+                    : NormalizeDegrees(displayRelativeBearing);
+                pilotRelativeBearing = ownPositionValid
+                    ? Mathf.DeltaAngle(0f, enableTrackUpMode
+                        ? displayRelativeBearing
+                        : displayRelativeBearing - ownHeading)
+                    : displayRelativeBearing;
+            }
+
+            float safeRange = Mathf.Max(0.1f, rangeNM);
+            bool withinRange = distance <= safeRange + 0.01f;
+            float radial = Mathf.Clamp(distance / safeRange, 0f, 1f);
+            float edgeFraction = Mathf.Clamp(navigationTargetEdgeFraction, 0.72f, 0.96f);
+            radial = Mathf.Clamp(radial, 0.035f, edgeFraction);
+            float displayRadians = displayRelativeBearing * Mathf.Deg2Rad;
+            Vector2 radarPosition = new Vector2(
+                Mathf.Sin(displayRadians) * radial,
+                Mathf.Cos(displayRadians) * radial);
+
+            // During a focused chart inspection the texture moves under the
+            // fixed radar frame. Keep the selected marker attached to the
+            // tapped chart feature for that transient view; the aircraft
+            // relative vector below intentionally stays geographic so HUD
+            // guidance bars do not jump with a visual pan.
+            Rect navigationDisplayRect = rectTransform != null ? rectTransform.rect : new Rect();
+            if (_mapPan.sqrMagnitude > 0.001f &&
+                navigationDisplayRect.width > 1f && navigationDisplayRect.height > 1f)
+            {
+                float displayRadiusPixels = Mathf.Min(
+                    navigationDisplayRect.width,
+                    navigationDisplayRect.height) * 0.5f;
+                radarPosition += _mapPan / Mathf.Max(1f, displayRadiusPixels);
+                if (radarPosition.sqrMagnitude > edgeFraction * edgeFraction)
+                {
+                    radarPosition = radarPosition.normalized * edgeFraction;
+                }
+            }
+            float pilotRadians = pilotRelativeBearing * Mathf.Deg2Rad;
+            Vector2 aircraftRelativePosition = new Vector2(
+                Mathf.Sin(pilotRadians) * radial,
+                Mathf.Cos(pilotRadians) * radial);
+
+            next.BearingDegrees = NormalizeDegrees(bearing);
+            next.DistanceNM = Mathf.Max(0f, distance);
+            next.RelativeBearingDegrees = Mathf.DeltaAngle(0f, pilotRelativeBearing);
+            next.RadarPosition = radarPosition;
+            next.AircraftRelativePosition = aircraftRelativePosition;
+            next.IsWithinRange = withinRange;
+            _navigationTarget = next;
+
+            if (notify || !_hasPublishedNavigationTarget || NavigationTargetChangedSignificantly(
+                    _lastPublishedNavigationTarget,
+                    _navigationTarget))
+            {
+                _lastPublishedNavigationTarget = _navigationTarget;
+                _hasPublishedNavigationTarget = true;
+                NavigationTargetChanged?.Invoke(_navigationTarget);
+            }
+        }
+
+        private void ApplyNavigationTargetVisual(bool immediate)
+        {
+            EnsureNavigationTargetGraphic();
+            if (_navigationTargetGraphic == null)
+            {
+                return;
+            }
+
+            bool visible = isActiveAndEnabled && showNavigationTarget && _navigationTarget.IsValid;
+            _navigationTargetGraphic.SetTarget(
+                _navigationTarget.RadarPosition,
+                visible,
+                _navigationTarget.IsWithinRange,
+                navigationTargetColor,
+                _navigationTargetPulse,
+                immediate);
+        }
+
+        private bool TryResolveNavigationOwnShip(
+            out double latitude,
+            out double longitude,
+            out float heading)
+        {
+            latitude = 0d;
+            longitude = 0d;
+            heading = 0f;
+
+            if (!TryResolveChartPosition(out float chartLatitude, out float chartLongitude))
+            {
+                return false;
+            }
+
+            latitude = chartLatitude;
+            longitude = chartLongitude;
+            if (radarController != null)
+            {
+                heading = radarController.OwnPosition.HeadingDegrees;
+            }
+
+            if (float.IsNaN(heading) || float.IsInfinity(heading))
+            {
+                heading = 0f;
+            }
+
+            heading = NormalizeDegrees(heading);
+            return true;
+        }
+
+        private static bool NavigationTargetChangedSignificantly(
+            RadarNavigationTarget previous,
+            RadarNavigationTarget next)
+        {
+            if (previous.IsValid != next.IsValid ||
+                previous.HasGeoPosition != next.HasGeoPosition ||
+                previous.IsWithinRange != next.IsWithinRange ||
+                !string.Equals(previous.Identifier, next.Identifier, StringComparison.Ordinal))
+            {
+                return true;
+            }
+
+            if (!next.IsValid)
+            {
+                return false;
+            }
+
+            return Math.Abs(previous.Latitude - next.Latitude) > 0.00001d ||
+                   Math.Abs(previous.Longitude - next.Longitude) > 0.00001d ||
+                   Mathf.Abs(Mathf.DeltaAngle(previous.BearingDegrees, next.BearingDegrees)) > 0.05f ||
+                   Mathf.Abs(previous.DistanceNM - next.DistanceNM) > 0.05f ||
+                   (previous.RadarPosition - next.RadarPosition).sqrMagnitude > 0.000004f;
+        }
+
+        private static string SanitizeNavigationTargetIdentifier(string identifier)
+        {
+            string value = string.IsNullOrWhiteSpace(identifier)
+                ? "MAP"
+                : identifier.Trim().ToUpperInvariant();
+            if (value.Length > 12)
+            {
+                value = value.Substring(0, 12);
+            }
+
+            return value;
+        }
+
+        private static float NormalizeDegrees(float degrees)
+        {
+            if (float.IsNaN(degrees) || float.IsInfinity(degrees))
+            {
+                return 0f;
+            }
+
+            degrees %= 360f;
+            if (degrees < 0f)
+            {
+                degrees += 360f;
+            }
+
+            return degrees;
+        }
+
+        private const double EarthRadiusNM = 3440.065;
+
+        private static double CalculateDistanceNM(
+            double latitudeA,
+            double longitudeA,
+            double latitudeB,
+            double longitudeB)
+        {
+            double latA = latitudeA * Math.PI / 180d;
+            double latB = latitudeB * Math.PI / 180d;
+            double deltaLat = (latitudeB - latitudeA) * Math.PI / 180d;
+            double deltaLon = (longitudeB - longitudeA) * Math.PI / 180d;
+            double sinLat = Math.Sin(deltaLat * 0.5d);
+            double sinLon = Math.Sin(deltaLon * 0.5d);
+            double a = sinLat * sinLat + Math.Cos(latA) * Math.Cos(latB) * sinLon * sinLon;
+            double arc = 2d * Math.Atan2(Math.Sqrt(Math.Max(0d, a)), Math.Sqrt(Math.Max(0d, 1d - a)));
+            return arc * EarthRadiusNM;
+        }
+
+        private static float CalculateBearingDegrees(
+            double latitudeA,
+            double longitudeA,
+            double latitudeB,
+            double longitudeB)
+        {
+            double latA = latitudeA * Math.PI / 180d;
+            double latB = latitudeB * Math.PI / 180d;
+            double deltaLon = (longitudeB - longitudeA) * Math.PI / 180d;
+            double y = Math.Sin(deltaLon) * Math.Cos(latB);
+            double x = Math.Cos(latA) * Math.Sin(latB) -
+                       Math.Sin(latA) * Math.Cos(latB) * Math.Cos(deltaLon);
+            return NormalizeDegrees((float)(Math.Atan2(y, x) * 180d / Math.PI));
+        }
+
+        private static void CalculateDestination(
+            double latitude,
+            double longitude,
+            float bearingDegrees,
+            float distanceNM,
+            out double destinationLatitude,
+            out double destinationLongitude)
+        {
+            double angularDistance = Math.Max(0d, distanceNM) / EarthRadiusNM;
+            double bearing = bearingDegrees * Math.PI / 180d;
+            double lat1 = latitude * Math.PI / 180d;
+            double lon1 = longitude * Math.PI / 180d;
+            double sinLat = Math.Sin(lat1) * Math.Cos(angularDistance) +
+                            Math.Cos(lat1) * Math.Sin(angularDistance) * Math.Cos(bearing);
+            double lat2 = Math.Asin(Math.Max(-1d, Math.Min(1d, sinLat)));
+            double lon2 = lon1 + Math.Atan2(
+                Math.Sin(bearing) * Math.Sin(angularDistance) * Math.Cos(lat1),
+                Math.Cos(angularDistance) - Math.Sin(lat1) * Math.Sin(lat2));
+
+            destinationLatitude = lat2 * 180d / Math.PI;
+            destinationLongitude = NormalizeLongitude(lon2 * 180d / Math.PI);
+        }
+
+        private static double NormalizeLongitude(double longitude)
+        {
+            longitude %= 360d;
+            if (longitude > 180d)
+            {
+                longitude -= 360d;
+            }
+            else if (longitude < -180d)
+            {
+                longitude += 360d;
+            }
+
+            return longitude;
+        }
+
         private void DrawRadarIfNeeded()
         {
             if (preferXPlaneTrafficTexture)
@@ -3564,5 +4217,255 @@ namespace TrafficRadar
         }
 
         #endregion
+    }
+
+    /// <summary>
+    /// Crisp, resolution-independent target cue layered over the generated
+    /// radar texture.  Keeping this as a MaskableGraphic avoids pixelation
+    /// when the XR-3 simulator expands the scope to fullscreen.
+    /// </summary>
+    [RequireComponent(typeof(CanvasRenderer))]
+    internal sealed class RadarNavigationTargetGraphic : MaskableGraphic
+    {
+        private Vector2 _normalizedPosition;
+        private Color _accent = new Color(1f, 0.78f, 0.28f, 1f);
+        private bool _visible;
+        private bool _withinRange;
+        private float _pulse;
+
+        public void SetTarget(
+            Vector2 normalizedPosition,
+            bool visible,
+            bool withinRange,
+            Color accent,
+            float pulse,
+            bool immediate)
+        {
+            _normalizedPosition = normalizedPosition;
+            _visible = visible;
+            _withinRange = withinRange;
+            _accent = accent;
+            _pulse = pulse;
+            raycastTarget = false;
+            // The immediate flag is intentionally accepted by the display API
+            // so callers can use the same path for placement and animation.
+            // Mesh regeneration itself is frame-safe in both cases.
+            SetVerticesDirty();
+        }
+
+        protected override void OnEnable()
+        {
+            base.OnEnable();
+            raycastTarget = false;
+        }
+
+        protected override void OnPopulateMesh(VertexHelper vertexHelper)
+        {
+            vertexHelper.Clear();
+            if (!_visible)
+            {
+                return;
+            }
+
+            Rect rect = rectTransform.rect;
+            float scopeRadius = Mathf.Max(24f, Mathf.Min(rect.width, rect.height) * 0.5f - 10f);
+            Vector2 center = rect.center;
+            Vector2 position = _normalizedPosition;
+            if (position.sqrMagnitude <= 0.0001f)
+            {
+                position = Vector2.up * 0.035f;
+            }
+
+            Vector2 direction = position.normalized;
+            Vector2 target = center + position * scopeRadius;
+            Color tint = _withinRange
+                ? _accent
+                : new Color(1f, 0.58f, 0.18f, Mathf.Max(0.9f, _accent.a));
+
+            // A dark under-stroke protects the cue over dense sectional ink.
+            AddLine(
+                vertexHelper,
+                center,
+                target,
+                5.6f,
+                new Color(0.002f, 0.018f, 0.022f, 0.82f));
+            AddLine(
+                vertexHelper,
+                center,
+                target,
+                1.55f,
+                new Color(tint.r, tint.g, tint.b, 0.84f));
+
+            // The diamond is deliberately asymmetrical (a small lead point)
+            // so it reads as a selected navigation target rather than traffic.
+            AddDiamond(
+                vertexHelper,
+                target,
+                8.5f,
+                new Color(tint.r, tint.g, tint.b, 0.24f));
+            AddDiamondOutline(
+                vertexHelper,
+                target,
+                9.5f,
+                1.8f,
+                new Color(tint.r, tint.g, tint.b, 1f));
+            AddDisc(
+                vertexHelper,
+                target,
+                2.0f,
+                new Color(0.98f, 1f, 0.92f, 1f),
+                16);
+
+            float pulsePhase = Mathf.Repeat(_pulse, 1f);
+            float pulseRadius = 12f + pulsePhase * 14f;
+            float pulseAlpha = 0.64f * (1f - pulsePhase);
+            AddRing(
+                vertexHelper,
+                target,
+                pulseRadius,
+                Mathf.Lerp(2.2f, 0.8f, pulsePhase),
+                new Color(tint.r, tint.g, tint.b, pulseAlpha),
+                28);
+
+            if (!_withinRange)
+            {
+                // Off-range targets stay represented at the perimeter with a
+                // directional chevron, so a pilot never loses the bearing.
+                Vector2 tip = center + direction * scopeRadius * 0.93f;
+                Vector2 basePoint = tip - direction * 13f;
+                Vector2 normal = new Vector2(-direction.y, direction.x);
+                AddLine(vertexHelper, tip, basePoint + normal * 7f, 2.1f, tint);
+                AddLine(vertexHelper, tip, basePoint - normal * 7f, 2.1f, tint);
+            }
+        }
+
+        private static void AddDiamond(
+            VertexHelper vertexHelper,
+            Vector2 center,
+            float radius,
+            Color color)
+        {
+            int start = vertexHelper.currentVertCount;
+            AddVertex(vertexHelper, center + Vector2.up * radius, color);
+            AddVertex(vertexHelper, center + Vector2.right * radius, color);
+            AddVertex(vertexHelper, center + Vector2.down * radius, color);
+            AddVertex(vertexHelper, center + Vector2.left * radius, color);
+            vertexHelper.AddTriangle(start, start + 1, start + 2);
+            vertexHelper.AddTriangle(start, start + 2, start + 3);
+        }
+
+        private static void AddDiamondOutline(
+            VertexHelper vertexHelper,
+            Vector2 center,
+            float radius,
+            float width,
+            Color color)
+        {
+            Vector2 top = center + Vector2.up * radius;
+            Vector2 right = center + Vector2.right * radius;
+            Vector2 bottom = center + Vector2.down * radius;
+            Vector2 left = center + Vector2.left * radius;
+            AddLine(vertexHelper, top, right, width, color);
+            AddLine(vertexHelper, right, bottom, width, color);
+            AddLine(vertexHelper, bottom, left, width, color);
+            AddLine(vertexHelper, left, top, width, color);
+        }
+
+        private static void AddDisc(
+            VertexHelper vertexHelper,
+            Vector2 center,
+            float radius,
+            Color color,
+            int segments)
+        {
+            int centerIndex = vertexHelper.currentVertCount;
+            AddVertex(vertexHelper, center, color);
+            for (int i = 0; i <= segments; i++)
+            {
+                float angle = Mathf.PI * 2f * i / segments;
+                AddVertex(
+                    vertexHelper,
+                    center + new Vector2(Mathf.Cos(angle), Mathf.Sin(angle)) * radius,
+                    color);
+                if (i > 0)
+                {
+                    vertexHelper.AddTriangle(centerIndex, centerIndex + i, centerIndex + i + 1);
+                }
+            }
+        }
+
+        private static void AddRing(
+            VertexHelper vertexHelper,
+            Vector2 center,
+            float radius,
+            float width,
+            Color color,
+            int segments)
+        {
+            float inner = Mathf.Max(0f, radius - width * 0.5f);
+            float outer = radius + width * 0.5f;
+            for (int i = 0; i < segments; i++)
+            {
+                float angleA = Mathf.PI * 2f * i / segments;
+                float angleB = Mathf.PI * 2f * (i + 1) / segments;
+                Vector2 directionA = new Vector2(Mathf.Cos(angleA), Mathf.Sin(angleA));
+                Vector2 directionB = new Vector2(Mathf.Cos(angleB), Mathf.Sin(angleB));
+                AddQuad(
+                    vertexHelper,
+                    center + directionA * inner,
+                    center + directionA * outer,
+                    center + directionB * outer,
+                    center + directionB * inner,
+                    color);
+            }
+        }
+
+        private static void AddLine(
+            VertexHelper vertexHelper,
+            Vector2 from,
+            Vector2 to,
+            float width,
+            Color color)
+        {
+            Vector2 delta = to - from;
+            if (delta.sqrMagnitude <= 0.0001f)
+            {
+                return;
+            }
+
+            Vector2 normal = new Vector2(-delta.y, delta.x).normalized * (width * 0.5f);
+            AddQuad(
+                vertexHelper,
+                from - normal,
+                from + normal,
+                to + normal,
+                to - normal,
+                color);
+        }
+
+        private static void AddQuad(
+            VertexHelper vertexHelper,
+            Vector2 a,
+            Vector2 b,
+            Vector2 c,
+            Vector2 d,
+            Color color)
+        {
+            int start = vertexHelper.currentVertCount;
+            AddVertex(vertexHelper, a, color);
+            AddVertex(vertexHelper, b, color);
+            AddVertex(vertexHelper, c, color);
+            AddVertex(vertexHelper, d, color);
+            vertexHelper.AddTriangle(start, start + 1, start + 2);
+            vertexHelper.AddTriangle(start, start + 2, start + 3);
+        }
+
+        private static void AddVertex(VertexHelper vertexHelper, Vector2 position, Color color)
+        {
+            UIVertex vertex = UIVertex.simpleVert;
+            vertex.position = position;
+            vertex.color = color;
+            vertexHelper.AddVert(vertex);
+        }
     }
 }

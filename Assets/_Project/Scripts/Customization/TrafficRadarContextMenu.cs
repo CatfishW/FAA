@@ -41,6 +41,7 @@ namespace FAA.Customization
             Linework,
             Map,
             Range,
+            Target,
             Center,
             View
         }
@@ -79,6 +80,15 @@ namespace FAA.Customization
         private ActionKind? _selectedAction;
         private ActionKind? _focusedAction;
         private bool _layoutFocused;
+        private Vector2 _targetTapLocalPoint;
+        private bool _hasTargetTap;
+        // Keep the tap in the radar's own normalized coordinate space as well
+        // as in the interaction surface's local space.  FULL/REST resizes the
+        // shared traffic-system root, so replaying only the original local
+        // pixel coordinate can move the target by several pixels (or even
+        // outside the scope) while the menu remains open.
+        private Vector2 _targetTapDisplayNormalized;
+        private bool _hasTargetTapDisplayNormalized;
 
         public bool IsOpen => _targetOpen || _progress > 0.01f;
 
@@ -99,12 +109,18 @@ namespace FAA.Customization
                 return;
             }
 
-            Vector2 localPoint = Vector2.zero;
-            RectTransformUtility.ScreenPointToLocalPointInRectangle(
+            Vector2 localPoint = _hostRect != null ? _hostRect.rect.center : Vector2.zero;
+            bool resolved = _hostRect != null && RectTransformUtility.ScreenPointToLocalPointInRectangle(
                 _hostRect,
                 screenPoint,
                 eventCamera,
                 out localPoint);
+            if (!resolved && _hostRect != null)
+            {
+                localPoint = _hostRect.rect.center;
+            }
+            _targetTapLocalPoint = localPoint;
+            _hasTargetTap = true;
             OpenAtLocalPoint(localPoint);
         }
 
@@ -129,6 +145,9 @@ namespace FAA.Customization
             }
 
             EnsureVisualTree();
+            _targetTapLocalPoint = localPoint;
+            _hasTargetTap = true;
+            CaptureTargetTapInDisplaySpace(localPoint);
             _visualRoot.gameObject.SetActive(true);
             _interactionLocked = false;
             _selectedAction = null;
@@ -296,6 +315,7 @@ namespace FAA.Customization
             EnsureAction(ActionKind.Linework, "ActionLinework");
             EnsureAction(ActionKind.Map, "ActionMap");
             EnsureAction(ActionKind.Range, "ActionRange");
+            EnsureAction(ActionKind.Target, "ActionTarget");
             EnsureAction(ActionKind.Center, "ActionCenter");
             EnsureAction(ActionKind.View, "ActionView");
         }
@@ -404,7 +424,7 @@ namespace FAA.Customization
             }
             float panelWidth = focused ? FocusPanelWidth : CompactPanelWidth;
             float rowHeight = focused ? FocusRowHeight : CompactRowHeight;
-            int visibleCount = focused ? 5 : 4;
+            int visibleCount = focused ? 6 : 5;
             float panelHeight = HeaderHeight + PanelPadding +
                                 visibleCount * rowHeight +
                                 Mathf.Max(0, visibleCount - 1) * RowGap +
@@ -547,6 +567,9 @@ namespace FAA.Customization
                     case ActionKind.Range:
                         target = center + new Vector2(0f, -radius * 0.88f);
                         break;
+                    case ActionKind.Target:
+                        target = ResolveTargetLeaderPoint(center, radius);
+                        break;
                     case ActionKind.Center:
                         target = center;
                         break;
@@ -564,6 +587,111 @@ namespace FAA.Customization
                     _focusedAction.HasValue && _focusedAction.Value == action.Kind,
                     GetActionColor(action.Kind));
             }
+        }
+
+        private Vector2 ResolveTargetLeaderPoint(Vector2 radarCenter, float radius)
+        {
+            Vector2 hostPoint = radarCenter;
+            if (_hasTargetTapDisplayNormalized && _display != null &&
+                _display.DisplayRectTransform != null)
+            {
+                RectTransform displayRect = _display.DisplayRectTransform;
+                Rect displayBounds = displayRect.rect;
+                float displayRadius = Mathf.Min(displayBounds.width, displayBounds.height) * 0.5f;
+                Vector2 displayLocal = displayBounds.center + _targetTapDisplayNormalized * displayRadius;
+                Vector3 tapWorld = displayRect.TransformPoint(displayLocal);
+                hostPoint = _visualRoot != null
+                    ? _visualRoot.InverseTransformPoint(tapWorld)
+                    : radarCenter;
+            }
+            else if (_hasTargetTap && _hostRect != null)
+            {
+                // The tap is captured in the interaction surface's local
+                // space. Convert through world space before drawing in the
+                // menu's visual-root space so the leader stays aligned when
+                // the display and hit surface have different anchors/scales.
+                Vector3 tapWorld = _hostRect.TransformPoint(_targetTapLocalPoint);
+                hostPoint = _visualRoot != null
+                    ? _visualRoot.InverseTransformPoint(tapWorld)
+                    : _targetTapLocalPoint;
+            }
+            else if (_display != null && _display.HasNavigationTarget)
+            {
+                hostPoint = radarCenter +
+                            _display.CurrentNavigationTarget.RadarPosition * radius;
+            }
+
+            // The leader should terminate inside the scope even if a pointer
+            // landed on the outer frame or the target is currently off-range.
+            Vector2 offset = hostPoint - radarCenter;
+            float maxRadius = Mathf.Max(18f, radius * 0.90f);
+            if (offset.sqrMagnitude > maxRadius * maxRadius)
+            {
+                hostPoint = radarCenter + offset.normalized * maxRadius;
+            }
+
+            return hostPoint;
+        }
+
+        private void ApplyNavigationTargetAtTap()
+        {
+            if (_display == null)
+            {
+                return;
+            }
+
+            Vector3 worldPoint;
+            if (_hasTargetTapDisplayNormalized && _display.DisplayRectTransform != null)
+            {
+                RectTransform displayRect = _display.DisplayRectTransform;
+                Rect displayBounds = displayRect.rect;
+                float displayRadius = Mathf.Min(displayBounds.width, displayBounds.height) * 0.5f;
+                Vector2 displayLocal = displayBounds.center + _targetTapDisplayNormalized * displayRadius;
+                worldPoint = displayRect.TransformPoint(displayLocal);
+            }
+            else if (_hasTargetTap && _hostRect != null)
+            {
+                worldPoint = _hostRect.TransformPoint(_targetTapLocalPoint);
+            }
+            else if (_display.DisplayRectTransform != null)
+            {
+                worldPoint = _display.DisplayRectTransform.TransformPoint(
+                    _display.DisplayRectTransform.rect.center);
+            }
+            else
+            {
+                return;
+            }
+
+            _display.SetNavigationTargetFromWorldPoint(worldPoint, "MAP");
+        }
+
+        private void CaptureTargetTapInDisplaySpace(Vector2 hostLocalPoint)
+        {
+            _hasTargetTapDisplayNormalized = false;
+            if (_display == null || _display.DisplayRectTransform == null || _hostRect == null)
+            {
+                return;
+            }
+
+            RectTransform displayRect = _display.DisplayRectTransform;
+            Rect displayBounds = displayRect.rect;
+            float displayRadius = Mathf.Min(displayBounds.width, displayBounds.height) * 0.5f;
+            if (displayRadius <= 1f)
+            {
+                return;
+            }
+
+            Vector3 tapWorld = _hostRect.TransformPoint(hostLocalPoint);
+            Vector2 displayLocal = displayRect.InverseTransformPoint(tapWorld);
+            Vector2 normalized = (displayLocal - displayBounds.center) / displayRadius;
+            if (normalized.sqrMagnitude > 1f)
+            {
+                normalized = normalized.normalized;
+            }
+
+            _targetTapDisplayNormalized = normalized;
+            _hasTargetTapDisplayNormalized = true;
         }
 
         internal void SetFocusedAction(int actionIndex, bool focused)
@@ -606,6 +734,16 @@ namespace FAA.Customization
                         action.State.text = _display.AutoRangeEnabled
                             ? $"{_display.RangeNM:0} NM · MANUAL"
                             : $"{_display.RangeNM:0} NM · NEXT";
+                        break;
+                    case ActionKind.Target:
+                        // The compact radar has only a narrow action row. Use
+                        // a short label there while retaining the explicit
+                        // wording in pilot-focus view.
+                        bool compactTarget = !_layoutFocused;
+                        action.Title.text = compactTarget ? "TARGET" : "NAV TARGET";
+                        action.State.text = _display.HasNavigationTarget
+                            ? $"{_display.CurrentNavigationTarget.BearingDegrees:000}° · {_display.CurrentNavigationTarget.DistanceNM:0.0} NM"
+                            : compactTarget ? "SET · TAP" : "SET · TAP MAP";
                         break;
                     case ActionKind.Center:
                         action.Title.text = "OWN-SHIP";
@@ -720,6 +858,9 @@ namespace FAA.Customization
                 case ActionKind.Range:
                     _display.CycleRangeManual();
                     break;
+                case ActionKind.Target:
+                    ApplyNavigationTargetAtTap();
+                    break;
                 case ActionKind.Center:
                     _display.ResetMapPan(false);
                     break;
@@ -796,6 +937,7 @@ namespace FAA.Customization
                 case ActionKind.Linework: return "LN";
                 case ActionKind.Map: return "MAP";
                 case ActionKind.Range: return "NM";
+                case ActionKind.Target: return "TGT";
                 case ActionKind.Center: return "AC";
                 default: return "FIT";
             }
@@ -808,6 +950,7 @@ namespace FAA.Customization
                 case ActionKind.Linework: return new Color(0.31f, 0.95f, 0.89f, 1f);
                 case ActionKind.Map: return new Color(0.40f, 0.77f, 1f, 1f);
                 case ActionKind.Range: return new Color(1f, 0.78f, 0.35f, 1f);
+                case ActionKind.Target: return new Color(1f, 0.76f, 0.26f, 1f);
                 case ActionKind.Center: return new Color(0.55f, 1f, 0.62f, 1f);
                 default: return new Color(0.69f, 0.74f, 1f, 1f);
             }
