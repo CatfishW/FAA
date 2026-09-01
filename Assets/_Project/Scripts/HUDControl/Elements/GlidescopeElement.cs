@@ -67,7 +67,7 @@ namespace HUDControl.Elements
 
         [Tooltip("Pulse speed for the selected target cue.")]
         [Min(0f)]
-        [SerializeField] private float navigationTargetPulseSpeed = 2.2f;
+        [SerializeField] private float navigationTargetPulseSpeed = 0.75f;
 
         #endregion
         
@@ -176,8 +176,12 @@ namespace HUDControl.Elements
                     }
                 }
 
-                float halfHeight = Mathf.Max(0.22f, maximumY + 0.045f);
-                float cueWidth = Mathf.Max(0.14f, glidescopeNeedle.rect.width * 2.5f);
+                // Cap the generated cue to the glidescope's authored bounds.
+                // Several XR prefabs report very large sibling rectangles in
+                // normalized units; using those raw values made the amber
+                // target balloon over the entire HUD.
+                float halfHeight = Mathf.Clamp(maximumY + 0.03f, 0.22f, 0.58f);
+                float cueWidth = Mathf.Clamp(glidescopeNeedle.rect.width * 1.45f, 0.14f, 0.30f);
                 cueRect.anchoredPosition = new Vector2(targetX, 0f);
                 cueRect.sizeDelta = new Vector2(cueWidth, halfHeight * 2f);
                 cueRect.localScale = Vector3.one;
@@ -230,7 +234,7 @@ namespace HUDControl.Elements
             float forwardPosition = target.AircraftRelativePosition.y;
             bool edgeClamped = Mathf.Abs(forwardPosition) > window;
             float normalized = Mathf.Clamp(forwardPosition / window, -1f, 1f);
-            navigationTargetPulse += Time.unscaledDeltaTime * Mathf.Max(0f, navigationTargetPulseSpeed);
+            navigationTargetPulse += Time.unscaledDeltaTime * Mathf.Clamp(navigationTargetPulseSpeed, 0f, 0.85f);
             Color tint = target.IsOffscreen
                 ? new Color(1f, 0.62f, 0.18f, 1f)
                 : navigationTargetColor;

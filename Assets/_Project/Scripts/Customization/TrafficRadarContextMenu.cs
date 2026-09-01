@@ -1,5 +1,7 @@
 using System.Collections;
 using System.Collections.Generic;
+using System;
+using System.Globalization;
 using TMPro;
 using TrafficRadar;
 using UnityEngine;
@@ -19,14 +21,17 @@ namespace FAA.Customization
     [AddComponentMenu("FAA/Customization/Traffic Radar Context Menu")]
     public sealed class TrafficRadarContextMenu : MonoBehaviour
     {
-        private const float CompactPanelWidth = 246f;
-        private const float FocusPanelWidth = 350f;
-        private const float CompactRowHeight = 50f;
-        private const float FocusRowHeight = 64f;
-        private const float RowGap = 10f;
-        private const float HeaderHeight = 68f;
+        private const float CompactPanelWidth = 284f;
+        private const float FocusPanelWidth = 386f;
+        private const float CompactRowHeight = 48f;
+        private const float FocusRowHeight = 58f;
+        private const float RowGap = 8f;
+        private const float HeaderHeight = 62f;
         private const float PanelPadding = 14f;
-        private const float RadarGap = 22f;
+        private const float RadarGap = 20f;
+        private const float CompactTopSafeInset = 86f;
+        private const float FocusTopSafeInset = 132f;
+        private const float CoordinateStep = 0.001f;
 
         private static readonly Color Accent = FaaRadarVisualStyle.Accent;
         private static readonly Color PanelColor = FaaRadarVisualStyle.Glass;
@@ -56,6 +61,7 @@ namespace FAA.Customization
             public TMP_Text Icon;
             public TMP_Text Title;
             public TMP_Text State;
+            public Button Button;
             public GameObject GameObject;
         }
 
@@ -90,7 +96,35 @@ namespace FAA.Customization
         private Vector2 _targetTapDisplayNormalized;
         private bool _hasTargetTapDisplayNormalized;
 
+        // Target confirmation dialog state. The dialog is a child of the
+        // same overlay as the quick menu, so it can keep the maximized chart
+        // visible and receive map taps through its non-raycast dimmer.
+        private RectTransform _targetDialogRoot;
+        private RectTransform _targetDialogCard;
+        private CanvasGroup _targetDialogGroup;
+        private TMP_Text _targetDialogHint;
+        private TMP_Text _targetDialogCoordinates;
+        private TMP_Text _targetDialogStatus;
+        private TMP_InputField _latitudeInput;
+        private TMP_InputField _longitudeInput;
+        private Button _targetDialogConfirm;
+        private Button _targetDialogCancel;
+        private Button _targetDialogClear;
+        private bool _targetSetupOpen;
+        private bool _updatingTargetDialog;
+        private readonly List<GameObject> _simulatorInputPanels = new List<GameObject>();
+        private readonly List<bool> _simulatorInputPanelStates = new List<bool>();
+        private bool _simulatorInputPanelStateCaptured;
+
         public bool IsOpen => _targetOpen || _progress > 0.01f;
+        public bool IsTargetSetupOpen => _targetSetupOpen;
+
+        /// <summary>
+        /// UnityEvent/XR-friendly entry points for the explicit target flow.
+        /// </summary>
+        public void OpenNavigationTargetDialog() => BeginTargetSetup();
+        public void ConfirmNavigationTarget() => ConfirmTargetSetup();
+        public void CancelNavigationTarget() => CancelTargetSetup();
 
         public void Configure(TrafficRadarDisplay display, bool useReducedMotion)
         {
@@ -160,6 +194,10 @@ namespace FAA.Customization
 
         public void Close(bool immediate = false)
         {
+            if (_targetSetupOpen)
+            {
+                CancelTargetSetup();
+            }
             _targetOpen = false;
             _interactionLocked = false;
             _selectedAction = null;
@@ -215,10 +253,27 @@ namespace FAA.Customization
             {
                 if (_display != null && _layoutFocused != _display.IsFullscreen)
                 {
+                    if (_targetSetupOpen && !_display.IsFullscreen)
+                    {
+                        CancelTargetSetup();
+                    }
                     LayoutForCurrentRadar(Vector2.zero);
                 }
                 RefreshActionLabels();
                 UpdateLeaderGeometry();
+            }
+
+            if (_targetSetupOpen)
+            {
+                if (_display == null || !_display.IsFullscreen)
+                {
+                    CancelTargetSetup();
+                }
+                else
+                {
+                    LayoutTargetDialog();
+                    RefreshTargetDialog();
+                }
             }
 
             if (!_targetOpen && _progress <= 0.001f && _actionRoutine == null)
@@ -382,18 +437,18 @@ namespace FAA.Customization
 
             RectTransform titleRect = EnsureTextRect(actionRect, "Label", out TMP_Text title);
             titleRect.anchorMin = new Vector2(0f, 0f);
-            titleRect.anchorMax = new Vector2(0.61f, 1f);
+            titleRect.anchorMax = new Vector2(0.68f, 1f);
             titleRect.offsetMin = new Vector2(51f, 0f);
-            titleRect.offsetMax = new Vector2(0f, 0f);
+            titleRect.offsetMax = new Vector2(-4f, 0f);
             title.fontSize = 13f;
             title.fontStyle = FontStyles.Bold;
             title.alignment = TextAlignmentOptions.MidlineLeft;
             title.color = TextColor;
 
             RectTransform stateRect = EnsureTextRect(actionRect, "State", out TMP_Text state);
-            stateRect.anchorMin = new Vector2(0.57f, 0f);
+            stateRect.anchorMin = new Vector2(0.68f, 0f);
             stateRect.anchorMax = new Vector2(1f, 1f);
-            stateRect.offsetMin = Vector2.zero;
+            stateRect.offsetMin = new Vector2(3f, 0f);
             stateRect.offsetMax = new Vector2(-12f, 0f);
             state.fontSize = 10.5f;
             state.fontStyle = FontStyles.Bold;
@@ -410,6 +465,7 @@ namespace FAA.Customization
                 Icon = icon,
                 Title = title,
                 State = state,
+                Button = button,
                 GameObject = actionObject
             });
         }
@@ -442,8 +498,8 @@ namespace FAA.Customization
                 }
 
                 action.Rect.sizeDelta = new Vector2(panelWidth - PanelPadding * 2f, rowHeight);
-                action.Title.fontSize = focused ? 16f : 13.5f;
-                action.State.fontSize = focused ? 12.5f : 11f;
+                action.Title.fontSize = focused ? 14.5f : 12.5f;
+                action.State.fontSize = focused ? 11f : 9.5f;
                 if (action.IconPlate != null)
                 {
                     float iconSize = focused ? 36f : 31f;
@@ -466,7 +522,12 @@ namespace FAA.Customization
 
             if (_headerHint != null)
             {
-                _headerHint.fontSize = focused ? 11.5f : 10f;
+                _headerHint.fontSize = focused ? 10.5f : 9.5f;
+                _headerHint.text = _targetSetupOpen
+                    ? "MAP PREVIEW  ·  CONFIRM OR CANCEL"
+                    : focused
+                        ? "TAP ACTION TO APPLY  ·  TAP RADAR TO CLOSE"
+                        : "FULL MAP TO SET TARGET  ·  TAP RADAR TO CLOSE";
             }
 
             Rect radarRect = _hostRect.rect;
@@ -515,10 +576,33 @@ namespace FAA.Customization
                 desiredX,
                 canvasMin.x + panelWidth * 0.5f + 10f,
                 canvasMax.x - panelWidth * 0.5f - 10f);
-            desiredY = Mathf.Clamp(
-                desiredY,
-                canvasMin.y + panelHeight * 0.5f + 10f,
-                canvasMax.y - panelHeight * 0.5f - 10f);
+            // Leave a deliberate safe band below the horizontal traffic
+            // controls.  The old clamp only guarded the canvas edge, so a
+            // focused menu could slide underneath FULL/CHT/TRK and become
+            // visually and interactively ambiguous.
+            float topSafeInset = focused ? FocusTopSafeInset : CompactTopSafeInset;
+            Transform controls = _canvas != null ? _canvas.transform.Find("TrafficControlStrip") : null;
+            if (controls != null)
+            {
+                RectTransform controlsRect = controls as RectTransform;
+                if (controlsRect != null)
+                {
+                    Vector3[] corners = new Vector3[4];
+                    controlsRect.GetWorldCorners(corners);
+                    float controlsBottom = _hostRect.InverseTransformPoint(corners[0]).y;
+                    topSafeInset = Mathf.Max(topSafeInset, canvasMax.y - controlsBottom + (focused ? 18f : 12f));
+                }
+            }
+
+            float minPanelY = canvasMin.y + panelHeight * 0.5f + 10f;
+            float maxPanelY = canvasMax.y - panelHeight * 0.5f - topSafeInset;
+            if (maxPanelY < minPanelY)
+            {
+                // On a very short XR viewport, preserve visibility rather
+                // than producing an inverted Clamp range.
+                maxPanelY = canvasMax.y - panelHeight * 0.5f - 10f;
+            }
+            desiredY = Mathf.Clamp(desiredY, minPanelY, Mathf.Max(minPanelY, maxPanelY));
             _panelRestPosition = new Vector2(desiredX, desiredY);
             _panel.anchoredPosition = _panelRestPosition;
             UpdateLeaderGeometry();
@@ -635,35 +719,642 @@ namespace FAA.Customization
 
         private void ApplyNavigationTargetAtTap()
         {
-            if (_display == null)
+            BeginTargetSetup();
+        }
+
+        private void BeginTargetSetup()
+        {
+            if (_display == null || !_display.CanSetNavigationTarget)
             {
                 return;
             }
 
-            Vector3 worldPoint;
-            if (_hasTargetTapDisplayNormalized && _display.DisplayRectTransform != null)
+            EnsureTargetDialog();
+            _targetSetupOpen = true;
+            _interactionLocked = false;
+            _selectedAction = ActionKind.Target;
+            SetSimulatorFeedbackVisible(false);
+
+            // Start from the previously committed waypoint when editing;
+            // otherwise use the original tap (or the scope centre) as the
+            // first candidate. Nothing is committed until CONFIRM TARGET.
+            _display.ClearNavigationPreview();
+            if (_display.HasNavigationTarget && _display.CurrentNavigationTarget.HasGeoPosition)
+            {
+                _display.SetNavigationPreview(
+                    _display.CurrentNavigationTarget.Latitude,
+                    _display.CurrentNavigationTarget.Longitude,
+                    "EDIT");
+            }
+            else if (_hasTargetTapDisplayNormalized && _display.DisplayRectTransform != null)
             {
                 RectTransform displayRect = _display.DisplayRectTransform;
                 Rect displayBounds = displayRect.rect;
                 float displayRadius = Mathf.Min(displayBounds.width, displayBounds.height) * 0.5f;
                 Vector2 displayLocal = displayBounds.center + _targetTapDisplayNormalized * displayRadius;
-                worldPoint = displayRect.TransformPoint(displayLocal);
-            }
-            else if (_hasTargetTap && _hostRect != null)
-            {
-                worldPoint = _hostRect.TransformPoint(_targetTapLocalPoint);
+                _display.SetNavigationPreviewFromLocalPoint(displayLocal, "MAP");
             }
             else if (_display.DisplayRectTransform != null)
             {
-                worldPoint = _display.DisplayRectTransform.TransformPoint(
-                    _display.DisplayRectTransform.rect.center);
+                _display.SetNavigationPreviewFromLocalPoint(
+                    _display.DisplayRectTransform.rect.center,
+                    "MAP");
             }
-            else
+
+            if (_panel != null)
+            {
+                _panel.gameObject.SetActive(false);
+            }
+            if (_leaders != null)
+            {
+                _leaders.gameObject.SetActive(false);
+            }
+            _targetDialogRoot.gameObject.SetActive(true);
+            LayoutTargetDialog();
+            RefreshTargetDialog(true);
+            RefreshActionLabels();
+        }
+
+        /// <summary>
+        /// Called by the interaction surface while the confirmation dialog is
+        /// open. A map tap updates only the cyan preview marker and coordinate
+        /// fields; it never closes the menu or commits a destination.
+        /// </summary>
+        public void HandleMapTapFromScreenPoint(Vector2 screenPoint, Camera eventCamera)
+        {
+            if (!_targetSetupOpen || _display == null || !_display.CanSetNavigationTarget)
             {
                 return;
             }
 
-            _display.SetNavigationTargetFromWorldPoint(worldPoint, "MAP");
+            if (_display.SetNavigationPreviewFromScreenPoint(screenPoint, eventCamera, "MAP"))
+            {
+                RefreshTargetDialog(true);
+            }
+        }
+
+        private void ConfirmTargetSetup()
+        {
+            if (_display == null || !_display.CommitNavigationPreview())
+            {
+                SetTargetDialogStatus("SELECT A VALID MAP POINT OR COORDINATES");
+                return;
+            }
+
+            CloseTargetDialog(false);
+            _selectedAction = null;
+            _targetOpen = true;
+            _interactionLocked = false;
+            RefreshActionLabels();
+            LayoutForCurrentRadar(Vector2.zero);
+        }
+
+        private void CancelTargetSetup()
+        {
+            if (!_targetSetupOpen && _targetDialogRoot == null)
+            {
+                return;
+            }
+
+            _display?.ClearNavigationPreview();
+            CloseTargetDialog(false);
+            _selectedAction = null;
+            _interactionLocked = false;
+            RefreshActionLabels();
+        }
+
+        private void ClearCommittedTargetFromDialog()
+        {
+            _display?.ClearNavigationTarget();
+            _display?.ClearNavigationPreview();
+            CloseTargetDialog(false);
+            _selectedAction = null;
+            _interactionLocked = false;
+            RefreshActionLabels();
+        }
+
+        private void CloseTargetDialog(bool immediate)
+        {
+            _targetSetupOpen = false;
+            if (_targetDialogRoot != null)
+            {
+                _targetDialogRoot.gameObject.SetActive(false);
+            }
+            SetSimulatorFeedbackVisible(true);
+            if (_panel != null)
+            {
+                _panel.gameObject.SetActive(_targetOpen);
+            }
+            if (_leaders != null)
+            {
+                _leaders.gameObject.SetActive(_targetOpen);
+            }
+            if (immediate)
+            {
+                if (_targetDialogGroup != null)
+                {
+                    _targetDialogGroup.alpha = 0f;
+                }
+            }
+        }
+
+        private void LayoutTargetDialog()
+        {
+            if (_targetDialogCard == null || _targetDialogRoot == null)
+            {
+                return;
+            }
+
+            // Keep the scope centre open for map taps. The card is docked to
+            // the left edge of the maximized radar when there is room and
+            // falls back to centre only on unusually narrow XR viewports.
+            Rect bounds = _targetDialogRoot.rect;
+            Vector2 cardSize = _targetDialogCard.rect.size;
+            float halfWidth = Mathf.Max(1f, bounds.width * 0.5f);
+            float halfHeight = Mathf.Max(1f, bounds.height * 0.5f);
+            float x = -halfWidth + cardSize.x * 0.5f + 14f;
+            if (bounds.width < cardSize.x + 28f)
+            {
+                x = 0f;
+            }
+
+            float y = Mathf.Clamp(
+                -18f,
+                -halfHeight + cardSize.y * 0.5f + 14f,
+                halfHeight - cardSize.y * 0.5f - 14f);
+            _targetDialogCard.anchoredPosition = new Vector2(x, y);
+        }
+
+        private void SetSimulatorFeedbackVisible(bool visible)
+        {
+            if (!visible && !_simulatorInputPanelStateCaptured)
+            {
+                _simulatorInputPanels.Clear();
+                _simulatorInputPanelStates.Clear();
+                GameObject[] candidates = FindObjectsByType<GameObject>(
+                    FindObjectsInactive.Include,
+                    FindObjectsSortMode.None);
+                for (int i = 0; i < candidates.Length; i++)
+                {
+                    GameObject candidate = candidates[i];
+                    if (candidate == null ||
+                        (candidate.name != "SelectedInputFeedbackPanel" &&
+                         candidate.name != "InputSelectionClosedWindow" &&
+                         candidate.name != "InputSelectionWindow"))
+                    {
+                        continue;
+                    }
+
+                    bool underSimulator = false;
+                    Transform ancestor = candidate.transform.parent;
+                    while (ancestor != null)
+                    {
+                        if (ancestor.name == "XR Interaction Simulator UI")
+                        {
+                            underSimulator = true;
+                            break;
+                        }
+
+                        ancestor = ancestor.parent;
+                    }
+
+                    if (underSimulator)
+                    {
+                        _simulatorInputPanels.Add(candidate);
+                        _simulatorInputPanelStates.Add(candidate.activeSelf);
+                    }
+                }
+
+                _simulatorInputPanelStateCaptured = true;
+            }
+
+            if (!visible && !_simulatorInputPanelStateCaptured)
+            {
+                return;
+            }
+
+            if (!visible)
+            {
+                for (int i = 0; i < _simulatorInputPanels.Count; i++)
+                {
+                    if (_simulatorInputPanels[i] != null)
+                    {
+                        _simulatorInputPanels[i].SetActive(false);
+                    }
+                }
+            }
+            else if (_simulatorInputPanelStateCaptured)
+            {
+                for (int i = 0; i < _simulatorInputPanels.Count; i++)
+                {
+                    if (_simulatorInputPanels[i] != null)
+                    {
+                        _simulatorInputPanels[i].SetActive(_simulatorInputPanelStates[i]);
+                    }
+                }
+
+                _simulatorInputPanels.Clear();
+                _simulatorInputPanelStates.Clear();
+                _simulatorInputPanelStateCaptured = false;
+            }
+        }
+
+        private void EnsureTargetDialog()
+        {
+            if (_targetDialogRoot != null)
+            {
+                return;
+            }
+
+            GameObject rootObject = new GameObject(
+                "NavigationTargetDialog",
+                typeof(RectTransform),
+                typeof(CanvasGroup));
+            rootObject.transform.SetParent(_visualRoot, false);
+            _targetDialogRoot = rootObject.GetComponent<RectTransform>();
+            Stretch(_targetDialogRoot);
+            _targetDialogGroup = rootObject.GetComponent<CanvasGroup>();
+            _targetDialogGroup.alpha = 1f;
+            _targetDialogGroup.interactable = true;
+            // Ignore the quick-menu CanvasGroup while the modal is open. The
+            // card/buttons receive pointer/XR raycasts, while the dimmer has
+            // raycastTarget=false so map taps outside the card pass through to
+            // the interaction surface.
+            _targetDialogGroup.blocksRaycasts = true;
+            _targetDialogGroup.ignoreParentGroups = true;
+
+            GameObject dimObject = new GameObject(
+                "Dimmer",
+                typeof(RectTransform),
+                typeof(CanvasRenderer),
+                typeof(Image));
+            dimObject.transform.SetParent(_targetDialogRoot, false);
+            RectTransform dimRect = dimObject.GetComponent<RectTransform>();
+            Stretch(dimRect);
+            Image dim = dimObject.GetComponent<Image>();
+            dim.color = new Color(0.002f, 0.012f, 0.018f, 0.28f);
+            dim.raycastTarget = false;
+
+            GameObject cardObject = new GameObject(
+                "TargetSetupCard",
+                typeof(RectTransform),
+                typeof(CanvasRenderer),
+                typeof(Image),
+                typeof(Outline));
+            cardObject.transform.SetParent(_targetDialogRoot, false);
+            _targetDialogCard = cardObject.GetComponent<RectTransform>();
+            _targetDialogCard.anchorMin = new Vector2(0.5f, 0.5f);
+            _targetDialogCard.anchorMax = new Vector2(0.5f, 0.5f);
+            _targetDialogCard.pivot = new Vector2(0.5f, 0.5f);
+            _targetDialogCard.anchoredPosition = new Vector2(-226f, -18f);
+            _targetDialogCard.sizeDelta = new Vector2(430f, 360f);
+            Image cardImage = cardObject.GetComponent<Image>();
+            FaaRadarVisualStyle.ApplyRounded(cardImage, new Color(0.008f, 0.045f, 0.055f, 0.985f), 16);
+            cardImage.raycastTarget = true;
+            Outline cardOutline = cardObject.GetComponent<Outline>();
+            cardOutline.effectColor = new Color(FaaRadarVisualStyle.Accent.r, FaaRadarVisualStyle.Accent.g, FaaRadarVisualStyle.Accent.b, 0.30f);
+            cardOutline.effectDistance = new Vector2(1f, -1f);
+            FaaRadarVisualStyle.EnsureDropShadow(
+                cardObject,
+                new Color(0f, 0.004f, 0.008f, 0.88f),
+                new Vector2(8f, -10f));
+
+            TMP_Text title = CreateDialogText(_targetDialogCard, "Title", "SET NAVIGATION TARGET", 18f, TextColor, FontStyles.Bold);
+            title.alignment = TextAlignmentOptions.TopLeft;
+            title.rectTransform.anchorMin = new Vector2(0f, 1f);
+            title.rectTransform.anchorMax = new Vector2(1f, 1f);
+            title.rectTransform.pivot = new Vector2(0.5f, 1f);
+            title.rectTransform.offsetMin = new Vector2(22f, -42f);
+            title.rectTransform.offsetMax = new Vector2(-22f, -14f);
+            _targetDialogHint = CreateDialogText(_targetDialogCard, "Hint", "TAP THE MAP TO PREVIEW  ·  COORDINATES STAY UNCOMMITTED", 10f, StateColor, FontStyles.Normal);
+            _targetDialogHint.alignment = TextAlignmentOptions.TopLeft;
+            _targetDialogHint.rectTransform.anchorMin = new Vector2(0f, 1f);
+            _targetDialogHint.rectTransform.anchorMax = new Vector2(1f, 1f);
+            _targetDialogHint.rectTransform.pivot = new Vector2(0.5f, 1f);
+            _targetDialogHint.rectTransform.offsetMin = new Vector2(22f, -68f);
+            _targetDialogHint.rectTransform.offsetMax = new Vector2(-22f, -46f);
+
+            CreateDialogText(_targetDialogCard, "LatitudeLabel", "LATITUDE", 10f, StateColor, FontStyles.Bold,
+                new Vector2(-194f, 92f), new Vector2(-108f, 116f));
+            CreateDialogText(_targetDialogCard, "LongitudeLabel", "LONGITUDE", 10f, StateColor, FontStyles.Bold,
+                new Vector2(-194f, 42f), new Vector2(-108f, 66f));
+            _latitudeInput = CreateCoordinateInput(_targetDialogCard, "LatitudeInput", "37.00000", new Vector2(-46f, 88f));
+            _longitudeInput = CreateCoordinateInput(_targetDialogCard, "LongitudeInput", "-75.00000", new Vector2(-46f, 38f));
+
+            CreateDialogButton(_targetDialogCard, "LatMinus", "−", new Vector2(106f, 88f), new Vector2(34f, 34f), () => NudgeCoordinate(true, -CoordinateStep));
+            CreateDialogButton(_targetDialogCard, "LatPlus", "+", new Vector2(146f, 88f), new Vector2(34f, 34f), () => NudgeCoordinate(true, CoordinateStep));
+            CreateDialogButton(_targetDialogCard, "LonMinus", "−", new Vector2(106f, 38f), new Vector2(34f, 34f), () => NudgeCoordinate(false, -CoordinateStep));
+            CreateDialogButton(_targetDialogCard, "LonPlus", "+", new Vector2(146f, 38f), new Vector2(34f, 34f), () => NudgeCoordinate(false, CoordinateStep));
+
+            _targetDialogCoordinates = CreateDialogText(_targetDialogCard, "Coordinates", "PREVIEW  —", 12f, TextColor, FontStyles.Bold,
+                new Vector2(-194f, -4f), new Vector2(194f, 22f));
+            _targetDialogCoordinates.alignment = TextAlignmentOptions.MidlineLeft;
+            _targetDialogStatus = CreateDialogText(_targetDialogCard, "Status", "SELECT A POINT TO CONTINUE", 10f, StateColor, FontStyles.Normal,
+                new Vector2(-194f, -34f), new Vector2(194f, -10f));
+            _targetDialogStatus.alignment = TextAlignmentOptions.MidlineLeft;
+
+            _targetDialogCancel = CreateDialogButton(_targetDialogCard, "Cancel", "CANCEL", new Vector2(-128f, -142f), new Vector2(102f, 42f), CancelTargetSetup);
+            _targetDialogClear = CreateDialogButton(_targetDialogCard, "Clear", "CLEAR ACTIVE", new Vector2(0f, -142f), new Vector2(122f, 42f), ClearCommittedTargetFromDialog);
+            _targetDialogConfirm = CreateDialogButton(_targetDialogCard, "Confirm", "CONFIRM TARGET", new Vector2(138f, -142f), new Vector2(144f, 42f), ConfirmTargetSetup);
+
+            _latitudeInput.onEndEdit.AddListener(_ => OnCoordinateInputEdited());
+            _longitudeInput.onEndEdit.AddListener(_ => OnCoordinateInputEdited());
+            rootObject.transform.SetAsLastSibling();
+            rootObject.SetActive(false);
+            LayoutTargetDialog();
+        }
+
+        private TMP_Text CreateDialogText(
+            RectTransform parent,
+            string name,
+            string value,
+            float fontSize,
+            Color color,
+            FontStyles style,
+            Vector2? anchoredMin = null,
+            Vector2? anchoredMax = null)
+        {
+            RectTransform rect = EnsureTextRect(parent, name, out TMP_Text text);
+            if (anchoredMin.HasValue && anchoredMax.HasValue)
+            {
+                rect.anchorMin = new Vector2(0.5f, 0.5f);
+                rect.anchorMax = new Vector2(0.5f, 0.5f);
+                rect.pivot = new Vector2(0.5f, 0.5f);
+                rect.anchoredPosition = (anchoredMin.Value + anchoredMax.Value) * 0.5f;
+                rect.sizeDelta = anchoredMax.Value - anchoredMin.Value;
+            }
+            text.text = value;
+            text.fontSize = fontSize;
+            text.fontStyle = style;
+            text.color = color;
+            text.enableAutoSizing = false;
+            text.textWrappingMode = TextWrappingModes.NoWrap;
+            text.overflowMode = TextOverflowModes.Ellipsis;
+            text.raycastTarget = false;
+            return text;
+        }
+
+        private TMP_InputField CreateCoordinateInput(
+            RectTransform parent,
+            string name,
+            string placeholder,
+            Vector2 position)
+        {
+            GameObject inputObject = new GameObject(
+                name,
+                typeof(RectTransform),
+                typeof(CanvasRenderer),
+                typeof(Image),
+                typeof(TMP_InputField));
+            inputObject.transform.SetParent(parent, false);
+            RectTransform rect = inputObject.GetComponent<RectTransform>();
+            rect.anchorMin = new Vector2(0.5f, 0.5f);
+            rect.anchorMax = new Vector2(0.5f, 0.5f);
+            rect.pivot = new Vector2(0.5f, 0.5f);
+            rect.anchoredPosition = position;
+            rect.sizeDelta = new Vector2(144f, 34f);
+            Image image = inputObject.GetComponent<Image>();
+            FaaRadarVisualStyle.ApplyRounded(image, new Color(0.015f, 0.095f, 0.105f, 1f), 8);
+            image.raycastTarget = true;
+
+            TMP_InputField field = inputObject.GetComponent<TMP_InputField>();
+            field.contentType = TMP_InputField.ContentType.DecimalNumber;
+            field.lineType = TMP_InputField.LineType.SingleLine;
+            field.characterValidation = TMP_InputField.CharacterValidation.Decimal;
+            field.caretWidth = 2;
+            field.selectionColor = new Color(FaaRadarVisualStyle.Accent.r, FaaRadarVisualStyle.Accent.g, FaaRadarVisualStyle.Accent.b, 0.26f);
+
+            RectTransform textRect = EnsureTextRect(rect, "Text", out TMP_Text text);
+            Stretch(textRect);
+            textRect.offsetMin = new Vector2(10f, 3f);
+            textRect.offsetMax = new Vector2(-10f, -3f);
+            text.fontSize = 14f;
+            text.fontStyle = FontStyles.Bold;
+            text.color = TextColor;
+            text.alignment = TextAlignmentOptions.MidlineLeft;
+            text.textWrappingMode = TextWrappingModes.NoWrap;
+            text.overflowMode = TextOverflowModes.Ellipsis;
+            field.textComponent = text as TMP_Text;
+
+            RectTransform placeholderRect = EnsureTextRect(rect, "Placeholder", out TMP_Text placeholderText);
+            Stretch(placeholderRect);
+            placeholderRect.offsetMin = new Vector2(10f, 3f);
+            placeholderRect.offsetMax = new Vector2(-10f, -3f);
+            placeholderText.fontSize = 12f;
+            placeholderText.color = StateColor;
+            placeholderText.alignment = TextAlignmentOptions.MidlineLeft;
+            placeholderText.text = placeholder;
+            field.placeholder = placeholderText;
+            field.text = string.Empty;
+            return field;
+        }
+
+        private Button CreateDialogButton(
+            RectTransform parent,
+            string name,
+            string label,
+            Vector2 position,
+            Vector2 size,
+            UnityEngine.Events.UnityAction action)
+        {
+            GameObject buttonObject = new GameObject(
+                name,
+                typeof(RectTransform),
+                typeof(CanvasRenderer),
+                typeof(Image),
+                typeof(Button));
+            buttonObject.transform.SetParent(parent, false);
+            RectTransform rect = buttonObject.GetComponent<RectTransform>();
+            rect.anchorMin = new Vector2(0.5f, 0.5f);
+            rect.anchorMax = new Vector2(0.5f, 0.5f);
+            rect.pivot = new Vector2(0.5f, 0.5f);
+            rect.anchoredPosition = position;
+            rect.sizeDelta = size;
+            Image image = buttonObject.GetComponent<Image>();
+            FaaRadarVisualStyle.ApplyRounded(image, FaaRadarVisualStyle.GlassRaised, 9);
+            Button button = buttonObject.GetComponent<Button>();
+            FaaRadarVisualStyle.ConfigureButton(button, image);
+            button.onClick.AddListener(action);
+            TMP_Text text = CreateDialogText(rect, "Label", label, 11f, TextColor, FontStyles.Bold);
+            Stretch(text.rectTransform);
+            text.alignment = TextAlignmentOptions.Center;
+            text.fontSize = size.x > 130f ? 10.5f : 10f;
+            return button;
+        }
+
+        private void RefreshTargetDialog(bool force = false)
+        {
+            if (!_targetSetupOpen || _display == null || _targetDialogRoot == null)
+            {
+                return;
+            }
+
+            RadarNavigationTarget preview = _display.CurrentNavigationPreview;
+            if (preview.HasGeoPosition)
+            {
+                _updatingTargetDialog = true;
+                if (force || _latitudeInput == null || !_latitudeInput.isFocused)
+                {
+                    SetCoordinateInputText(
+                        _latitudeInput,
+                        preview.Latitude.ToString("0.00000", CultureInfo.InvariantCulture));
+                }
+                if (force || _longitudeInput == null || !_longitudeInput.isFocused)
+                {
+                    SetCoordinateInputText(
+                        _longitudeInput,
+                        preview.Longitude.ToString("0.00000", CultureInfo.InvariantCulture));
+                }
+                _updatingTargetDialog = false;
+            }
+
+            if (_targetDialogCoordinates != null)
+            {
+                _targetDialogCoordinates.text = preview.IsValid && preview.HasGeoPosition
+                    ? $"PREVIEW  {FormatCoordinate(preview.Latitude, true)}  {FormatCoordinate(preview.Longitude, false)}"
+                    : "PREVIEW  —  TAP THE MAP OR ENTER COORDINATES";
+            }
+
+            if (_targetDialogStatus != null && string.IsNullOrEmpty(_targetDialogStatus.text))
+            {
+                SetTargetDialogStatus("SELECT A POINT TO CONTINUE");
+            }
+
+            if (_targetDialogConfirm != null)
+            {
+                _targetDialogConfirm.interactable = preview.IsValid && preview.HasGeoPosition;
+            }
+            if (_targetDialogClear != null)
+            {
+                _targetDialogClear.interactable = _display.HasNavigationTarget;
+            }
+        }
+
+        private void SetTargetDialogStatus(string message)
+        {
+            if (_targetDialogStatus != null)
+            {
+                _targetDialogStatus.text = message;
+            }
+        }
+
+        private static void SetCoordinateInputText(TMP_InputField field, string value)
+        {
+            if (field == null)
+            {
+                return;
+            }
+
+            field.text = value ?? string.Empty;
+            // TMP_InputField normally toggles its placeholder from its own
+            // editing callbacks. Runtime-created fields can be refreshed
+            // before that initialization pass, so keep the two graphics
+            // explicit and force the label mesh immediately.
+            if (field.placeholder != null)
+            {
+                field.placeholder.gameObject.SetActive(string.IsNullOrEmpty(field.text));
+            }
+
+            field.ForceLabelUpdate();
+        }
+
+        private void OnCoordinateInputEdited()
+        {
+            if (_updatingTargetDialog || !_targetSetupOpen || _display == null)
+            {
+                return;
+            }
+
+            if (!TryReadCoordinateInputs(out double latitude, out double longitude))
+            {
+                SetTargetDialogStatus("ENTER VALID DECIMAL LAT / LON");
+                return;
+            }
+
+            if (_display.SetNavigationPreview(latitude, longitude, "LAT/LON"))
+            {
+                SetTargetDialogStatus("COORDINATE PREVIEW READY  ·  CONFIRM TARGET");
+                RefreshTargetDialog(true);
+            }
+            else
+            {
+                SetTargetDialogStatus("LAT −90…90  ·  LON −180…180");
+            }
+        }
+
+        private bool TryReadCoordinateInputs(out double latitude, out double longitude)
+        {
+            latitude = 0d;
+            longitude = 0d;
+            if (_latitudeInput == null || _longitudeInput == null)
+            {
+                return false;
+            }
+
+            return double.TryParse(
+                       _latitudeInput.text,
+                       NumberStyles.Float,
+                       CultureInfo.InvariantCulture,
+                       out latitude) &&
+                   double.TryParse(
+                       _longitudeInput.text,
+                       NumberStyles.Float,
+                       CultureInfo.InvariantCulture,
+                       out longitude) &&
+                   latitude >= -90d && latitude <= 90d &&
+                   longitude >= -180d && longitude <= 180d;
+        }
+
+        private void NudgeCoordinate(bool latitudeAxis, float delta)
+        {
+            if (_display == null || !_targetSetupOpen)
+            {
+                return;
+            }
+
+            RadarNavigationTarget preview = _display.CurrentNavigationPreview;
+            double latitude = preview.HasGeoPosition ? preview.Latitude : 0d;
+            double longitude = preview.HasGeoPosition ? preview.Longitude : 0d;
+            if (!preview.HasGeoPosition && !_display.TryGetOwnshipCoordinates(out latitude, out longitude, out _))
+            {
+                SetTargetDialogStatus("PICK A MAP POINT FIRST");
+                return;
+            }
+
+            if (latitudeAxis)
+            {
+                latitude = MathdClamp(latitude + delta, -90d, 90d);
+            }
+            else
+            {
+                longitude = WrapLongitude(longitude + delta);
+            }
+
+            if (_display.SetNavigationPreview(latitude, longitude, "LAT/LON"))
+            {
+                SetTargetDialogStatus("ADJUSTED 0.001°  ·  CONFIRM TARGET");
+                RefreshTargetDialog(true);
+            }
+        }
+
+        private static double MathdClamp(double value, double minimum, double maximum)
+        {
+            return Math.Max(minimum, Math.Min(maximum, value));
+        }
+
+        private static double WrapLongitude(double value)
+        {
+            while (value > 180d) value -= 360d;
+            while (value < -180d) value += 360d;
+            return value;
+        }
+
+        private static string FormatCoordinate(double value, bool latitude)
+        {
+            string hemi = latitude
+                ? value >= 0d ? "N" : "S"
+                : value >= 0d ? "E" : "W";
+            return $"{Math.Abs(value):0.00000}°{hemi}";
         }
 
         private void CaptureTargetTapInDisplaySpace(Vector2 hostLocalPoint)
@@ -722,28 +1413,33 @@ namespace FAA.Customization
                 switch (action.Kind)
                 {
                     case ActionKind.Linework:
-                        action.Title.text = "GUIDE LINES";
+                        action.Title.text = _layoutFocused ? "GUIDE LINES" : "LINES";
                         action.State.text = _display.ReferenceLineworkVisible ? "HIDE" : "SHOW";
                         break;
                     case ActionKind.Map:
-                        action.Title.text = "MAP SOURCE";
-                        action.State.text = $"{CompactSourceName(_display.MapSourceName)} · SWITCH";
+                        action.Title.text = _layoutFocused ? "MAP SOURCE" : "MAP";
+                        action.State.text = _layoutFocused
+                            ? $"{CompactSourceName(_display.MapSourceName)} · SWITCH"
+                            : CompactSourceName(_display.MapSourceName);
                         break;
                     case ActionKind.Range:
                         action.Title.text = "RANGE";
-                        action.State.text = _display.AutoRangeEnabled
-                            ? $"{_display.RangeNM:0} NM · MANUAL"
-                            : $"{_display.RangeNM:0} NM · NEXT";
+                        action.State.text = _layoutFocused
+                            ? _display.AutoRangeEnabled
+                                ? $"{_display.RangeNM:0} NM · MANUAL"
+                                : $"{_display.RangeNM:0} NM · NEXT"
+                            : $"{_display.RangeNM:0} NM";
                         break;
                     case ActionKind.Target:
-                        // The compact radar has only a narrow action row. Use
-                        // a short label there while retaining the explicit
-                        // wording in pilot-focus view.
                         bool compactTarget = !_layoutFocused;
-                        action.Title.text = compactTarget ? "TARGET" : "NAV TARGET";
+                        action.Title.text = compactTarget
+                            ? "TARGET"
+                            : _display.HasNavigationTarget ? "EDIT TARGET" : "SET TARGET";
                         action.State.text = _display.HasNavigationTarget
-                            ? $"{_display.CurrentNavigationTarget.BearingDegrees:000}° · {_display.CurrentNavigationTarget.DistanceNM:0.0} NM"
-                            : compactTarget ? "SET · TAP" : "SET · TAP MAP";
+                            ? compactTarget
+                                ? "FULL · EDIT"
+                                : $"{_display.CurrentNavigationTarget.BearingDegrees:000}° · {_display.CurrentNavigationTarget.DistanceNM:0.0} NM"
+                            : compactTarget ? "FULL TO SET" : "TAP MAP";
                         break;
                     case ActionKind.Center:
                         action.Title.text = "OWN-SHIP";
@@ -757,6 +1453,12 @@ namespace FAA.Customization
 
                 bool selected = _selectedAction.HasValue && _selectedAction.Value == action.Kind;
                 bool focused = _focusedAction.HasValue && _focusedAction.Value == action.Kind;
+                bool available = action.Kind != ActionKind.Target ||
+                                 (_layoutFocused && !_targetSetupOpen);
+                if (action.Button != null)
+                {
+                    action.Button.interactable = available && !_interactionLocked;
+                }
                 Color actionColor = GetActionColor(action.Kind);
                 action.Background.color = selected
                     ? ButtonPressColor
@@ -785,13 +1487,32 @@ namespace FAA.Customization
                         actionColor.b,
                         selected || focused ? 1f : 0.78f);
                 }
-                action.State.color = selected || focused ? actionColor : StateColor;
+                float textAlpha = available ? 1f : 0.42f;
+                action.State.color = new Color(
+                    (selected || focused ? actionColor : StateColor).r,
+                    (selected || focused ? actionColor : StateColor).g,
+                    (selected || focused ? actionColor : StateColor).b,
+                    (selected || focused ? actionColor : StateColor).a * textAlpha);
+                if (action.Title != null)
+                {
+                    action.Title.color = new Color(TextColor.r, TextColor.g, TextColor.b, textAlpha);
+                }
+            }
+
+            if (_headerHint != null)
+            {
+                _headerHint.text = _targetSetupOpen
+                    ? "MAP PREVIEW  ·  CONFIRM OR CANCEL"
+                    : _layoutFocused
+                        ? "TAP ACTION TO APPLY  ·  TAP RADAR TO CLOSE"
+                        : "FULL MAP TO SET TARGET  ·  TAP RADAR TO CLOSE";
             }
         }
 
         private void BeginAction(ActionKind kind)
         {
-            if (_interactionLocked || _display == null)
+            if (_interactionLocked || _display == null ||
+                (kind == ActionKind.Target && (!_layoutFocused || _targetSetupOpen)))
             {
                 return;
             }
@@ -859,7 +1580,7 @@ namespace FAA.Customization
                     _display.CycleRangeManual();
                     break;
                 case ActionKind.Target:
-                    ApplyNavigationTargetAtTap();
+                    BeginTargetSetup();
                     break;
                 case ActionKind.Center:
                     _display.ResetMapPan(false);

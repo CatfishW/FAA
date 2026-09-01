@@ -68,7 +68,7 @@ namespace HUDControl.Elements
 
         [Tooltip("Pulse speed for the selected target cue.")]
         [Min(0f)]
-        [SerializeField] private float navigationTargetPulseSpeed = 2.2f;
+        [SerializeField] private float navigationTargetPulseSpeed = 0.75f;
 
         #endregion
         
@@ -205,7 +205,7 @@ namespace HUDControl.Elements
             float relativeBearing = Mathf.DeltaAngle(0f, target.RelativeBearingDegrees);
             bool edgeClamped = Mathf.Abs(relativeBearing) > window;
             float normalized = Mathf.Clamp(relativeBearing / window, -1f, 1f);
-            navigationTargetPulse += Time.unscaledDeltaTime * Mathf.Max(0f, navigationTargetPulseSpeed);
+            navigationTargetPulse += Time.unscaledDeltaTime * Mathf.Clamp(navigationTargetPulseSpeed, 0f, 0.85f);
             Color tint = target.IsOffscreen
                 ? new Color(1f, 0.62f, 0.18f, 1f)
                 : navigationTargetColor;
@@ -277,8 +277,11 @@ namespace HUDControl.Elements
             float width = Mathf.Max(0.001f, rect.width);
             float height = Mathf.Max(0.001f, rect.height);
             float minimum = Mathf.Min(width, height);
-            float radius = Mathf.Max(0.0025f, minimum * 0.24f);
-            float stroke = Mathf.Max(0.0012f, minimum * 0.055f);
+            // Keep the cue subordinate to the existing CDI/GS symbology. The
+            // previous 24% radius and 2.2x pulse rate read as a flashing
+            // oversized waypoint in the XR-3 view.
+            float radius = Mathf.Max(0.0025f, minimum * 0.14f);
+            float stroke = Mathf.Max(0.0012f, minimum * 0.034f);
             bool horizontal = width >= height;
             Vector2 center = rect.center;
             float travel = (horizontal ? width : height) * 0.5f - radius * 1.35f;
@@ -302,8 +305,8 @@ namespace HUDControl.Elements
             AddDisc(vertexHelper, target, radius * 0.24f, new Color(0.98f, 1f, 0.92f, 1f), 14);
 
             float phase = Mathf.Repeat(pulse, 1f);
-            float pulseRadius = radius * (1.45f + phase * 1.25f);
-            float pulseAlpha = 0.66f * (1f - phase);
+            float pulseRadius = radius * (1.16f + phase * 0.66f);
+            float pulseAlpha = 0.34f * (1f - phase);
             AddRing(
                 vertexHelper,
                 target,

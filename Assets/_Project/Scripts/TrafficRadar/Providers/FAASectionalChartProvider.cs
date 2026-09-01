@@ -1117,9 +1117,12 @@ namespace TrafficRadar
 
             // World Navigation Charts exposes LOD 0-10.  Keep the request in
             // that range while retaining the existing range-to-zoom mapping.
+            // The old minimum of four made a 150 NM focus view look like a
+            // blurry world map. LOD 8 is still within the service's coverage
+            // and keeps aeronautical labels readable on the XR-3 display.
             if (mapSource == FAAChartMapSource.WorldAeronautical)
             {
-                return Mathf.Clamp(requested, 4, 10);
+                return Mathf.Clamp(requested, 8, 10);
             }
 
             return requested;

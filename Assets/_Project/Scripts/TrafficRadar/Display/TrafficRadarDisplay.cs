@@ -221,7 +221,7 @@ namespace TrafficRadar
 
         [Tooltip("Pulse speed for the selected target cue.")]
         [Min(0f)]
-        [SerializeField] private float navigationTargetPulseSpeed = 2.2f;
+        [SerializeField] private float navigationTargetPulseSpeed = 0.75f;
 
         [Tooltip("Maximum radial position used when a target is beyond the selected range.")]
         [Range(0.72f, 0.96f)]
@@ -276,14 +276,22 @@ namespace TrafficRadar
         // graphic rather than texture pixels, so it remains sharp in the XR-3
         // simulator and in the maximized map view.
         private RadarNavigationTargetGraphic _navigationTargetGraphic;
+        private RadarNavigationTargetGraphic _navigationPreviewGraphic;
         private RadarNavigationTarget _navigationTarget = RadarNavigationTarget.Empty;
+        private RadarNavigationTarget _navigationPreview = RadarNavigationTarget.Empty;
         private RadarNavigationTarget _lastPublishedNavigationTarget = RadarNavigationTarget.Empty;
         private Vector2 _navigationTargetLocalNormalized;
+        private Vector2 _navigationPreviewLocalNormalized;
         private bool _navigationTargetHasGeoPosition;
+        private bool _navigationPreviewHasGeoPosition;
         private double _navigationTargetLatitude;
         private double _navigationTargetLongitude;
+        private double _navigationPreviewLatitude;
+        private double _navigationPreviewLongitude;
         private float _navigationTargetPulse;
+        private float _navigationPreviewPulse;
         private bool _hasPublishedNavigationTarget;
+        private const float NavigationTargetPulseRateCap = 0.85f;
 
         // Symbol drawing
         private Color32[] clearPixels;
@@ -488,6 +496,23 @@ namespace TrafficRadar
         public bool HasNavigationTarget => _navigationTarget.IsValid;
 
         /// <summary>
+        /// User-facing target placement is available only in pilot-focus mode.
+        /// External FMS integrations should still use the explicit geographic
+        /// setter, but the map interaction path must never commit a point from
+        /// the compact HUD.
+        /// </summary>
+        public bool CanSetNavigationTarget => isActiveAndEnabled && _isFullscreen;
+
+        /// <summary>
+        /// Candidate point shown while the target confirmation dialog is open.
+        /// It is deliberately separate from <see cref="CurrentNavigationTarget"/>
+        /// so HUD guidance never lights up before the pilot confirms.
+        /// </summary>
+        public RadarNavigationTarget CurrentNavigationPreview => _navigationPreview;
+
+        public bool HasNavigationPreview => _navigationPreview.IsValid;
+
+        /// <summary>
         /// Whether the selected target cue is painted over the radar.
         /// </summary>
         public bool ShowNavigationTarget
@@ -559,6 +584,13 @@ namespace TrafficRadar
         /// Raised when a pilot places, moves, or clears the map target.
         /// </summary>
         public event Action<RadarNavigationTarget> NavigationTargetChanged;
+
+        /// <summary>
+        /// Raised as the uncommitted point in the target confirmation dialog
+        /// changes.  Consumers can update coordinate readouts without
+        /// exposing an active HUD navigation cue.
+        /// </summary>
+        public event Action<RadarNavigationTarget> NavigationPreviewChanged;
 
         /// <summary>
         /// Gets or sets the radar background color.
@@ -670,6 +702,18 @@ namespace TrafficRadar
         public RawImage RadarImage => radarImage;
         public RectTransform DisplayRectTransform => rectTransform;
 
+        /// <summary>
+        /// Resolve the live/reference own-ship position for coordinate-entry
+        /// UI and external XR adapters.
+        /// </summary>
+        public bool TryGetOwnshipCoordinates(
+            out double latitude,
+            out double longitude,
+            out float headingDegrees)
+        {
+            return TryResolveNavigationOwnShip(out latitude, out longitude, out headingDegrees);
+        }
+
         public void ConfigureHudPresentation(float panelOpacity, float requestedChartOpacity)
         {
             // The circular render itself provides contrast. A separate opaque
@@ -724,8 +768,10 @@ namespace TrafficRadar
             EnsureRadarImageReference();
             EnsureChartImageReference();
             EnsureNavigationTargetGraphic();
+            EnsureNavigationPreviewGraphic();
             ApplyMapPanVisual(true);
             ApplyNavigationTargetVisual(true);
+            ApplyNavigationPreviewVisual(true);
         }
 
         private void OnEnable()
@@ -750,7 +796,9 @@ namespace TrafficRadar
             SubscribeToChartProvider();
             ApplyMapPanVisual(true);
             EnsureNavigationTargetGraphic();
+            EnsureNavigationPreviewGraphic();
             ApplyNavigationTargetVisual(true);
+            ApplyNavigationPreviewVisual(true);
         }
 
         private void OnDisable()
@@ -898,6 +946,19 @@ namespace TrafficRadar
 
         private void EnsureChartImageReference()
         {
+            if (chartBackgroundImage != null)
+            {
+                string currentName = chartBackgroundImage.gameObject.name;
+                if (currentName.IndexOf("chart", StringComparison.OrdinalIgnoreCase) < 0 &&
+                    currentName.IndexOf("sectional", StringComparison.OrdinalIgnoreCase) < 0)
+                {
+                    // A few legacy prefabs serialize the generic Map Image
+                    // into this slot. Reject it so the provider texture is
+                    // always presented by the dedicated chart layer.
+                    chartBackgroundImage = null;
+                }
+            }
+
             if (chartBackgroundImage == null)
             {
                 foreach (RawImage image in GetComponentsInChildren<RawImage>(true))
@@ -1170,6 +1231,7 @@ namespace TrafficRadar
             }
 
             UpdateNavigationTarget();
+            UpdateNavigationPreview();
             
             DrawRadarIfNeeded();
             UpdateMapPan();
@@ -1843,6 +1905,14 @@ namespace TrafficRadar
                 return;
             }
 
+            // A candidate point is meaningful only while the pilot-focus map
+            // is visible. Never carry an unconfirmed selection back into the
+            // compact HUD.
+            if (_navigationPreview.IsValid || _navigationPreviewHasGeoPosition)
+            {
+                ClearNavigationPreviewInternal(true);
+            }
+
             // REST can be invoked by the compact toolbar while a pointer/XR
             // drag is still captured. Treat that transition as a cancelled
             // drag so the chart is centered and the own-ship glyph is restored
@@ -2236,14 +2306,13 @@ namespace TrafficRadar
             SetMapPan(Vector2.zero, immediate);
         }
 
-        /// <summary>
-        /// Place (or replace) the pilot's navigation target using a point in
-        /// this display's local coordinate space.  The point is projected to
-        /// the current range and then converted to a geographic coordinate
-        /// when own-ship data is available.
-        /// </summary>
-        public bool SetNavigationTargetFromLocalPoint(Vector2 localPoint, string identifier = "MAP")
+        private bool TryNormalizeNavigationPoint(
+            Vector2 localPoint,
+            out Vector2 normalized,
+            out float magnitude)
         {
+            normalized = Vector2.zero;
+            magnitude = 0f;
             if (rectTransform == null)
             {
                 rectTransform = GetComponent<RectTransform>();
@@ -2264,16 +2333,12 @@ namespace TrafficRadar
             // The chart is the layer that moves during a focused drag while
             // the radar/own-ship frame stays fixed. Convert the tapped screen
             // point back into chart coordinates before projecting it to a
-            // geographic waypoint; otherwise a panned map would select a
-            // point offset by the drag distance.
+            // geographic waypoint.
             Vector2 chartRelativePoint = localPoint - _mapPan;
-            Vector2 normalized = (chartRelativePoint - displayRect.center) / radius;
-            float magnitude = normalized.magnitude;
+            normalized = (chartRelativePoint - displayRect.center) / radius;
+            magnitude = normalized.magnitude;
             if (magnitude <= 0.0001f)
             {
-                // A target exactly under own-ship is difficult to read. Keep
-                // the cue just above the centre while preserving the zero-ish
-                // range semantics.
                 normalized = Vector2.up * 0.035f;
                 magnitude = normalized.magnitude;
             }
@@ -2283,6 +2348,22 @@ namespace TrafficRadar
             {
                 normalized = normalized.normalized * maximum;
                 magnitude = maximum;
+            }
+
+            return true;
+        }
+
+        /// <summary>
+        /// Place (or replace) the pilot's navigation target using a point in
+        /// this display's local coordinate space. User-facing placement is
+        /// intentionally gated to the maximized map view.
+        /// </summary>
+        public bool SetNavigationTargetFromLocalPoint(Vector2 localPoint, string identifier = "MAP")
+        {
+            if (!CanSetNavigationTarget ||
+                !TryNormalizeNavigationPoint(localPoint, out Vector2 normalized, out float magnitude))
+            {
+                return false;
             }
 
             _navigationTargetLocalNormalized = normalized;
@@ -2329,6 +2410,11 @@ namespace TrafficRadar
             Camera eventCamera,
             string identifier = "MAP")
         {
+            if (!CanSetNavigationTarget)
+            {
+                return false;
+            }
+
             if (rectTransform == null)
             {
                 rectTransform = GetComponent<RectTransform>();
@@ -2354,6 +2440,11 @@ namespace TrafficRadar
         /// </summary>
         public bool SetNavigationTargetFromWorldPoint(Vector3 worldPoint, string identifier = "MAP")
         {
+            if (!CanSetNavigationTarget)
+            {
+                return false;
+            }
+
             if (rectTransform == null)
             {
                 rectTransform = GetComponent<RectTransform>();
@@ -2371,7 +2462,7 @@ namespace TrafficRadar
         /// </summary>
         public bool SetNavigationTarget(double latitude, double longitude, string identifier = "MAP")
         {
-            if (!IsValidGeoPosition(latitude, longitude))
+            if (!CanSetNavigationTarget || !IsValidGeoPosition(latitude, longitude))
             {
                 return false;
             }
@@ -2385,6 +2476,140 @@ namespace TrafficRadar
             RefreshNavigationTarget(true);
             ApplyNavigationTargetVisual(true);
             return true;
+        }
+
+        /// <summary>
+        /// Show an uncommitted candidate on the maximized map. The candidate
+        /// never reaches the HUD guidance elements until
+        /// <see cref="CommitNavigationPreview"/> is called.
+        /// </summary>
+        public bool SetNavigationPreviewFromLocalPoint(Vector2 localPoint, string identifier = "MAP")
+        {
+            if (!CanSetNavigationTarget ||
+                !TryNormalizeNavigationPoint(localPoint, out Vector2 normalized, out float magnitude))
+            {
+                return false;
+            }
+
+            _navigationPreviewLocalNormalized = normalized;
+            _navigationPreviewHasGeoPosition = false;
+            _navigationPreviewLatitude = 0d;
+            _navigationPreviewLongitude = 0d;
+            _navigationPreview = RadarNavigationTarget.Empty;
+            _navigationPreview.IsValid = true;
+            _navigationPreview.Identifier = SanitizeNavigationTargetIdentifier(identifier);
+
+            if (TryResolveNavigationOwnShip(out double ownLatitude, out double ownLongitude, out float ownHeading))
+            {
+                float relativeBearing = Mathf.Atan2(normalized.x, normalized.y) * Mathf.Rad2Deg;
+                float absoluteBearing = enableTrackUpMode
+                    ? NormalizeDegrees(ownHeading + relativeBearing)
+                    : NormalizeDegrees(relativeBearing);
+                float distance = Mathf.Max(0.05f, magnitude * Mathf.Max(0.1f, rangeNM));
+                CalculateDestination(
+                    ownLatitude,
+                    ownLongitude,
+                    absoluteBearing,
+                    distance,
+                    out _navigationPreviewLatitude,
+                    out _navigationPreviewLongitude);
+                _navigationPreviewHasGeoPosition = true;
+            }
+
+            RefreshNavigationPreview(true);
+            ApplyNavigationPreviewVisual(true);
+            return true;
+        }
+
+        public bool SetNavigationPreviewFromScreenPoint(
+            Vector2 screenPoint,
+            Camera eventCamera,
+            string identifier = "MAP")
+        {
+            if (!CanSetNavigationTarget)
+            {
+                return false;
+            }
+
+            if (rectTransform == null)
+            {
+                rectTransform = GetComponent<RectTransform>();
+            }
+
+            return rectTransform != null &&
+                   RectTransformUtility.ScreenPointToLocalPointInRectangle(
+                       rectTransform,
+                       screenPoint,
+                       eventCamera,
+                       out Vector2 localPoint) &&
+                   SetNavigationPreviewFromLocalPoint(localPoint, identifier);
+        }
+
+        /// <summary>
+        /// Update the candidate directly from signed decimal degrees. This is
+        /// used by the coordinate-entry dialog and supports precise ±0.001°
+        /// adjustments without changing the active target.
+        /// </summary>
+        public bool SetNavigationPreview(double latitude, double longitude, string identifier = "LAT/LON")
+        {
+            if (!CanSetNavigationTarget || !IsValidGeoPosition(latitude, longitude))
+            {
+                return false;
+            }
+
+            _navigationPreview = RadarNavigationTarget.Empty;
+            _navigationPreview.IsValid = true;
+            _navigationPreview.Identifier = SanitizeNavigationTargetIdentifier(identifier);
+            _navigationPreviewHasGeoPosition = true;
+            _navigationPreviewLatitude = latitude;
+            _navigationPreviewLongitude = longitude;
+            if (_navigationPreviewLocalNormalized.sqrMagnitude <= 0.0001f)
+            {
+                _navigationPreviewLocalNormalized = Vector2.up * 0.035f;
+            }
+
+            RefreshNavigationPreview(true);
+            ApplyNavigationPreviewVisual(true);
+            return true;
+        }
+
+        public bool CommitNavigationPreview()
+        {
+            if (!CanSetNavigationTarget || !_navigationPreview.IsValid)
+            {
+                return false;
+            }
+
+            _navigationTarget = _navigationPreview;
+            _navigationTargetLocalNormalized = _navigationPreviewLocalNormalized;
+            _navigationTargetHasGeoPosition = _navigationPreviewHasGeoPosition;
+            _navigationTargetLatitude = _navigationPreviewLatitude;
+            _navigationTargetLongitude = _navigationPreviewLongitude;
+            RefreshNavigationTarget(true);
+            ApplyNavigationTargetVisual(true);
+            ClearNavigationPreviewInternal(false);
+            return true;
+        }
+
+        public void ClearNavigationPreview()
+        {
+            ClearNavigationPreviewInternal(true);
+        }
+
+        private void ClearNavigationPreviewInternal(bool notify)
+        {
+            bool hadPreview = _navigationPreview.IsValid || _navigationPreviewHasGeoPosition;
+            _navigationPreview = RadarNavigationTarget.Empty;
+            _navigationPreviewLocalNormalized = Vector2.zero;
+            _navigationPreviewHasGeoPosition = false;
+            _navigationPreviewLatitude = 0d;
+            _navigationPreviewLongitude = 0d;
+            _navigationPreviewPulse = 0f;
+            ApplyNavigationPreviewVisual(true);
+            if (notify && hadPreview)
+            {
+                NavigationPreviewChanged?.Invoke(_navigationPreview);
+            }
         }
 
         /// <summary>
@@ -2668,6 +2893,18 @@ namespace TrafficRadar
 
         private void EnsureRadarImageReference()
         {
+            if (radarImage != null)
+            {
+                string currentName = radarImage.gameObject.name;
+                if (currentName.IndexOf("radar", StringComparison.OrdinalIgnoreCase) < 0)
+                {
+                    // Do not feed MapCanvas/Map Image render textures into
+                    // the generated traffic scope. That legacy fallback was
+                    // the source of stretched/blank chart presentations.
+                    radarImage = null;
+                }
+            }
+
             if (radarImage == null)
             {
                 foreach (RawImage image in GetComponentsInChildren<RawImage>(true))
@@ -2678,8 +2915,7 @@ namespace TrafficRadar
                     }
 
                     string imageName = image.gameObject.name;
-                    if (imageName.IndexOf("radar", StringComparison.OrdinalIgnoreCase) >= 0 ||
-                        imageName.IndexOf("map", StringComparison.OrdinalIgnoreCase) >= 0)
+                    if (imageName.IndexOf("radar", StringComparison.OrdinalIgnoreCase) >= 0)
                     {
                         radarImage = image;
                         break;
@@ -2940,10 +3176,46 @@ namespace TrafficRadar
                 return;
             }
 
-            if (!_chartBaseLayoutStored || _chartBaseRect != chartRect)
+            RectTransform parentRectForValidation = chartRect.parent as RectTransform;
+            Vector2 parentSizeForValidation = parentRectForValidation != null
+                ? parentRectForValidation.rect.size
+                : Vector2.zero;
+            float validationWidth = parentSizeForValidation.x > 1f ? parentSizeForValidation.x : displaySize;
+            float validationHeight = parentSizeForValidation.y > 1f ? parentSizeForValidation.y : displaySize;
+            bool staleBaseAfterFocus = !_isFullscreen && _chartBaseLayoutStored &&
+                                       (_chartBaseSizeDelta.x > validationWidth * 1.6f ||
+                                        _chartBaseSizeDelta.y > validationHeight * 1.6f ||
+                                        chartRect.rect.width > validationWidth * 1.6f ||
+                                        chartRect.rect.height > validationHeight * 1.6f);
+
+            if (!_chartBaseLayoutStored || _chartBaseRect != chartRect || staleBaseAfterFocus)
             {
+                RectTransform parentRect = chartRect.parent as RectTransform;
+                Vector2 parentSize = parentRect != null ? parentRect.rect.size : Vector2.zero;
+                float parentWidth = parentSize.x > 1f ? parentSize.x : displaySize;
+                float parentHeight = parentSize.y > 1f ? parentSize.y : displaySize;
+                Vector2 currentSize = chartRect.rect.size;
+
+                // Legacy scene snapshots sometimes retain the fullscreen
+                // coverage margin (over 1,300 px) in the compact chart's
+                // serialized sizeDelta. Normalize that stale layout once so
+                // REST always returns to a square map that fits the scope.
+                bool staleFullscreenLayout = currentSize.x > parentWidth * 1.6f ||
+                                             currentSize.y > parentHeight * 1.6f;
+                bool stretched = chartRect.anchorMin != chartRect.anchorMax;
+                if (staleFullscreenLayout || stretched)
+                {
+                    float diameter = Mathf.Min(parentWidth, parentHeight);
+                    chartRect.anchorMin = new Vector2(0.5f, 0.5f);
+                    chartRect.anchorMax = new Vector2(0.5f, 0.5f);
+                    chartRect.pivot = new Vector2(0.5f, 0.5f);
+                    chartRect.anchoredPosition = Vector2.zero;
+                    chartRect.sizeDelta = new Vector2(diameter, diameter);
+                    currentSize = chartRect.rect.size;
+                }
+
                 _chartBaseAnchoredPosition = chartRect.anchoredPosition;
-                _chartBaseSizeDelta = chartRect.sizeDelta;
+                _chartBaseSizeDelta = currentSize;
                 _chartBaseRect = chartRect;
                 _chartBaseLayoutStored = true;
             }
@@ -2990,10 +3262,20 @@ namespace TrafficRadar
                 Vector2 coverageMargin = new Vector2(
                     parentWidth * fraction * 2f + MapCoverageSafetyPixels,
                     parentHeight * fraction * 2f + MapCoverageSafetyPixels);
-                chartRect.sizeDelta = _chartBaseSizeDelta + coverageMargin;
+                // Cover the entire maximized scope plus the full radial pan
+                // budget. Basing this on the current parent (instead of a
+                // stale authored sizeDelta) prevents transparent crescents
+                // and keeps the chart centred while the root animates.
+                chartRect.anchorMin = new Vector2(0.5f, 0.5f);
+                chartRect.anchorMax = new Vector2(0.5f, 0.5f);
+                chartRect.pivot = new Vector2(0.5f, 0.5f);
+                chartRect.sizeDelta = new Vector2(parentWidth, parentHeight) + coverageMargin;
             }
             else
             {
+                chartRect.anchorMin = new Vector2(0.5f, 0.5f);
+                chartRect.anchorMax = new Vector2(0.5f, 0.5f);
+                chartRect.pivot = new Vector2(0.5f, 0.5f);
                 chartRect.sizeDelta = _chartBaseSizeDelta;
             }
 
@@ -3153,6 +3435,8 @@ namespace TrafficRadar
             {
                 EnsureChartImageReference();
                 chartBackgroundImage.texture = chartTexture;
+                chartTexture.filterMode = FilterMode.Bilinear;
+                chartTexture.wrapMode = TextureWrapMode.Clamp;
                 if (showChartBackground && !preferXPlaneTrafficTexture && _chartVisualOpacity <= 0.001f)
                 {
                     BeginChartFade(chartOpacity, true);
@@ -3207,6 +3491,40 @@ namespace TrafficRadar
             targetObject.transform.SetAsLastSibling();
         }
 
+        private void EnsureNavigationPreviewGraphic()
+        {
+            if (_navigationPreviewGraphic != null)
+            {
+                _navigationPreviewGraphic.raycastTarget = false;
+                _navigationPreviewGraphic.transform.SetAsLastSibling();
+                return;
+            }
+
+            Transform existing = transform.Find("Navigation Preview Overlay");
+            GameObject previewObject = existing != null
+                ? existing.gameObject
+                : new GameObject(
+                    "Navigation Preview Overlay",
+                    typeof(RectTransform),
+                    typeof(CanvasRenderer),
+                    typeof(RadarNavigationTargetGraphic));
+            previewObject.transform.SetParent(transform, false);
+            RectTransform previewRect = previewObject.GetComponent<RectTransform>() ??
+                                        previewObject.AddComponent<RectTransform>();
+            previewRect.anchorMin = Vector2.zero;
+            previewRect.anchorMax = Vector2.one;
+            previewRect.offsetMin = Vector2.zero;
+            previewRect.offsetMax = Vector2.zero;
+            previewRect.pivot = new Vector2(0.5f, 0.5f);
+            previewRect.localScale = Vector3.one;
+            previewRect.localRotation = Quaternion.identity;
+
+            _navigationPreviewGraphic = previewObject.GetComponent<RadarNavigationTargetGraphic>() ??
+                                         previewObject.AddComponent<RadarNavigationTargetGraphic>();
+            _navigationPreviewGraphic.raycastTarget = false;
+            previewObject.transform.SetAsLastSibling();
+        }
+
         private void UpdateNavigationTarget()
         {
             if (!_navigationTarget.IsValid)
@@ -3215,12 +3533,75 @@ namespace TrafficRadar
                 return;
             }
 
-            _navigationTargetPulse += Time.unscaledDeltaTime * Mathf.Max(0f, navigationTargetPulseSpeed);
+            _navigationTargetPulse += Time.unscaledDeltaTime *
+                                      Mathf.Clamp(navigationTargetPulseSpeed, 0f, NavigationTargetPulseRateCap);
             RefreshNavigationTarget(false);
             ApplyNavigationTargetVisual(false);
         }
 
-        private void RefreshNavigationTarget(bool notify)
+        private void UpdateNavigationPreview()
+        {
+            if (!_navigationPreview.IsValid)
+            {
+                ApplyNavigationPreviewVisual(false);
+                return;
+            }
+
+            _navigationPreviewPulse += Time.unscaledDeltaTime *
+                                       Mathf.Clamp(navigationTargetPulseSpeed, 0f, NavigationTargetPulseRateCap);
+            RefreshNavigationPreview(false);
+            ApplyNavigationPreviewVisual(false);
+        }
+
+        private void RefreshNavigationPreview(bool notify)
+        {
+            if (!_navigationPreview.IsValid)
+            {
+                return;
+            }
+
+            // Reuse the production projection math without allowing the
+            // temporary candidate to publish NavigationTargetChanged or
+            // replace the committed target. All fields are restored before
+            // returning to the caller, so HUD consumers remain untouched.
+            RadarNavigationTarget savedTarget = _navigationTarget;
+            RadarNavigationTarget savedPublished = _lastPublishedNavigationTarget;
+            Vector2 savedLocal = _navigationTargetLocalNormalized;
+            bool savedHasGeo = _navigationTargetHasGeoPosition;
+            double savedLatitude = _navigationTargetLatitude;
+            double savedLongitude = _navigationTargetLongitude;
+            bool savedHasPublished = _hasPublishedNavigationTarget;
+
+            _navigationTarget = _navigationPreview;
+            _navigationTargetLocalNormalized = _navigationPreviewLocalNormalized;
+            _navigationTargetHasGeoPosition = _navigationPreviewHasGeoPosition;
+            _navigationTargetLatitude = _navigationPreviewLatitude;
+            _navigationTargetLongitude = _navigationPreviewLongitude;
+            _hasPublishedNavigationTarget = true;
+            _lastPublishedNavigationTarget = _navigationPreview;
+            RefreshNavigationTarget(notify, true);
+
+            _navigationPreview = _navigationTarget;
+            _navigationPreviewLocalNormalized = _navigationTargetLocalNormalized;
+            _navigationPreviewHasGeoPosition = _navigationTargetHasGeoPosition;
+            _navigationPreviewLatitude = _navigationTargetLatitude;
+            _navigationPreviewLongitude = _navigationTargetLongitude;
+
+            _navigationTarget = savedTarget;
+            _navigationTargetLocalNormalized = savedLocal;
+            _navigationTargetHasGeoPosition = savedHasGeo;
+            _navigationTargetLatitude = savedLatitude;
+            _navigationTargetLongitude = savedLongitude;
+            _lastPublishedNavigationTarget = savedPublished;
+            _hasPublishedNavigationTarget = savedHasPublished;
+
+            if (notify)
+            {
+                NavigationPreviewChanged?.Invoke(_navigationPreview);
+            }
+        }
+
+        private void RefreshNavigationTarget(bool notify, bool suppressEvent = false)
         {
             if (!_navigationTarget.IsValid)
             {
@@ -3338,9 +3719,10 @@ namespace TrafficRadar
             next.IsWithinRange = withinRange;
             _navigationTarget = next;
 
-            if (notify || !_hasPublishedNavigationTarget || NavigationTargetChangedSignificantly(
+            if (!suppressEvent &&
+                (notify || !_hasPublishedNavigationTarget || NavigationTargetChangedSignificantly(
                     _lastPublishedNavigationTarget,
-                    _navigationTarget))
+                    _navigationTarget)))
             {
                 _lastPublishedNavigationTarget = _navigationTarget;
                 _hasPublishedNavigationTarget = true;
@@ -3364,6 +3746,25 @@ namespace TrafficRadar
                 navigationTargetColor,
                 _navigationTargetPulse,
                 immediate);
+        }
+
+        private void ApplyNavigationPreviewVisual(bool immediate)
+        {
+            EnsureNavigationPreviewGraphic();
+            if (_navigationPreviewGraphic == null)
+            {
+                return;
+            }
+
+            bool visible = isActiveAndEnabled && _navigationPreview.IsValid;
+            _navigationPreviewGraphic.SetTarget(
+                _navigationPreview.RadarPosition,
+                visible,
+                _navigationPreview.IsWithinRange,
+                new Color(0.28f, 0.88f, 1f, 0.92f),
+                _navigationPreviewPulse,
+                immediate,
+                true);
         }
 
         private bool TryResolveNavigationOwnShip(
@@ -4232,6 +4633,7 @@ namespace TrafficRadar
         private bool _visible;
         private bool _withinRange;
         private float _pulse;
+        private bool _preview;
 
         public void SetTarget(
             Vector2 normalizedPosition,
@@ -4239,13 +4641,15 @@ namespace TrafficRadar
             bool withinRange,
             Color accent,
             float pulse,
-            bool immediate)
+            bool immediate,
+            bool preview = false)
         {
             _normalizedPosition = normalizedPosition;
             _visible = visible;
             _withinRange = withinRange;
             _accent = accent;
             _pulse = pulse;
+            _preview = preview;
             raycastTarget = false;
             // The immediate flag is intentionally accepted by the display API
             // so callers can use the same path for placement and animation.
@@ -4282,48 +4686,52 @@ namespace TrafficRadar
                 ? _accent
                 : new Color(1f, 0.58f, 0.18f, Mathf.Max(0.9f, _accent.a));
 
+            float sizeScale = _preview ? 0.72f : 0.62f;
+            float stemDarkWidth = _preview ? 3.2f : 3.6f;
+            float stemWidth = _preview ? 1.15f : 1.05f;
+
             // A dark under-stroke protects the cue over dense sectional ink.
             AddLine(
                 vertexHelper,
                 center,
                 target,
-                5.6f,
+                stemDarkWidth,
                 new Color(0.002f, 0.018f, 0.022f, 0.82f));
             AddLine(
                 vertexHelper,
                 center,
                 target,
-                1.55f,
-                new Color(tint.r, tint.g, tint.b, 0.84f));
+                stemWidth,
+                new Color(tint.r, tint.g, tint.b, _preview ? 0.72f : 0.78f));
 
             // The diamond is deliberately asymmetrical (a small lead point)
             // so it reads as a selected navigation target rather than traffic.
             AddDiamond(
                 vertexHelper,
                 target,
-                8.5f,
-                new Color(tint.r, tint.g, tint.b, 0.24f));
+                8.5f * sizeScale,
+                new Color(tint.r, tint.g, tint.b, _preview ? 0.18f : 0.20f));
             AddDiamondOutline(
                 vertexHelper,
                 target,
-                9.5f,
-                1.8f,
-                new Color(tint.r, tint.g, tint.b, 1f));
+                9.5f * sizeScale,
+                _preview ? 1.15f : 1.25f,
+                new Color(tint.r, tint.g, tint.b, _preview ? 0.92f : 1f));
             AddDisc(
                 vertexHelper,
                 target,
-                2.0f,
+                _preview ? 1.55f : 1.7f,
                 new Color(0.98f, 1f, 0.92f, 1f),
                 16);
 
             float pulsePhase = Mathf.Repeat(_pulse, 1f);
-            float pulseRadius = 12f + pulsePhase * 14f;
-            float pulseAlpha = 0.64f * (1f - pulsePhase);
+            float pulseRadius = (_preview ? 8f : 9f) + pulsePhase * (_preview ? 7f : 8f);
+            float pulseAlpha = (_preview ? 0.34f : 0.38f) * (1f - pulsePhase);
             AddRing(
                 vertexHelper,
                 target,
                 pulseRadius,
-                Mathf.Lerp(2.2f, 0.8f, pulsePhase),
+                Mathf.Lerp(_preview ? 1.45f : 1.7f, _preview ? 0.55f : 0.65f, pulsePhase),
                 new Color(tint.r, tint.g, tint.b, pulseAlpha),
                 28);
 
@@ -4332,10 +4740,10 @@ namespace TrafficRadar
                 // Off-range targets stay represented at the perimeter with a
                 // directional chevron, so a pilot never loses the bearing.
                 Vector2 tip = center + direction * scopeRadius * 0.93f;
-                Vector2 basePoint = tip - direction * 13f;
+                Vector2 basePoint = tip - direction * (_preview ? 9f : 10f);
                 Vector2 normal = new Vector2(-direction.y, direction.x);
-                AddLine(vertexHelper, tip, basePoint + normal * 7f, 2.1f, tint);
-                AddLine(vertexHelper, tip, basePoint - normal * 7f, 2.1f, tint);
+                AddLine(vertexHelper, tip, basePoint + normal * (_preview ? 5f : 6f), _preview ? 1.35f : 1.6f, tint);
+                AddLine(vertexHelper, tip, basePoint - normal * (_preview ? 5f : 6f), _preview ? 1.35f : 1.6f, tint);
             }
         }
 

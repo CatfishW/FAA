@@ -357,16 +357,15 @@ namespace FAA.Customization
                 ResolveTrafficDisplay();
                 EnsureTrafficContextMenu();
 
-                // A secondary click (or a deliberate double-tap) is a fast
-                // map-target gesture. The one-tap context menu remains the
-                // discoverable path for XR controllers and touch surfaces.
-                if (_trafficDisplay != null &&
-                    (eventData.button == PointerEventData.InputButton.Right || eventData.clickCount >= 2))
+                // While the coordinate dialog is open, map taps update its
+                // uncommitted preview. They must not close the menu or commit
+                // a destination implicitly.
+                if (_trafficContextMenu != null && _trafficContextMenu.IsTargetSetupOpen &&
+                    eventData.button == PointerEventData.InputButton.Left)
                 {
-                    _trafficDisplay.SetNavigationTargetFromScreenPoint(
+                    _trafficContextMenu.HandleMapTapFromScreenPoint(
                         eventData.position,
-                        eventData.pressEventCamera,
-                        "MAP");
+                        eventData.pressEventCamera);
                     eventData.Use();
                     return;
                 }
@@ -655,7 +654,7 @@ namespace FAA.Customization
                 ? targetActive
                     ? "TRAFFIC CONFIG · TARGET ACTIVE"
                     : "TRAFFIC CONFIG · SELECT ACTION"
-                : "TAP · CONTROLS  ·  2× TARGET";
+                : "TAP · CONTROLS  ·  FULL MAP FOR TARGET";
         }
 
         private static void DisableLegacyEdge(RectTransform parent, string name)
