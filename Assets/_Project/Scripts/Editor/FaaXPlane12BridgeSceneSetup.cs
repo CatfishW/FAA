@@ -2218,9 +2218,9 @@ namespace FAA.Editor
                 int layer = frame != null ? frame.gameObject.layer : torquePanel.gameObject.layer;
 
                 EnsureEngineNumericLabel(
-                    torquePanel, "Torque Value L", "---", new Vector2(-0.055f, -0.055f), 22f, layer, HudGreenDim);
+                    torquePanel, "Torque Value L", "---", new Vector2(-0.027f, -0.055f), 22f, layer, HudGreenDim);
                 EnsureEngineNumericLabel(
-                    torquePanel, "Torque Value R", "---", new Vector2(0.088f, -0.055f), 22f, layer, HudGreenDim);
+                    torquePanel, "Torque Value R", "---", new Vector2(0.0606f, -0.055f), 22f, layer, HudGreenDim);
             }
 
             Transform nrIndicator = FindChildByName(legacyHudRoot.transform, "NR/ENG Ind");

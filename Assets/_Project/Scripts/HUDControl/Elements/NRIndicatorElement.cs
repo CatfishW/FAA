@@ -39,12 +39,52 @@ namespace HUDControl.Elements
         [Tooltip("Right engine N2 value")]
         [SerializeField] private TMP_Text rpmValueR;
 
+        [Tooltip("Keep each numeric value centered on its corresponding NR/N2 bar")]
+        [SerializeField] private bool alignReadoutsToPointers = true;
+
         [SerializeField] private Vector2 leftReadoutPosition = new Vector2(-0.11f, -0.055f);
         [SerializeField] private Vector2 centerReadoutPosition = new Vector2(0f, -0.055f);
         [SerializeField] private Vector2 rightReadoutPosition = new Vector2(0.11f, -0.055f);
 
         [Range(14f, 32f)]
         [SerializeField] private float readoutFontSize = 20f;
+
+        [Header("Bar Identification")]
+        [Tooltip("Show a compact caption and channel markers so pilots can identify NR and N2 bars")]
+        [SerializeField] private bool showBarLabels = true;
+
+        [Tooltip("Caption displayed below the NR/N2 bars")]
+        [SerializeField] private string barCaption = "NR / N2";
+
+        [Tooltip("Common rotor speed channel marker")]
+        [SerializeField] private string centerBarLabel = "NR";
+
+        [Tooltip("Left engine speed channel marker")]
+        [SerializeField] private string leftBarLabel = "N2 L";
+
+        [Tooltip("Right engine speed channel marker")]
+        [SerializeField] private string rightBarLabel = "N2 R";
+
+        [Tooltip("Caption text object; authored in the scene or generated once for a configured HUD")]
+        [SerializeField] private TMP_Text barCaptionText;
+
+        [Tooltip("Common rotor speed label text object")]
+        [SerializeField] private TMP_Text centerBarLabelText;
+
+        [Tooltip("Left engine speed label text object")]
+        [SerializeField] private TMP_Text leftBarLabelText;
+
+        [Tooltip("Right engine speed label text object")]
+        [SerializeField] private TMP_Text rightBarLabelText;
+
+        [Range(10f, 22f)]
+        [SerializeField] private float barLabelFontSize = 15f;
+
+        [Tooltip("Vertical gap below the channel markers used by the NR/N2 caption")]
+        [SerializeField] private float barCaptionGap = 0.045f;
+
+        [Tooltip("Vertical gap between a numeric value and its channel marker")]
+        [SerializeField] private float channelLabelGap = 0.050f;
 
         [Header("Scale Labels")]
         [Tooltip("Show the fixed percentage scale beside the dual NR/N2 bars")]
@@ -196,6 +236,7 @@ namespace HUDControl.Elements
             rpmPointerL = left;
             rpmPointerR = right;
             nrFrame = frame;
+            ConfigureNumericReadouts();
             ApplyScaleLabels();
             ApplyPointerPositions();
         }
@@ -270,6 +311,7 @@ namespace HUDControl.Elements
                 EngineHudNumericReadout.SetValue(rpmValueCenter, 0f, false, false);
                 EngineHudNumericReadout.SetValue(rpmValueL, 0f, false, false);
                 EngineHudNumericReadout.SetValue(rpmValueR, 0f, false, false);
+                HideBarLabels();
                 return;
             }
 
@@ -277,6 +319,137 @@ namespace HUDControl.Elements
             EngineHudNumericReadout.ConfigureExisting(rpmValueCenter, readoutFontSize, readoutLayer);
             EngineHudNumericReadout.ConfigureExisting(rpmValueL, readoutFontSize, readoutLayer);
             EngineHudNumericReadout.ConfigureExisting(rpmValueR, readoutFontSize, readoutLayer);
+            ApplyReadoutLayout();
+            ConfigureBarLabels(readoutLayer);
+        }
+
+        private void ApplyReadoutLayout()
+        {
+            if (!alignReadoutsToPointers)
+            {
+                return;
+            }
+
+            EngineHudNumericReadout.AlignReadout(rpmValueCenter, rpmCenterPointer, centerReadoutPosition);
+            EngineHudNumericReadout.AlignReadout(rpmValueL, rpmPointerL, leftReadoutPosition);
+            EngineHudNumericReadout.AlignReadout(rpmValueR, rpmPointerR, rightReadoutPosition);
+        }
+
+        private void ConfigureBarLabels(int layer)
+        {
+            bool canAuthorLabels = showBarLabels &&
+                                   nrFrame != null &&
+                                   (rpmCenterPointer != null || rpmPointerL != null || rpmPointerR != null);
+            if (!canAuthorLabels)
+            {
+                HideBarLabels();
+                return;
+            }
+
+            float valueY = GetReadoutPosition(rpmValueCenter, rpmCenterPointer, centerReadoutPosition).y;
+            if (rpmValueL != null)
+            {
+                valueY = Mathf.Min(valueY, GetReadoutPosition(rpmValueL, rpmPointerL, leftReadoutPosition).y);
+            }
+
+            if (rpmValueR != null)
+            {
+                valueY = Mathf.Min(valueY, GetReadoutPosition(rpmValueR, rpmPointerR, rightReadoutPosition).y);
+            }
+
+            // Keep the group caption below the live values. The area above the
+            // engine bars is occupied by IAS/ALT readouts in the flight HUD.
+            float captionY = valueY - channelLabelGap - barCaptionGap;
+            barCaptionText = EngineHudNumericReadout.EnsureDescriptor(
+                transform,
+                barCaptionText,
+                "NR Bar Caption",
+                barCaption,
+                new Vector2(nrFrame.anchoredPosition.x, captionY),
+                barLabelFontSize,
+                layer,
+                110f);
+
+            if (rpmCenterPointer != null || rpmValueCenter != null)
+            {
+                Vector2 valuePosition = GetReadoutPosition(rpmValueCenter, rpmCenterPointer, centerReadoutPosition);
+                centerBarLabelText = EngineHudNumericReadout.EnsureDescriptor(
+                    transform,
+                    centerBarLabelText,
+                    "NR Bar Label Center",
+                    centerBarLabel,
+                    new Vector2(valuePosition.x, valuePosition.y - channelLabelGap),
+                    barLabelFontSize,
+                    layer,
+                    48f);
+            }
+
+            if (rpmPointerL != null || rpmValueL != null)
+            {
+                Vector2 valuePosition = GetReadoutPosition(rpmValueL, rpmPointerL, leftReadoutPosition);
+                leftBarLabelText = EngineHudNumericReadout.EnsureDescriptor(
+                    transform,
+                    leftBarLabelText,
+                    "NR Bar Label L",
+                    leftBarLabel,
+                    new Vector2(valuePosition.x, valuePosition.y - channelLabelGap),
+                    barLabelFontSize,
+                    layer,
+                    48f);
+            }
+
+            if (rpmPointerR != null || rpmValueR != null)
+            {
+                Vector2 valuePosition = GetReadoutPosition(rpmValueR, rpmPointerR, rightReadoutPosition);
+                rightBarLabelText = EngineHudNumericReadout.EnsureDescriptor(
+                    transform,
+                    rightBarLabelText,
+                    "NR Bar Label R",
+                    rightBarLabel,
+                    new Vector2(valuePosition.x, valuePosition.y - channelLabelGap),
+                    barLabelFontSize,
+                    layer,
+                    48f);
+            }
+
+            UpdateBarLabels();
+        }
+
+        private Vector2 GetReadoutPosition(TMP_Text readout, RectTransform pointer, Vector2 fallback)
+        {
+            Vector2 position = readout != null ? readout.rectTransform.anchoredPosition : fallback;
+            if (alignReadoutsToPointers && pointer != null && pointer.parent == transform)
+            {
+                position.x = pointer.anchoredPosition.x;
+            }
+
+            return position;
+        }
+
+        private void UpdateBarLabels()
+        {
+            bool labelsVisible = showBarLabels && showNumericReadouts;
+            EngineHudNumericReadout.SetDescriptor(barCaptionText, barCaption, labelsVisible);
+            EngineHudNumericReadout.SetDescriptor(
+                centerBarLabelText,
+                centerBarLabel,
+                labelsVisible && rpmValueCenter != null && rpmValueCenter.gameObject.activeSelf);
+            EngineHudNumericReadout.SetDescriptor(
+                leftBarLabelText,
+                leftBarLabel,
+                labelsVisible && rpmValueL != null && rpmValueL.gameObject.activeSelf);
+            EngineHudNumericReadout.SetDescriptor(
+                rightBarLabelText,
+                rightBarLabel,
+                labelsVisible && rpmValueR != null && rpmValueR.gameObject.activeSelf);
+        }
+
+        private void HideBarLabels()
+        {
+            EngineHudNumericReadout.SetDescriptor(barCaptionText, barCaption, false);
+            EngineHudNumericReadout.SetDescriptor(centerBarLabelText, centerBarLabel, false);
+            EngineHudNumericReadout.SetDescriptor(leftBarLabelText, leftBarLabel, false);
+            EngineHudNumericReadout.SetDescriptor(rightBarLabelText, rightBarLabel, false);
         }
 
         private void ApplyScaleLabels()
@@ -322,6 +495,7 @@ namespace HUDControl.Elements
                 displayedRPMR,
                 hasSimulatedData || hasExternalR,
                 showNumericReadouts && availableEngineCount > 1);
+            UpdateBarLabels();
         }
 
         private void ApplyPointerPosition(RectTransform pointer, float rpmPercent)

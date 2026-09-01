@@ -33,11 +33,48 @@ namespace HUDControl.Elements
         [Tooltip("Right engine torque value")]
         [SerializeField] private TMP_Text torqueValueR;
 
-        [SerializeField] private Vector2 leftReadoutPosition = new Vector2(-0.055f, -0.055f);
-        [SerializeField] private Vector2 rightReadoutPosition = new Vector2(0.088f, -0.055f);
+        [Tooltip("Keep each numeric value centered on its corresponding bar")]
+        [SerializeField] private bool alignReadoutsToPointers = true;
+
+        [Tooltip("Fallback position for the left numeric value when pointer alignment is disabled")]
+        [SerializeField] private Vector2 leftReadoutPosition = new Vector2(-0.027f, -0.055f);
+
+        [Tooltip("Fallback position for the right numeric value when pointer alignment is disabled")]
+        [SerializeField] private Vector2 rightReadoutPosition = new Vector2(0.0606f, -0.055f);
 
         [Range(14f, 32f)]
         [SerializeField] private float readoutFontSize = 22f;
+
+        [Header("Bar Identification")]
+        [Tooltip("Show a compact caption and channel markers so pilots can identify the torque bars")]
+        [SerializeField] private bool showBarLabels = true;
+
+        [Tooltip("Caption displayed below the torque bars")]
+        [SerializeField] private string barCaption = "TORQUE";
+
+        [Tooltip("Left channel marker displayed below the left torque value")]
+        [SerializeField] private string leftBarLabel = "L";
+
+        [Tooltip("Right channel marker displayed below the right torque value")]
+        [SerializeField] private string rightBarLabel = "R";
+
+        [Tooltip("Caption text object; authored in the scene or generated once for a configured HUD")]
+        [SerializeField] private TMP_Text barCaptionText;
+
+        [Tooltip("Left channel label text object")]
+        [SerializeField] private TMP_Text leftBarLabelText;
+
+        [Tooltip("Right channel label text object")]
+        [SerializeField] private TMP_Text rightBarLabelText;
+
+        [Range(10f, 22f)]
+        [SerializeField] private float barLabelFontSize = 15f;
+
+        [Tooltip("Vertical gap below the channel markers used by the torque caption")]
+        [SerializeField] private float barCaptionGap = 0.045f;
+
+        [Tooltip("Vertical gap between a numeric value and its channel marker")]
+        [SerializeField] private float channelLabelGap = 0.050f;
 
         [Header("Scale Labels")]
         [Tooltip("Show the fixed percentage scale beside the torque bar")]
@@ -166,6 +203,7 @@ namespace HUDControl.Elements
             torquePointerL = left;
             torquePointerR = right;
             torqueFrame = frame;
+            ConfigureNumericReadouts();
             ApplyScaleLabels();
             ApplyPointerPositions();
         }
@@ -234,12 +272,119 @@ namespace HUDControl.Elements
             {
                 EngineHudNumericReadout.SetValue(torqueValueL, 0f, false, false);
                 EngineHudNumericReadout.SetValue(torqueValueR, 0f, false, false);
+                HideBarLabels();
                 return;
             }
 
             int readoutLayer = torqueFrame != null ? torqueFrame.gameObject.layer : gameObject.layer;
             EngineHudNumericReadout.ConfigureExisting(torqueValueL, readoutFontSize, readoutLayer);
             EngineHudNumericReadout.ConfigureExisting(torqueValueR, readoutFontSize, readoutLayer);
+            ApplyReadoutLayout();
+            ConfigureBarLabels(readoutLayer);
+        }
+
+        private void ApplyReadoutLayout()
+        {
+            if (!alignReadoutsToPointers)
+            {
+                return;
+            }
+
+            EngineHudNumericReadout.AlignReadout(torqueValueL, torquePointerL, leftReadoutPosition);
+            EngineHudNumericReadout.AlignReadout(torqueValueR, torquePointerR, rightReadoutPosition);
+        }
+
+        private void ConfigureBarLabels(int layer)
+        {
+            bool canAuthorLabels = showBarLabels &&
+                                   torqueFrame != null &&
+                                   (torquePointerL != null || torquePointerR != null);
+            if (!canAuthorLabels)
+            {
+                HideBarLabels();
+                return;
+            }
+
+            float valueY = GetReadoutPosition(torqueValueL, torquePointerL, leftReadoutPosition).y;
+            if (torqueValueR != null)
+            {
+                valueY = Mathf.Min(valueY, GetReadoutPosition(torqueValueR, torquePointerR, rightReadoutPosition).y);
+            }
+
+            // Keep the group caption below the live values. The area above the
+            // engine bars is occupied by IAS/ALT readouts in the flight HUD.
+            float captionY = valueY - channelLabelGap - barCaptionGap;
+            barCaptionText = EngineHudNumericReadout.EnsureDescriptor(
+                transform,
+                barCaptionText,
+                "Torque Bar Caption",
+                barCaption,
+                new Vector2(torqueFrame.anchoredPosition.x, captionY),
+                barLabelFontSize,
+                layer,
+                100f);
+
+            if (torquePointerL != null || torqueValueL != null)
+            {
+                Vector2 valuePosition = GetReadoutPosition(torqueValueL, torquePointerL, leftReadoutPosition);
+                leftBarLabelText = EngineHudNumericReadout.EnsureDescriptor(
+                    transform,
+                    leftBarLabelText,
+                    "Torque Bar Label L",
+                    leftBarLabel,
+                    new Vector2(valuePosition.x, valuePosition.y - channelLabelGap),
+                    barLabelFontSize,
+                    layer,
+                    42f);
+            }
+
+            if (torquePointerR != null || torqueValueR != null)
+            {
+                Vector2 valuePosition = GetReadoutPosition(torqueValueR, torquePointerR, rightReadoutPosition);
+                rightBarLabelText = EngineHudNumericReadout.EnsureDescriptor(
+                    transform,
+                    rightBarLabelText,
+                    "Torque Bar Label R",
+                    rightBarLabel,
+                    new Vector2(valuePosition.x, valuePosition.y - channelLabelGap),
+                    barLabelFontSize,
+                    layer,
+                    42f);
+            }
+
+            UpdateBarLabels();
+        }
+
+        private Vector2 GetReadoutPosition(TMP_Text readout, RectTransform pointer, Vector2 fallback)
+        {
+            Vector2 position = readout != null ? readout.rectTransform.anchoredPosition : fallback;
+            if (alignReadoutsToPointers && pointer != null && pointer.parent == transform)
+            {
+                position.x = pointer.anchoredPosition.x;
+            }
+
+            return position;
+        }
+
+        private void UpdateBarLabels()
+        {
+            bool labelsVisible = showBarLabels && showNumericReadouts;
+            EngineHudNumericReadout.SetDescriptor(barCaptionText, barCaption, labelsVisible);
+            EngineHudNumericReadout.SetDescriptor(
+                leftBarLabelText,
+                leftBarLabel,
+                labelsVisible && torqueValueL != null && torqueValueL.gameObject.activeSelf);
+            EngineHudNumericReadout.SetDescriptor(
+                rightBarLabelText,
+                rightBarLabel,
+                labelsVisible && torqueValueR != null && torqueValueR.gameObject.activeSelf);
+        }
+
+        private void HideBarLabels()
+        {
+            EngineHudNumericReadout.SetDescriptor(barCaptionText, barCaption, false);
+            EngineHudNumericReadout.SetDescriptor(leftBarLabelText, leftBarLabel, false);
+            EngineHudNumericReadout.SetDescriptor(rightBarLabelText, rightBarLabel, false);
         }
 
         private void ApplyScaleLabels()
@@ -278,6 +423,7 @@ namespace HUDControl.Elements
                 torqueValueL, displayedTorqueL, simulateFromThrottle || hasExternalTorqueL, leftVisible);
             EngineHudNumericReadout.SetValue(
                 torqueValueR, displayedTorqueR, simulateFromThrottle || hasExternalTorqueR, rightVisible);
+            UpdateBarLabels();
         }
 
         private void ApplyPointerPosition(RectTransform pointer, float torquePercent)

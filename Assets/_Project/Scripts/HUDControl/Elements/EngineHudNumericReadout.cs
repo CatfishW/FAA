@@ -12,6 +12,7 @@ namespace HUDControl.Elements
     internal static class EngineHudNumericReadout
     {
         private const float DefaultFrameSize = 0.2918475f;
+        private const float DefaultUiScale = 0.0016f;
         private static readonly Color HudGreen = new Color(0.2f, 1f, 0.2f, 1f);
         private static readonly Color MissingDataGreen = new Color(0.2f, 1f, 0.2f, 0.46f);
 
@@ -40,6 +41,112 @@ namespace HUDControl.Elements
             readout.textWrappingMode = TextWrappingModes.NoWrap;
             readout.overflowMode = TextOverflowModes.Overflow;
             readout.raycastTarget = false;
+        }
+
+        /// <summary>
+        /// Find or create a small, non-interactive caption used to identify an
+        /// engine bar. Captions are generated only by a configured HUD element
+        /// (never by a bare numeric-readout test object), and are reused by
+        /// name on subsequent initialization passes.
+        /// </summary>
+        public static TMP_Text EnsureDescriptor(
+            Transform parent,
+            TMP_Text descriptor,
+            string childName,
+            string text,
+            Vector2 anchoredPosition,
+            float fontSize,
+            int layer,
+            float width = 72f)
+        {
+            if (parent == null)
+            {
+                return descriptor;
+            }
+
+            if (descriptor == null)
+            {
+                Transform existing = parent.Find(childName);
+                if (existing != null)
+                {
+                    descriptor = existing.GetComponent<TMP_Text>();
+                }
+            }
+
+            if (descriptor == null)
+            {
+                GameObject descriptorObject = new GameObject(childName, typeof(RectTransform));
+                descriptorObject.transform.SetParent(parent, false);
+                descriptor = descriptorObject.AddComponent<TextMeshProUGUI>();
+            }
+
+            ConfigureExisting(descriptor, fontSize, layer);
+            RectTransform rect = descriptor.rectTransform;
+            rect.anchorMin = new Vector2(0.5f, 0.5f);
+            rect.anchorMax = new Vector2(0.5f, 0.5f);
+            rect.pivot = new Vector2(0.5f, 0.5f);
+            rect.anchoredPosition = anchoredPosition;
+            rect.sizeDelta = new Vector2(width, 22f);
+            rect.localScale = Vector3.one * DefaultUiScale;
+            rect.localRotation = Quaternion.identity;
+
+            descriptor.text = text ?? string.Empty;
+            descriptor.fontStyle = FontStyles.Bold;
+            descriptor.color = HudGreen;
+            descriptor.raycastTarget = false;
+            descriptor.textWrappingMode = TextWrappingModes.NoWrap;
+            descriptor.transform.SetAsLastSibling();
+            return descriptor;
+        }
+
+        /// <summary>
+        /// Update a descriptor without changing its calibrated layout.
+        /// </summary>
+        public static void SetDescriptor(TMP_Text descriptor, string text, bool visible)
+        {
+            if (descriptor == null)
+            {
+                return;
+            }
+
+            if (descriptor.gameObject.activeSelf != visible)
+            {
+                descriptor.gameObject.SetActive(visible);
+            }
+
+            if (!visible)
+            {
+                return;
+            }
+
+            string nextText = text ?? string.Empty;
+            if (descriptor.text != nextText)
+            {
+                descriptor.text = nextText;
+            }
+
+            descriptor.color = HudGreen;
+        }
+
+        /// <summary>
+        /// Align an authored numeric readout to a pointer's horizontal center
+        /// while retaining the pilot-tuned vertical baseline.
+        /// </summary>
+        public static void AlignReadout(TMP_Text readout, RectTransform pointer, Vector2 fallback)
+        {
+            if (readout == null)
+            {
+                return;
+            }
+
+            RectTransform rect = readout.rectTransform;
+            Vector2 position = fallback;
+            if (pointer != null && pointer.parent == rect.parent)
+            {
+                position.x = pointer.anchoredPosition.x;
+            }
+
+            rect.anchoredPosition = position;
         }
 
         /// <summary>
