@@ -2121,23 +2121,24 @@ namespace FAA.XPlaneIntegration.Runtime
         private Texture2D BuildStreamWeatherTexture(AviationFlightData data, StreamWeatherMetrics metrics)
         {
             int size = Mathf.Clamp(streamWeatherTextureSize, 128, 1024);
-            if (_streamWeatherTexture == null || _streamWeatherTexture.width != size || _streamWeatherTexture.height != size)
+            int height = Mathf.RoundToInt(size / XPlaneWeatherRadarGeometry.Aspect);
+            if (_streamWeatherTexture == null || _streamWeatherTexture.width != size || _streamWeatherTexture.height != height)
             {
                 DestroyTexture(ref _streamWeatherTexture);
-                _streamWeatherTexture = new Texture2D(size, size, TextureFormat.RGBA32, false)
+                _streamWeatherTexture = new Texture2D(size, height, TextureFormat.RGBA32, false)
                 {
                     name = "FAAProceduralWeatherRadar",
                     filterMode = FilterMode.Bilinear,
                     wrapMode = TextureWrapMode.Clamp
                 };
-                _streamWeatherPixels = new Color32[size * size];
+                _streamWeatherPixels = new Color32[size * height];
             }
-            else if (_streamWeatherPixels == null || _streamWeatherPixels.Length != size * size)
+            else if (_streamWeatherPixels == null || _streamWeatherPixels.Length != size * height)
             {
-                _streamWeatherPixels = new Color32[size * size];
+                _streamWeatherPixels = new Color32[size * height];
             }
 
-            DrawModernWeatherRadar(_streamWeatherPixels, size, data, metrics);
+            DrawModernWeatherRadar(_streamWeatherPixels, size, height, data, metrics);
 
             _streamWeatherTexture.SetPixels32(_streamWeatherPixels);
             _streamWeatherTexture.Apply(false);
@@ -2251,23 +2252,23 @@ namespace FAA.XPlaneIntegration.Runtime
             return Mathf.Clamp01(value / 100f);
         }
 
-        private static void DrawModernWeatherRadar(Color32[] pixels, int size, AviationFlightData data, StreamWeatherMetrics metrics)
+        private static void DrawModernWeatherRadar(Color32[] pixels, int size, int height, AviationFlightData data, StreamWeatherMetrics metrics)
         {
             int originX = size / 2;
-            int originY = Mathf.RoundToInt(size * 0.12f);
-            float maxRadius = size * 0.90f;
-            float halfAngleDegrees = 62f;
+            int originY = Mathf.RoundToInt(height * XPlaneWeatherRadarGeometry.OriginHeight);
+            float maxRadius = height * XPlaneWeatherRadarGeometry.Radius;
+            float halfAngleDegrees = XPlaneWeatherRadarGeometry.HalfAngle;
 
-            DrawModernRadarBackdrop(pixels, size, originX, originY, maxRadius, halfAngleDegrees);
-            DrawModernWeatherReturns(pixels, size, originX, originY, maxRadius, halfAngleDegrees, data, metrics);
-            DrawModernRadarGrid(pixels, size, originX, originY, maxRadius, halfAngleDegrees, data, metrics);
+            DrawModernRadarBackdrop(pixels, size, height, originX, originY, maxRadius, halfAngleDegrees);
+            DrawModernWeatherReturns(pixels, size, height, originX, originY, maxRadius, halfAngleDegrees, data, metrics);
+            // Range labels, rings and ownship are resolution-independent UI.
+            // The old bitmap grid included hard-coded 20/30 labels and a false magenta course cue.
         }
 
-        private static void DrawModernRadarBackdrop(Color32[] pixels, int size, int originX, int originY, float maxRadius, float halfAngleDegrees)
+        private static void DrawModernRadarBackdrop(Color32[] pixels, int size, int height, int originX, int originY, float maxRadius, float halfAngleDegrees)
         {
-            for (int y = 0; y < size; y++)
+            for (int y = 0; y < height; y++)
             {
-                float vertical = y / Mathf.Max(1f, size - 1f);
                 int row = y * size;
                 for (int x = 0; x < size; x++)
                 {
@@ -2283,21 +2284,10 @@ namespace FAA.XPlaneIntegration.Runtime
                         out rangeNorm,
                         out angleDegrees);
 
-                    float dx = (x - size * 0.5f) / size;
-                    float dy = (y - size * 0.55f) / size;
-                    float vignette = Mathf.Clamp01(1f - Mathf.Sqrt(dx * dx + dy * dy) * 1.9f);
-                    byte blue = (byte)Mathf.RoundToInt(Mathf.Lerp(6f, 22f, vignette * 0.62f + vertical * 0.12f));
-                    byte green = (byte)Mathf.RoundToInt(Mathf.Lerp(1f, 7f, vignette));
-                    byte red = (byte)Mathf.RoundToInt(Mathf.Lerp(0f, 3f, vignette));
-
-                    if (insideSector)
-                    {
-                        float fade = Mathf.Clamp01(1f - Mathf.Abs(angleDegrees) / halfAngleDegrees);
-                        blue = (byte)Mathf.Min(255, blue + Mathf.RoundToInt(Mathf.Lerp(2f, 9f, fade) * (1f - rangeNorm * 0.45f)));
-                        green = (byte)Mathf.Min(255, green + Mathf.RoundToInt(Mathf.Lerp(1f, 5f, fade)));
-                    }
-
-                    pixels[row + x] = new Color32(red, green, blue, 255);
+                    // No rectangular black plate: the sector itself carries quiet contrast.
+                    pixels[row + x] = insideSector
+                        ? new Color32(8, 22, 31, (byte)Mathf.RoundToInt(Mathf.Lerp(220f, 185f, rangeNorm)))
+                        : new Color32(0, 0, 0, 0);
                 }
             }
         }
@@ -2305,6 +2295,7 @@ namespace FAA.XPlaneIntegration.Runtime
         private static void DrawModernWeatherReturns(
             Color32[] pixels,
             int size,
+            int height,
             int originX,
             int originY,
             float maxRadius,
@@ -2324,10 +2315,10 @@ namespace FAA.XPlaneIntegration.Runtime
             float threshold = Mathf.Lerp(0.80f, 0.62f, intensity);
             float windDrift = Mathf.Clamp(Mathf.DeltaAngle(heading, metrics.WindDirection) / Mathf.Max(1f, halfAngleDegrees), -1f, 1f);
 
-            int minY = Mathf.Clamp(originY, 0, size - 1);
-            for (int y = minY; y < size; y++)
+            int minY = Mathf.Clamp(originY, 0, height - 1);
+            for (int y = minY; y < height; y++)
             {
-                float ny = y / (float)size;
+                float ny = y / (float)height;
                 int row = y * size;
                 for (int x = 0; x < size; x++)
                 {

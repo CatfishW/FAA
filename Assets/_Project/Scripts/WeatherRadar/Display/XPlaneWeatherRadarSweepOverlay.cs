@@ -19,15 +19,15 @@ namespace WeatherRadar
         [SerializeField] private WeatherRadarDataProvider dataProvider;
 
         [Header("Sweep")]
-        [SerializeField, Min(0.5f)] private float roundTripSeconds = 3.7f;
+        [SerializeField, Min(0.5f)] private float roundTripSeconds = 7f;
         [SerializeField, Range(35f, 85f)] private float sectorHalfAngleDegrees = 55f;
         [SerializeField, Range(0f, 0.2f)] private float originHeightRatio = 0.07f;
         [SerializeField, Range(0.4f, 1f)] private float outerRadius = 0.86f;
-        [SerializeField, Range(0.25f, 4f)] private float beamWidthDegrees = 0.85f;
-        [SerializeField, Range(1f, 12f)] private float glowWidthDegrees = 3f;
-        [SerializeField, Range(4f, 40f)] private float trailWidthDegrees = 12f;
-        [SerializeField, Range(0f, 1f)] private float trailStrength = 0.18f;
-        [SerializeField] private Color sweepColor = new Color(0.12f, 1f, 0.52f, 0.68f);
+        [SerializeField, Range(0.25f, 4f)] private float beamWidthDegrees = 0.35f;
+        [SerializeField, Range(1f, 12f)] private float glowWidthDegrees = 1.2f;
+        [SerializeField, Range(4f, 40f)] private float trailWidthDegrees = 7f;
+        [SerializeField, Range(0f, 1f)] private float trailStrength = 0.07f;
+        [SerializeField] private Color sweepColor = new Color(0.26f, 0.88f, 0.76f, 0.32f);
 
         private Material _material;
         private float _currentScanAngle;
@@ -93,6 +93,12 @@ namespace WeatherRadar
         {
             sourceDisplay = display;
             dataProvider = provider;
+            if (sourceDisplay != null && sourceDisplay.IsProceduralTexture)
+            {
+                originHeightRatio = XPlaneWeatherRadarGeometry.OriginHeight;
+                outerRadius = XPlaneWeatherRadarGeometry.Radius;
+                sectorHalfAngleDegrees = XPlaneWeatherRadarGeometry.HalfAngle;
+            }
 
             if (overlayImage == null)
             {
@@ -242,7 +248,7 @@ namespace WeatherRadar
 
             if (sourceDisplay != null)
             {
-                if (!sourceDisplay.HasUsableTexture)
+                if (!sourceDisplay.HasFreshTexture)
                 {
                     return false;
                 }

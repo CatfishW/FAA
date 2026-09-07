@@ -501,7 +501,9 @@ namespace TrafficRadar
         /// setter, but the map interaction path must never commit a point from
         /// the compact HUD.
         /// </summary>
-        public bool CanSetNavigationTarget => isActiveAndEnabled && _isFullscreen;
+        public bool InstrumentDisplayEnabled { get; set; } = true;
+        public bool UseExternalRangeReadout { get; set; }
+        public bool CanSetNavigationTarget => isActiveAndEnabled && InstrumentDisplayEnabled && _isFullscreen;
 
         /// <summary>
         /// Candidate point shown while the target confirmation dialog is open.
@@ -1844,7 +1846,9 @@ namespace TrafficRadar
                     float controlsHeight = controlsRect != null
                         ? (controlsRect.rect.height > 1f ? controlsRect.rect.height : controlsRect.sizeDelta.y)
                         : 0f;
-                    controlsReserve = Mathf.Max(0f, controlsHeight + 12f);
+                    // The shared instrument header remains separate from the
+                    // configuration drawer, including in the focus layout.
+                    controlsReserve = Mathf.Max(0f, (controlsHeight + 68f) * 2f);
                 }
 
                 float availableHeight = Mathf.Max(1f, canvasSize.y - margin * 2f - controlsReserve);
@@ -3055,7 +3059,7 @@ namespace TrafficRadar
         {
             if (rangeLabel != null)
             {
-                rangeLabel.gameObject.SetActive(visible);
+                rangeLabel.gameObject.SetActive(visible && !UseExternalRangeReadout);
             }
 
             if (compassLabels != null)
@@ -3276,11 +3280,22 @@ namespace TrafficRadar
                 chartRect.anchorMin = new Vector2(0.5f, 0.5f);
                 chartRect.anchorMax = new Vector2(0.5f, 0.5f);
                 chartRect.pivot = new Vector2(0.5f, 0.5f);
-                chartRect.sizeDelta = _chartBaseSizeDelta;
+                // The pilot may resize the compact instrument after its base
+                // layout was captured. A stale 296px chart in a 360px scope
+                // exposes square corners and mis-scales map references.
+                Vector2 scopeSize = rectTransform != null ? rectTransform.rect.size : _chartBaseSizeDelta;
+                chartRect.sizeDelta = CalculateCompactChartSize(scopeSize);
+                _chartBaseSizeDelta = chartRect.sizeDelta;
             }
 
             chartRect.anchoredPosition = _chartBaseAnchoredPosition + offset;
             UpdateChartMaskParameters();
+        }
+
+        public static Vector2 CalculateCompactChartSize(Vector2 scopeSize)
+        {
+            float diameter = Mathf.Max(1f, Mathf.Min(Mathf.Abs(scopeSize.x), Mathf.Abs(scopeSize.y)));
+            return new Vector2(diameter, diameter);
         }
 
         /// <summary>
@@ -4015,11 +4030,11 @@ namespace TrafficRadar
             Color majorColor = LiftLineColor(
                 visibleRingColor,
                 0.20f,
-                Mathf.Clamp01(Mathf.Max(0.96f, rangeRingColor.a + 0.30f)) * _lineworkVisualAlpha);
+                0.64f * _lineworkVisualAlpha);
             Color minorColor = LiftLineColor(
                 visibleRingColor,
                 0.10f,
-                Mathf.Clamp01(Mathf.Max(0.76f, rangeRingColor.a * 1.25f)) * _lineworkVisualAlpha);
+                0.28f * _lineworkVisualAlpha);
             Color haloColor = new Color(0.005f, 0.045f, 0.05f, 0.40f);
             int halfRangeRing = Mathf.Max(1, Mathf.CeilToInt(ringCount * 0.5f));
             for (int i = 1; i <= ringCount; i++)
@@ -4035,7 +4050,7 @@ namespace TrafficRadar
                 }
 
                 bool isMajor = i == ringCount || i == halfRangeRing;
-                float thickness = (isMajor ? 2.35f : 1.35f) * lineScale;
+                float thickness = (isMajor ? 1.65f : 0.85f) * lineScale;
                 Color color = isMajor ? majorColor : minorColor;
                 // A restrained dark halo keeps the line legible over bright
                 // chart ink without turning the scope into a glowing cage.
@@ -4043,8 +4058,8 @@ namespace TrafficRadar
                     centerX,
                     centerY,
                     ringRadius,
-                    WithAlpha(haloColor, (isMajor ? 0.42f : 0.24f) * _lineworkVisualAlpha),
-                    thickness + 2.8f * lineScale);
+                    WithAlpha(haloColor, (isMajor ? 0.26f : 0.12f) * _lineworkVisualAlpha),
+                    thickness + 1.8f * lineScale);
                 DrawCircleAntiAliased(centerX, centerY, ringRadius, color, thickness);
             }
         }
@@ -4093,7 +4108,7 @@ namespace TrafficRadar
                 {
                     continue;
                 }
-                float length = isCardinal ? 24f : isMajor ? 15f : 9f;
+                float length = isCardinal ? 14f : isMajor ? 8f : 5f;
                 float innerRadius = outerRadius - length * lineScale;
                 float adjustedAngle = angle + headingOffset;
                 float rad = adjustedAngle * Mathf.Deg2Rad;
@@ -4104,7 +4119,7 @@ namespace TrafficRadar
                 int y2 = centerY + Mathf.RoundToInt(outerRadius * Mathf.Cos(rad));
 
                 Color tickColor = isCardinal ? cardinalColor : isMajor ? majorColor : minorColor;
-                float thickness = (isCardinal ? 2.7f : isMajor ? 1.8f : 1.15f) * lineScale;
+                float thickness = (isCardinal ? 1.8f : isMajor ? 1.2f : 0.85f) * lineScale;
                 DrawLineAntiAliased(
                     x1,
                     y1,
@@ -4114,25 +4129,7 @@ namespace TrafficRadar
                     thickness + 2.6f * lineScale);
                 DrawLineAntiAliased(x1, y1, x2, y2, tickColor, thickness);
 
-                if (showCardinalBearingCues && isCardinal)
-                {
-                    // Keep a small interior cue for orientation, rather than
-                    // drawing a full spoke that competes with traffic targets.
-                    float cueInner = radius * 0.78f;
-                    float cueOuter = radius * 0.84f;
-                    int cx1 = centerX + Mathf.RoundToInt(cueInner * Mathf.Sin(rad));
-                    int cy1 = centerY + Mathf.RoundToInt(cueInner * Mathf.Cos(rad));
-                    int cx2 = centerX + Mathf.RoundToInt(cueOuter * Mathf.Sin(rad));
-                    int cy2 = centerY + Mathf.RoundToInt(cueOuter * Mathf.Cos(rad));
-                    DrawLineAntiAliased(
-                        cx1,
-                        cy1,
-                        cx2,
-                        cy2,
-                        WithAlpha(haloColor, 0.12f * _lineworkVisualAlpha),
-                        2f * lineScale);
-                    DrawLineAntiAliased(cx1, cy1, cx2, cy2, WithAlpha(cardinalColor, 0.34f), 1.2f * lineScale);
-                }
+                // Short perimeter ticks replace the detached interior dashes.
             }
         }
 
@@ -4161,11 +4158,13 @@ namespace TrafficRadar
                     continue;
                 }
 
-                label.fontStyle = FontStyles.Bold;
+                label.fontStyle = FontStyles.Normal;
                 label.fontSize = labelFontSize;
                 label.enableAutoSizing = false;
                 label.extraPadding = true;
                 label.color = labelColor;
+                label.faceColor = Color.white;
+                label.canvasRenderer.SetColor(Color.white);
                 label.outlineWidth = IsFullscreen ? 0.22f : 0.18f;
                 label.outlineColor = outlineColor;
                 label.raycastTarget = false;

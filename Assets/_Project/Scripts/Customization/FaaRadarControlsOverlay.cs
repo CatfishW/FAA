@@ -478,20 +478,9 @@ namespace FAA.Customization
 
         public void ToggleWeatherProvider()
         {
-            if (_weatherProvider == null)
-            {
-                return;
-            }
-
-            if (_weatherProvider.Status == ProviderStatus.Inactive)
-            {
-                _weatherProvider.Activate();
-                _weatherProvider.RefreshData();
-            }
-            else
-            {
-                _weatherProvider.Deactivate();
-            }
+            // A local display control, not a transmitter-power command. The
+            // provider is kept connected so OFF cannot quietly auto-reactivate.
+            _weatherRoot?.GetComponent<FaaRadarPresentation>()?.ToggleDisplay();
         }
 
         public void TrafficRangeDown()
@@ -1112,6 +1101,7 @@ namespace FAA.Customization
 
             if (enableWeatherControls && _weatherRoot != null)
             {
+                EnsurePresentation(_weatherRoot, FaaRadarKind.Weather);
                 if (suppressInlineWeatherLabels)
                 {
                     ImproveWeatherLabelLegibility(_weatherRoot);
@@ -1130,6 +1120,7 @@ namespace FAA.Customization
 
             if (enableTrafficControls && _trafficRoot != null)
             {
+                EnsurePresentation(_trafficRoot, FaaRadarKind.Traffic);
                 _trafficStrip = EnsureStrip(_trafficRoot, "TrafficControlStrip", GetTrafficStripSize());
                 EnsureTrafficControls(_trafficStrip);
                 _trafficDrawer = EnsureDrawer(_trafficStrip);
@@ -1137,6 +1128,12 @@ namespace FAA.Customization
             }
 
             ApplyRadarConfigurationVisibility();
+        }
+
+        private void EnsurePresentation(Transform root, FaaRadarKind kind)
+        {
+            var presentation = root.GetComponent<FaaRadarPresentation>() ?? root.gameObject.AddComponent<FaaRadarPresentation>();
+            presentation.Configure(kind, _xPlaneBridge);
         }
 
         private FaaRadarConfigurationDrawer EnsureDrawer(RectTransform strip)
@@ -1392,7 +1389,7 @@ namespace FAA.Customization
                 secondaryRow,
                 "WXTiltValue", "WXTiltDown", "WXTiltUp", "WXGainValue", "WXGainDown", "WXGainUp");
 
-            _weatherPowerText = GetButtonLabel(EnsureButton(tertiaryRow, "WXPowerToggle", "PWR", ToggleWeatherProvider, 42f));
+            _weatherPowerText = GetButtonLabel(EnsureButton(tertiaryRow, "WXPowerToggle", "DISPLAY ON", ToggleWeatherProvider, 96f));
             EnsureButton(tertiaryRow, "WXRefresh", "REF", RefreshWeatherTexture, 42f);
             EnsureButton(tertiaryRow, "WXSizeDown", "S-", WeatherSizeDown, 32f);
             _weatherSizeText = EnsureLabel(tertiaryRow, "WXSizeValue", "296PX", 58f);
@@ -1639,8 +1636,8 @@ namespace FAA.Customization
             {
                 WeatherRadarData data = _weatherDataProvider.RadarData;
                 string modeText = data.currentMode.ToString().Replace("_", "+");
-                bool bridgeHasWeatherTexture = _xPlaneBridge != null && _xPlaneBridge.LatestWeatherTexture != null;
-                string powerText = _weatherProvider != null && _weatherProvider.Status == ProviderStatus.Inactive && !bridgeHasWeatherTexture ? "OFF" : modeText;
+                bool visible = _weatherRoot?.GetComponent<FaaRadarPresentation>()?.IsDisplayOn ?? true;
+                string powerText = visible ? modeText : "DISPLAY OFF";
                 SetText(_weatherSummaryText, $"WEATHER · {powerText} · {data.currentRange:0} NM");
                 SetText(_weatherRangeText, $"{data.currentRange:0} NM");
                 SetText(_weatherTiltText, $"T{Signed(data.tiltAngle, "0.0")}");
@@ -1653,8 +1650,8 @@ namespace FAA.Customization
 
             if (_weatherProvider != null)
             {
-                bool bridgeHasWeatherTexture = _xPlaneBridge != null && _xPlaneBridge.LatestWeatherTexture != null;
-                SetText(_weatherPowerText, _weatherProvider.Status == ProviderStatus.Inactive && !bridgeHasWeatherTexture ? "OFF" : "ON");
+                bool visible = _weatherRoot?.GetComponent<FaaRadarPresentation>()?.IsDisplayOn ?? true;
+                SetText(_weatherPowerText, visible ? "DISPLAY ON" : "DISPLAY OFF");
             }
 
             if (_trafficController != null)
@@ -1695,7 +1692,7 @@ namespace FAA.Customization
             SetText(_trafficExpandText, _trafficExpanded ? "‹" : "›");
             SetButtonActive(_weatherAdvancedText, _showWeatherAdvancedControls);
             SetButtonActive(_trafficAdvancedText, _showTrafficAdvancedControls);
-            SetButtonActive(_weatherPowerText, _weatherProvider != null && _weatherProvider.Status != ProviderStatus.Inactive);
+            SetButtonActive(_weatherPowerText, _weatherRoot?.GetComponent<FaaRadarPresentation>()?.IsDisplayOn ?? true);
             SetButtonActive(_trafficFullscreenText, _trafficDisplay != null && _trafficDisplay.IsFullscreen);
         }
 
@@ -1913,6 +1910,8 @@ namespace FAA.Customization
             {
                 return;
             }
+
+            if (weatherRoot.GetComponent<FaaRadarPresentation>() != null) return;
 
             foreach (Transform child in weatherRoot.GetComponentsInChildren<Transform>(true))
             {
@@ -2276,7 +2275,7 @@ namespace FAA.Customization
                 strip.anchoredPosition = new Vector2(
                     rootRect.anchoredPosition.x,
                     rootRect.anchoredPosition.y + focusedRootHeight * 0.5f +
-                    Mathf.Max(8f, stripOffset.y) + stripHeight);
+                    Mathf.Max(8f, stripOffset.y) + stripHeight + FaaRadarPresentation.HeaderClearance);
                 return;
             }
 
@@ -2303,13 +2302,13 @@ namespace FAA.Customization
                     desiredRightAnchorOffset = Mathf.Min(desiredRightAnchorOffset, safeRightAnchorOffset);
                 }
 
-                strip.anchoredPosition = new Vector2(desiredRightAnchorOffset, rootRect.anchoredPosition.y + rootHeight + stripOffset.y);
+                strip.anchoredPosition = new Vector2(desiredRightAnchorOffset, rootRect.anchoredPosition.y + rootHeight + stripOffset.y + FaaRadarPresentation.HeaderClearance);
                 return;
             }
 
             strip.pivot = new Vector2(0f, 0f);
             float rootLeftEdge = rootRect.anchoredPosition.x - (rootWidth * rootRect.pivot.x);
-            strip.anchoredPosition = new Vector2(rootLeftEdge + stripOffset.x, rootRect.anchoredPosition.y + rootHeight + stripOffset.y);
+            strip.anchoredPosition = new Vector2(rootLeftEdge + stripOffset.x, rootRect.anchoredPosition.y + rootHeight + stripOffset.y + FaaRadarPresentation.HeaderClearance);
         }
 
         private static float GetSafeRightAnchorOffset(RectTransform strip)

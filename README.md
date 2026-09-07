@@ -240,6 +240,31 @@ To apply the presentation to the current scene in edit mode, use
 **FAA → HUD → Apply Clean Pilot Presentation**, then save the scene. This
 selective migration does not rebuild the scene or replace its data bindings.
 
+Both radar instruments have a persistent status header and a separate
+range/mode footer. **DISPLAY ON/OFF** controls the local picture; it does not
+switch X-Plane's radar transmitter, TCAS, or network connection. The header
+stays available when a picture is turned off. Panel visibility in the wheel
+menu remains a separate control.
+
+- **DATA LIVE** requires a fresh feed, not merely a cached texture.
+- **DATA STALE / WAITING FOR DATA** dims the picture and adds an explicit
+  availability message. An empty traffic count is not treated as a failure.
+- Weather **STANDBY** and confirmed **RADAR POWER OFF** have their own states.
+  **PWR ?** means the source has not reported transmitter power; it is not ON.
+- **SIM WX** identifies the dataref-derived illustrative weather picture.
+  Its patterns are synthesized, not measured spatial weather-radar returns.
+  Do not use this research display for real-world weather avoidance/navigation.
+- The weather sector, sweep, and vector range guides share one projection.
+  Quarter-range labels follow the selected range; the sweep stops when the
+  picture is stale or in standby. Traffic guides retain a quieter major/minor
+  hierarchy, with range and orientation outside the plotting area.
+
+Use **FAA → HUD → Apply Clean Radar Presentation** and save to apply the radar
+headers, footers, and weather vector preview in edit mode. Configuration
+drawers still start hidden, remain open after an action, and close on a second
+radar tap. Maximized traffic reserves separate space for the status header
+and drawer; destinations cannot be set while its local display is OFF.
+
 The traffic radar context menu follows these rules:
 
 1. Tap the traffic radar to open the menu.

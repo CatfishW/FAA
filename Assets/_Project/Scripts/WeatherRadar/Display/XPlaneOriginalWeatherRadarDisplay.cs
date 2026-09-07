@@ -54,6 +54,7 @@ namespace WeatherRadar
         private float _nextLabelRefreshRealtime;
         private bool _layerOrderDirty = true;
         private XPlaneWeatherRadarSweepOverlay _sweepOverlay;
+        private XPlaneWeatherRadarFace _vectorFace;
         private Vector2 _lastDisplayBounds = new Vector2(-1f, -1f);
 
         public RawImage TargetImage => targetImage;
@@ -63,6 +64,8 @@ namespace WeatherRadar
             _lastTextureRealtime >= 0f &&
             Time.realtimeSinceStartup - _lastTextureRealtime <= staleAfterSeconds;
         public bool HasUsableTexture => _currentTexture != null && _lastTextureRealtime >= 0f;
+        public bool IsProceduralTexture => _currentTexture != null &&
+            _currentTexture.name.StartsWith("FAAProceduralWeatherRadar", System.StringComparison.Ordinal);
         public bool HasRadarPowerState => _hasRadarPowerState;
         public bool IsRadarPowered => _isRadarPowered;
         public int RadarMode => _radarMode;
@@ -213,6 +216,8 @@ namespace WeatherRadar
 
             _currentTexture = texture;
             _lastTextureRealtime = Time.realtimeSinceStartup;
+            EnsureVectorFace();
+            _sweepOverlay?.Configure(targetImage, this, dataProvider);
 
             if (targetImage != null)
             {
@@ -566,6 +571,33 @@ namespace WeatherRadar
 
             _sweepOverlay.Configure(targetImage, this, dataProvider);
             _layerOrderDirty = true;
+        }
+
+        private void EnsureVectorFace()
+        {
+            if (targetImage == null) return;
+            if (_vectorFace == null && (IsProceduralTexture || !Application.isPlaying))
+            {
+                Transform existing = targetImage.transform.Find("FAA Weather Vector Face");
+                var go = existing != null ? existing.gameObject :
+                    new GameObject("FAA Weather Vector Face", typeof(RectTransform), typeof(XPlaneWeatherRadarFace));
+                go.transform.SetParent(targetImage.transform, false);
+                _vectorFace = go.GetComponent<XPlaneWeatherRadarFace>() ?? go.AddComponent<XPlaneWeatherRadarFace>();
+                var rect = _vectorFace.rectTransform;
+                rect.anchorMin = Vector2.zero;
+                rect.anchorMax = Vector2.one;
+                rect.sizeDelta = Vector2.zero;
+                rect.anchoredPosition = Vector2.zero;
+                _vectorFace.Configure(dataProvider);
+            }
+            if (_vectorFace != null) _vectorFace.gameObject.SetActive(IsProceduralTexture || !Application.isPlaying);
+        }
+
+        public void PreparePilotPreview()
+        {
+            AutoFindReferences();
+            EnsureVectorFace();
+            if (!Application.isPlaying && targetImage != null) targetImage.color = Color.clear;
         }
 
         private void Subscribe()
