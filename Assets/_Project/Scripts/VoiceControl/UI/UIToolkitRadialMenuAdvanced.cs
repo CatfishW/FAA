@@ -76,7 +76,8 @@ namespace VoiceControl.UI
         {
             "Second Interation GUI",
             "FAA UI Toolkit HUD",
-            "FAASymbologyCanvasWorldSpace"
+            "FAASymbologyCanvasWorldSpace",
+            "FAAHeadingTapeCanvas"
         };
 
         [Header("Audio Feedback")]
@@ -85,14 +86,14 @@ namespace VoiceControl.UI
         [SerializeField] private AudioClip selectSound;
         [SerializeField] private AudioClip executeSound;
 
-        private const float MainSegmentWidth = 168f;
-        private const float MainSegmentHeight = 84f;
-        private const float SubSegmentWidth = 158f;
-        private const float SubSegmentHeight = 68f;
-        private const float MainIconContainerSize = 46f;
-        private const float MainIconSize = 36f;
-        private const float SubIconContainerSize = 30f;
-        private const float SubIconSize = 22f;
+        private const float MainSegmentWidth = 144f;
+        private const float MainSegmentHeight = 76f;
+        private const float SubSegmentWidth = 264f;
+        private const float SubSegmentHeight = 54f;
+        private const float MainIconContainerSize = 30f;
+        private const float MainIconSize = 26f;
+        private const float SubIconContainerSize = 32f;
+        private const float SubIconSize = 24f;
 
         [Header("Typography")]
         [SerializeField] private float mainLabelFontSize = 16f;
@@ -101,11 +102,8 @@ namespace VoiceControl.UI
         [SerializeField] private float centerSubtitleFontSize = 13f;
         private static readonly Color PanelBackgroundColor = new Color(0.004f, 0.018f, 0.026f, 0.985f);
         private static readonly Color SegmentBackgroundColor = new Color(0.012f, 0.055f, 0.070f, 0.985f);
-        private static readonly Color SegmentBorderColor = new Color(0.18f, 0.92f, 0.76f, 0.72f);
-        private static readonly Color SubBorderBaseColor = new Color(0.24f, 0.86f, 0.78f, 0.62f);
-        private const float SubMenuSpreadDegrees = 126f;
-        private const float SubMenuInnerOffset = 42f;
-        private const float SubMenuOuterInset = 0f;
+        private static readonly Color SegmentBorderColor = new Color(0.38f, 0.66f, 0.70f, 0.40f);
+        private static readonly Color SubBorderBaseColor = new Color(0.38f, 0.66f, 0.70f, 0.30f);
         private const float CenterSizePadding = 54f;
 
         // Events
@@ -124,6 +122,8 @@ namespace VoiceControl.UI
         private VisualElement _centerInfo;
         private Label _centerTitle;
         private Label _centerSubtitle;
+        private Label _commandHeading;
+        private Label _menuHint;
         private VisualElement _rippleContainer;
         private VisualElement _gestureIndicator;
         private VisualElement _builtRoot;
@@ -601,6 +601,14 @@ namespace VoiceControl.UI
             // Create center info panel
             CreateCenterInfo();
 
+            _commandHeading = new Label("COMMANDS") { name = "CommandHeading", pickingMode = PickingMode.Ignore };
+            _menuHint = new Label("SELECT A CATEGORY  ·  TAB / ESC TO CLOSE") { name = "MenuHint", pickingMode = PickingMode.Ignore };
+            _menuRoot.Add(_commandHeading);
+            _menuRoot.Add(_menuHint);
+            _centerInfo.pickingMode = PickingMode.Position;
+            _centerInfo.tooltip = "Close HUD controls";
+            _centerInfo.RegisterCallback<ClickEvent>(evt => { SetMenuOpen(false); evt.StopPropagation(); });
+
             // Apply styles
             ApplyInlineStyles();
             _scrim.SendToBack();
@@ -978,7 +986,7 @@ namespace VoiceControl.UI
             _menuRoot.style.width = 0;
             _menuRoot.style.height = 0;
 
-            float ringSize = middleRadius * 2 + 70;
+            float ringSize = middleRadius * 2 + 32;
             _ringBackground.style.position = Position.Absolute;
             _ringBackground.style.width = ringSize;
             _ringBackground.style.height = ringSize;
@@ -986,8 +994,8 @@ namespace VoiceControl.UI
             _ringBackground.style.top = -ringSize / 2;
             _ringBackground.style.backgroundColor = WithAlpha(PanelBackgroundColor, ringBackgroundTransparency);
             SetRadius(_ringBackground, ringSize / 2);
-            SetBorderWidth(_ringBackground, 2f);
-            SetBorderColor(_ringBackground, new Color(0.12f, 0.92f, 0.78f, 0.62f * menuTransparency));
+            SetBorderWidth(_ringBackground, 1f);
+            SetBorderColor(_ringBackground, new Color(0.42f, 0.71f, 0.76f, 0.25f * menuTransparency));
 
             // Main segments - compact, readable buttons
             float segmentWidth = MainSegmentWidth;
@@ -999,7 +1007,7 @@ namespace VoiceControl.UI
                 seg.Container.style.height = segmentHeight;
                 seg.Container.style.backgroundColor = WithAlpha(SegmentBackgroundColor, segmentTransparency);
                 SetRadius(seg.Container, 10);
-                SetBorderWidth(seg.Container, 2f);
+                SetBorderWidth(seg.Container, 1f);
                 SetBorderColor(seg.Container, SegmentBorderColor);
                 seg.Container.style.alignItems = Align.Center;
                 seg.Container.style.justifyContent = Justify.Center;
@@ -1019,9 +1027,10 @@ namespace VoiceControl.UI
                 seg.IconContainer.style.position = Position.Relative;
                 seg.IconContainer.style.width = MainIconContainerSize;
                 seg.IconContainer.style.height = MainIconContainerSize;
+                seg.IconContainer.style.flexShrink = 0;
                 seg.IconContainer.style.alignItems = Align.Center;
                 seg.IconContainer.style.justifyContent = Justify.Center;
-                seg.IconContainer.style.marginBottom = 5;
+                seg.IconContainer.style.marginBottom = 3;
 
                 // Icon image - will display texture
                 seg.IconImage.style.width = MainIconSize;
@@ -1049,11 +1058,13 @@ namespace VoiceControl.UI
                 seg.Container.style.height = subHeight;
                 seg.Container.style.backgroundColor = WithAlpha(SegmentBackgroundColor, segmentTransparency);
                 SetRadius(seg.Container, 9);
-                SetBorderWidth(seg.Container, 1.5f);
+                SetBorderWidth(seg.Container, 1f);
                 SetBorderColor(seg.Container, SubBorderBaseColor);
                 seg.Container.style.alignItems = Align.Center;
-                seg.Container.style.justifyContent = Justify.Center;
-                seg.Container.style.flexDirection = FlexDirection.Column;
+                seg.Container.style.justifyContent = Justify.FlexStart;
+                seg.Container.style.flexDirection = FlexDirection.Row;
+                seg.Container.style.paddingLeft = 14;
+                seg.Container.style.paddingRight = 14;
                 seg.Container.style.paddingTop = 6;
                 seg.Container.style.paddingBottom = 6;
                 seg.Container.style.transitionProperty = new List<StylePropertyName>
@@ -1075,9 +1086,11 @@ namespace VoiceControl.UI
 
                 seg.IconContainer.style.width = SubIconContainerSize;
                 seg.IconContainer.style.height = SubIconContainerSize;
+                seg.IconContainer.style.flexShrink = 0;
                 seg.IconContainer.style.alignItems = Align.Center;
                 seg.IconContainer.style.justifyContent = Justify.Center;
-                seg.IconContainer.style.marginBottom = 3;
+                seg.IconContainer.style.marginBottom = 0;
+                seg.IconContainer.style.marginRight = 12;
                 seg.IconContainer.style.transitionProperty = new List<StylePropertyName>
                 {
                     new StylePropertyName("scale"),
@@ -1092,9 +1105,9 @@ namespace VoiceControl.UI
 
                 seg.NameLabel.style.fontSize = subLabelFontSize;
                 seg.NameLabel.style.color = new Color(0.85f, 0.90f, 0.95f, 0.95f);
-                seg.NameLabel.style.unityTextAlign = TextAnchor.MiddleCenter;
+                seg.NameLabel.style.unityTextAlign = TextAnchor.MiddleLeft;
                 seg.NameLabel.style.unityFontStyleAndWeight = FontStyle.Bold;
-                seg.NameLabel.style.width = subWidth - 16;
+                seg.NameLabel.style.width = subWidth - 74;
                 seg.NameLabel.style.whiteSpace = WhiteSpace.Normal;
             }
 
@@ -1107,14 +1120,14 @@ namespace VoiceControl.UI
             _centerInfo.style.top = -centerSize / 2;
             _centerInfo.style.backgroundColor = WithAlpha(PanelBackgroundColor, centerTransparency);
             SetRadius(_centerInfo, centerSize / 2);
-            SetBorderWidth(_centerInfo, 2);
-            SetBorderColor(_centerInfo, new Color(0.25f, 1f, 0.72f, 0.62f * menuTransparency));
+            SetBorderWidth(_centerInfo, 1);
+            SetBorderColor(_centerInfo, new Color(0.42f, 0.71f, 0.76f, 0.42f * menuTransparency));
             _centerInfo.style.alignItems = Align.Center;
             _centerInfo.style.justifyContent = Justify.Center;
 
             // Center title - LARGE sharp text
             _centerTitle.style.fontSize = centerTitleFontSize;
-            _centerTitle.style.color = new Color(0.35f, 1f, 0.72f, 1f);
+            _centerTitle.style.color = new Color(0.86f, 0.96f, 0.98f, 1f);
             _centerTitle.style.unityFontStyleAndWeight = FontStyle.Bold;
             _centerTitle.style.unityTextAlign = TextAnchor.MiddleCenter;
             _centerTitle.style.letterSpacing = 0;
@@ -1123,7 +1136,27 @@ namespace VoiceControl.UI
             _centerSubtitle.style.fontSize = centerSubtitleFontSize;
             _centerSubtitle.style.color = new Color(0.75f, 0.82f, 0.90f, 0.95f);
             _centerSubtitle.style.unityTextAlign = TextAnchor.MiddleCenter;
-            _centerSubtitle.style.marginTop = 12;
+            _centerSubtitle.style.marginTop = 6;
+            _centerTitle.style.whiteSpace = WhiteSpace.Normal;
+            _centerTitle.style.width = centerSize - 16;
+            _centerSubtitle.style.whiteSpace = WhiteSpace.Normal;
+            _centerSubtitle.style.width = centerSize - 12;
+            if (_commandHeading != null)
+            {
+                _commandHeading.style.position = Position.Absolute;
+                _commandHeading.style.left = 274;
+                _commandHeading.style.width = SubSegmentWidth;
+                _commandHeading.style.fontSize = 14;
+                _commandHeading.style.unityFontStyleAndWeight = FontStyle.Bold;
+                _commandHeading.style.color = new Color(0.70f, 0.87f, 0.89f, 1f);
+                _menuHint.style.position = Position.Absolute;
+                _menuHint.style.top = middleRadius + 40;
+                _menuHint.style.left = -250;
+                _menuHint.style.width = 500;
+                _menuHint.style.fontSize = 12;
+                _menuHint.style.color = new Color(0.67f, 0.78f, 0.82f, 1f);
+                _menuHint.style.unityTextAlign = TextAnchor.MiddleCenter;
+            }
         }
 
         private void LoadCommands()
@@ -1302,6 +1335,7 @@ namespace VoiceControl.UI
                 if (i < _categories.Count)
                 {
                     _mainSegments[i].Category = _categories[i];
+                    _mainSegments[i].Angle = i * 360f / Mathf.Min(_categories.Count, _mainSegments.Count) - 90f;
                     _mainSegments[i].Container.style.display = DisplayStyle.Flex;
 
                     // Load icon texture from path
@@ -1462,6 +1496,16 @@ namespace VoiceControl.UI
 
             _menuRoot.style.opacity = clampedOpen;
 
+            // Reserve space for a bounded command column instead of throwing
+            // command cards outside the wheel/viewport. Scale from panel units,
+            // so both 1080p and 4K panel settings keep the entire menu reachable.
+            float availableWidth = _root.resolvedStyle.width;
+            float availableHeight = _root.resolvedStyle.height;
+            float contentWidth = _subMenuOpen ? 820f : 520f;
+            float menuScale = CalculateMenuScale(availableWidth, availableHeight, contentWidth, 560f);
+            _menuRoot.style.scale = new Scale(new Vector3(menuScale, menuScale, 1f));
+            _menuRoot.style.marginLeft = _subMenuOpen ? -145f * menuScale : 0f;
+
             // Animate ring background
             float ringScale = 0.8f + 0.2f * curvedOpen;
             _ringBackground.style.scale = new Scale(new Vector3(ringScale, ringScale, 1));
@@ -1481,7 +1525,7 @@ namespace VoiceControl.UI
 
                 // Position in circle - center of the ring between inner and middle
                 float angleRad = (seg.Angle + _rotationOffset) * Mathf.Deg2Rad;
-                float radius = (innerRadius + middleRadius) / 2 * segCurved;
+                float radius = (innerRadius + middleRadius) / 2 * Mathf.Lerp(0.96f, 1f, segProgress);
                 float x = Mathf.Cos(angleRad) * radius;
                 float y = Mathf.Sin(angleRad) * radius;
 
@@ -1491,7 +1535,7 @@ namespace VoiceControl.UI
                 seg.Container.style.opacity = segProgress;
 
                 // Scale based on selection with spring effect
-                float baseScale = segCurved;
+                float baseScale = Mathf.Lerp(0.96f, 1f, segProgress);
                 float selectionBoost = GetMainSegmentScaleBoost(seg, i);
                 seg.Container.style.scale = new Scale(new Vector3(baseScale * selectionBoost, baseScale * selectionBoost, 1));
             }
@@ -1522,26 +1566,18 @@ namespace VoiceControl.UI
                     float segProgress = Mathf.Clamp01((_subMenuProgress - stagger) / (1f - stagger));
                     segProgress = reducedMotion ? segProgress : bounceCurve.Evaluate(segProgress);
 
-                    // Position relative to parent segment - fan out from the selected main segment
-                    float baseAngle = _mainSegments[_selectedMainIndex].Angle + _rotationOffset;
-                    float spread = SubMenuSpreadDegrees;  // degrees spread for sub-items
-                    float angleOffset = (i - (visibleCount - 1) / 2f) * (spread / Mathf.Max(1, visibleCount - 1));
-                    float angle = (baseAngle + angleOffset) * Mathf.Deg2Rad;
-
-                    float innerR = middleRadius + SubMenuInnerOffset;
-                    float outerR = outerRadius - SubMenuOuterInset;
-                    float radius = Mathf.Lerp(innerR, outerR, segProgress);
-
-                    float x = Mathf.Cos(angle) * radius;
-                    float y = Mathf.Sin(angle) * radius;
+                    Rect commandRect = GetCommandRect(i, visibleCount);
 
                     seg.Container.style.display = DisplayStyle.Flex;
-                    seg.Container.style.left = x - subWidth / 2;
-                    seg.Container.style.top = y - subHeight / 2;
+                    seg.Container.style.left = commandRect.x + 10f * (1f - segProgress);
+                    seg.Container.style.top = commandRect.y;
                     seg.Container.style.opacity = segProgress;
                     float hoverBoost = _selectedSubIndex == i ? 1f + hoverScaleBoost : 1f;
-                    seg.Container.style.scale = new Scale(new Vector3(segProgress * hoverBoost, segProgress * hoverBoost, 1));
+                    seg.Container.style.scale = new Scale(new Vector3(hoverBoost, hoverBoost, 1));
                 }
+                _commandHeading.style.top = -(visibleCount * (subHeight + 8f)) / 2f - 28f;
+                _commandHeading.style.opacity = _subMenuProgress;
+                _commandHeading.text = _selectedMainIndex >= 0 ? _mainSegments[_selectedMainIndex].Category.DisplayName.ToUpperInvariant() : "COMMANDS";
             }
             else
             {
@@ -1549,6 +1585,7 @@ namespace VoiceControl.UI
                 {
                     seg.Container.style.display = DisplayStyle.None;
                 }
+                _commandHeading.style.opacity = 0f;
             }
 
             // Animate center info
@@ -1731,17 +1768,8 @@ namespace VoiceControl.UI
             _mainSegments[index].IsHovered = hovered;
             SetMainSegmentHover(_mainSegments[index], hovered || _selectedMainIndex == index);
 
-            if (hovered && _selectedMainIndex != index)
-            {
-                SelectMainSegment(index);
-
-                // Immediately update sub-menu when hovering different category
-                // This fixes the lingering sub-menu from previous hovered item
-                if (enableSubMenus && _mainSegments[index].Category != null)
-                {
-                    OpenSubMenu(index);
-                }
-            }
+            // Hover is only a highlight. A deliberate tap changes category;
+            // crossing another card on the way to a command must not replace it.
         }
 
         private void OnMainSegmentClick(int index)
@@ -2453,10 +2481,10 @@ namespace VoiceControl.UI
         /// </summary>
         public void ApplyAviationHudPreset(bool refresh = true)
         {
-            innerRadius = 128f;
-            middleRadius = 275f;
-            outerRadius = 390f;
-            collapsedButtonSize = 58f;
+            innerRadius = 88f;
+            middleRadius = 225f;
+            outerRadius = 350f;
+            collapsedButtonSize = 48f;
             collapsedButtonPosition = new Vector2(34f, 34f);
             collapsedButtonTopRight = true;
             maxSubSegmentCount = 6;
@@ -2465,21 +2493,26 @@ namespace VoiceControl.UI
             subMenuExpandDuration = 0.18f;
             mainSegmentStagger = 0.025f;
             subSegmentStagger = 0.02f;
-            hoverScaleBoost = 0.06f;
+            hoverScaleBoost = 0.015f;
             menuTransparency = 1f;
-            ringBackgroundTransparency = 0.94f;
+            ringBackgroundTransparency = 0.90f;
             segmentTransparency = 0.99f;
             centerTransparency = 1f;
             useBackdrop = true;
-            backdropOpacity = 0.46f;
+            backdropOpacity = 0.30f;
             closeOnBackdropClick = true;
             hideHudWhileOpen = true;
-            mainLabelFontSize = 18f;
-            subLabelFontSize = 14f;
-            centerTitleFontSize = 23f;
-            centerSubtitleFontSize = 13f;
-            usePulseAnimation = true;
+            mainLabelFontSize = 15f;
+            subLabelFontSize = 15f;
+            centerTitleFontSize = 17f;
+            centerSubtitleFontSize = 11f;
+            usePulseAnimation = false;
+            useGestures = false;
             useRippleEffect = true;
+            springCurve = AnimationCurve.EaseInOut(0f, 0f, 1f, 1f);
+            bounceCurve = AnimationCurve.EaseInOut(0f, 0f, 1f, 1f);
+            if (!hudRootNamesToHide.Contains("FAAHeadingTapeCanvas"))
+                hudRootNamesToHide = hudRootNamesToHide.Concat(new[] { "FAAHeadingTapeCanvas" }).ToArray();
 
             if (refresh)
             {
@@ -2493,6 +2526,17 @@ namespace VoiceControl.UI
                 ApplyInlineStyles();
             }
         }
+
+        public static float CalculateMenuScale(float width, float height, float contentWidth, float contentHeight)
+        {
+            if (float.IsNaN(width) || float.IsNaN(height) || width <= 0f || height <= 0f)
+                return 1f;
+            return Mathf.Clamp(Mathf.Min((width - 40f) / contentWidth, (height - 72f) / contentHeight), 0.2f, 1f);
+        }
+
+        public static Rect GetCommandRect(int index, int count) => new Rect(
+            274f, (index - (count - 1) * .5f) * (SubSegmentHeight + 8f) - SubSegmentHeight * .5f,
+            SubSegmentWidth, SubSegmentHeight);
 
         #endregion
     }

@@ -16,8 +16,8 @@ namespace FAA.EditorTools
         private static readonly Color HudGreen = new Color(0.2f, 1f, 0.2f, 1f);
         private static readonly Color HudGreenDim = new Color(0.2f, 1f, 0.2f, 0.74f);
         private static readonly Color PanelBackground = new Color(0f, 0.026f, 0.018f, 0.9f);
-        private static readonly Vector2 HeadingTapeAnchoredPosition = new Vector2(-610f, 430f);
-        private static readonly Vector2 HeadingTapeSize = new Vector2(600f, 38f);
+        private static readonly Vector2 HeadingTapeAnchoredPosition = new Vector2(0f, -180f);
+        private static readonly Vector2 HeadingTapeSize = new Vector2(520f, 64f);
         private const string HeadingTapeCanvasName = "FAAHeadingTapeCanvas";
         private const string HeadingTapeOverlayName = "FAA Heading Tape Overlay";
 

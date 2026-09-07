@@ -429,7 +429,7 @@ namespace FAA.Customization
             button.onClick.RemoveListener(ToggleExpanded);
             button.onClick.AddListener(ToggleExpanded);
 
-            TMP_Text title = EnsureText(header.transform, "Title", "WX CONDITIONS", 13f, ValueNormal, FontStyles.Bold);
+            TMP_Text title = EnsureText(header.transform, "Title", "WEATHER", 13f, ValueNormal, FontStyles.Bold);
             title.rectTransform.anchorMin = Vector2.zero;
             title.rectTransform.anchorMax = Vector2.one;
             title.rectTransform.offsetMin = new Vector2(13f, 0f);
@@ -721,7 +721,7 @@ namespace FAA.Customization
 
             if (_headerStatus != null)
             {
-                _headerStatus.text = online ? "X-PLANE LIVE" : "WAITING";
+                _headerStatus.text = online ? "LIVE" : "WAITING";
                 _headerStatus.color = online ? AccentColor : LabelColor;
             }
 

@@ -16,7 +16,7 @@ namespace FAA.Customization
     {
         private const int MarkerCount = 73;
         private const float MarkerSpacingDegrees = 5f;
-        private const float DefaultPixelsPerDegree = 1.5f;
+        private const float DefaultPixelsPerDegree = 5f;
         private static readonly Vector2 DefaultClipAnchoredPosition = new Vector2(0f, -5f);
 
         [Header("Data Sources")]
@@ -28,8 +28,8 @@ namespace FAA.Customization
         [SerializeField] private bool autoFindSources = true;
 
         [Header("Layout")]
-        [SerializeField, HideInInspector] private Vector2 anchoredPosition = new Vector2(-610f, 430f);
-        [SerializeField, HideInInspector] private Vector2 size = new Vector2(600f, 38f);
+        [SerializeField, HideInInspector] private Vector2 anchoredPosition = new Vector2(0f, -180f);
+        [SerializeField, HideInInspector] private Vector2 size = new Vector2(520f, 64f);
         [SerializeField, HideInInspector] private Vector2 clipAnchoredPosition = new Vector2(0f, -5f);
         [SerializeField] private float pixelsPerDegree = DefaultPixelsPerDegree;
         [SerializeField] private float smoothing = 0.18f;
@@ -184,6 +184,7 @@ namespace FAA.Customization
 #if UNITY_EDITOR
             if (changed)
             {
+                ApplyLayoutAndStyle();
                 UnityEditor.EditorUtility.SetDirty(this);
             }
 #endif
@@ -339,17 +340,24 @@ namespace FAA.Customization
                 _clipRect.localRotation = Quaternion.identity;
             }
 
-            ConfigureLine(_baseline, new Vector2(size.x - 32f, 2f), new Vector2(0f, -11f), hudDimColor);
+            ConfigureLine(_baseline, new Vector2(size.x - 32f, 1f), new Vector2(0f, -9f),
+                new Color(hudColor.r, hudColor.g, hudColor.b, 0.30f));
             if (_topRule != null)
             {
                 _topRule.gameObject.SetActive(false);
             }
-            ConfigureLine(_centerTick, new Vector2(2.4f, 28f), new Vector2(0f, -6f), hudColor);
+            ConfigureLine(_centerTick, new Vector2(2f, 10f), new Vector2(0f, -14f), hudColor);
             ApplyFixedCardinalLabelLayout();
 
             if (_headingReadout != null)
             {
-                DisableTextGraphic(_headingReadout);
+                EnableTextGraphic(_headingReadout);
+                _headingReadout.rectTransform.anchoredPosition = new Vector2(0f, -33f);
+                _headingReadout.rectTransform.sizeDelta = new Vector2(108f, 26f);
+                _headingReadout.alignment = TextAlignmentOptions.Center;
+                _headingReadout.fontSize = 19f;
+                _headingReadout.fontStyle = FontStyles.Normal;
+                ApplyTextColor(_headingReadout, hudColor);
             }
 
             ConfigureNavigationTargetCueLayout();
@@ -414,7 +422,8 @@ namespace FAA.Customization
 
         private void UpdateTape(bool immediate)
         {
-            EnsureBuilt();
+            if (_rectTransform == null || _markers.Count != MarkerCount)
+                EnsureBuilt();
 
             float targetHeading = ReadHeading();
             if (immediate || smoothing <= 0f)
@@ -430,7 +439,8 @@ namespace FAA.Customization
             _displayedHeading = Normalize360(_displayedHeading);
             if (_headingReadout != null)
             {
-                DisableTextGraphic(_headingReadout);
+                EnableTextGraphic(_headingReadout);
+                _headingReadout.text = $"<size=65%>HDG</size> <mspace=0.62em>{Mathf.RoundToInt(_displayedHeading) % 360:000}</mspace>°";
             }
             ApplyFixedCardinalLabelLayout();
 
@@ -453,9 +463,11 @@ namespace FAA.Customization
                 int step = centerStep + i - halfCount;
                 int markerDegrees = Mathf.RoundToInt(step * MarkerSpacingDegrees);
                 int normalizedDegrees = Mathf.RoundToInt(Normalize360(markerDegrees)) % 360;
-                float delta = Mathf.DeltaAngle(_displayedHeading, markerDegrees);
+                // Steps are already unwrapped around the current heading.
+                // DeltaAngle duplicated the opposite tick at the 0/360 seam.
+                float delta = markerDegrees - _displayedHeading;
                 float x = delta * effectivePixelsPerDegree;
-                bool visible = Mathf.Abs(x) <= halfWidth + 28f;
+                bool visible = Mathf.Abs(x) <= halfWidth - 22f;
                 marker.Root.gameObject.SetActive(visible);
                 if (!visible)
                 {
@@ -464,9 +476,9 @@ namespace FAA.Customization
 
                 bool cardinal = IsCardinal(normalizedDegrees);
                 bool major = normalizedDegrees % 10 == 0;
-                bool labeled = cardinal || normalizedDegrees % 30 == 0;
-                float tickHeight = cardinal ? 15f : major ? 10f : 6f;
-                float tickWidth = cardinal || major ? 2f : 1.25f;
+                bool labeled = major;
+                float tickHeight = major ? 10f : 5f;
+                float tickWidth = major ? 1.5f : 1f;
 
                 marker.Root.anchoredPosition = new Vector2(x, 0f);
                 ConfigureLine(marker.Tick, new Vector2(tickWidth, tickHeight), new Vector2(0f, -10f), major ? hudColor : hudDimColor);
@@ -478,7 +490,7 @@ namespace FAA.Customization
                     {
                         EnableTextGraphic(marker.Label);
                         marker.Label.text = GetLabel(normalizedDegrees);
-                        marker.Label.fontSize = cardinal ? 20f : 13f;
+                        marker.Label.fontSize = cardinal ? 18f : 15f;
                         marker.Label.rectTransform.anchorMin = new Vector2(0.5f, 0.5f);
                         marker.Label.rectTransform.anchorMax = new Vector2(0.5f, 0.5f);
                         marker.Label.rectTransform.pivot = new Vector2(0.5f, 0.5f);
@@ -540,6 +552,11 @@ namespace FAA.Customization
             if (_navigationTargetLabel != null)
             {
                 EnableTextGraphic(_navigationTargetLabel);
+                // Keep edge-clamped target captions inside the tape's width;
+                // otherwise a right-side target overwrites the engine labels.
+                float labelHalfWidth = _navigationTargetLabel.rectTransform.rect.width * 0.5f;
+                _navigationTargetLabel.rectTransform.anchoredPosition = new Vector2(
+                    GetNavigationLabelOffset(cueX, halfWidth, labelHalfWidth), 21f);
                 string prefix = string.IsNullOrWhiteSpace(target.Identifier) ? "TGT" : target.Identifier;
                 string distance = target.DistanceNM >= 10f
                     ? $"{target.DistanceNM:0}NM"
@@ -549,6 +566,12 @@ namespace FAA.Customization
                     _navigationTargetLabel,
                     clamped ? new Color(1f, 0.68f, 0.20f, 1f) : hudColor);
             }
+        }
+
+        public static float GetNavigationLabelOffset(float cueX, float halfWidth, float labelHalfWidth)
+        {
+            float limit = Mathf.Max(0f, halfWidth - labelHalfWidth);
+            return Mathf.Clamp(cueX, -limit, limit) - cueX;
         }
 
         private void RefreshDataSources()
@@ -750,13 +773,13 @@ namespace FAA.Customization
             text.color = color;
             if (text.fontSharedMaterial != null)
             {
-                text.faceColor = color;
+                text.faceColor = Color.white;
                 text.outlineColor = new Color(color.r, color.g, color.b, Mathf.Min(color.a, 0.62f));
             }
 
             text.enableVertexGradient = false;
             text.raycastTarget = false;
-            text.canvasRenderer.SetColor(color);
+            text.canvasRenderer.SetColor(Color.white);
             text.ForceMeshUpdate(true, true);
         }
 
@@ -807,8 +830,9 @@ namespace FAA.Customization
 
         private static float GetMaximumPixelsPerDegree(float overlayWidth)
         {
-            const float cardinalLabelWidth = 52f;
-            return Mathf.Max(1.1f, (Mathf.Abs(overlayWidth) - cardinalLabelWidth) / 360f);
+            // Show roughly 100 degrees, not the entire compass compressed into
+            // one strip. A narrower sweep preserves meaningful tick spacing.
+            return Mathf.Max(1.1f, (Mathf.Abs(overlayWidth) - 32f) / 90f);
         }
 
         private readonly struct CompassMarker

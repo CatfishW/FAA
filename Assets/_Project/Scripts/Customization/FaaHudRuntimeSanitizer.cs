@@ -35,8 +35,8 @@ namespace FAA.Customization
         private static readonly HashSet<int> BrokenSpriteImageInstanceIds = new HashSet<int>();
         private static readonly Vector2 LegacyScreenFlightHudAnchoredPosition = new Vector2(960f, 740f);
         private static readonly Vector2 DefaultScreenFlightHudAnchoredPosition = new Vector2(960f, 690f);
-        private static readonly Vector2 HeadingTapeAnchoredPosition = new Vector2(-610f, 430f);
-        private static readonly Vector2 HeadingTapeSize = new Vector2(600f, 38f);
+        private static readonly Vector2 HeadingTapeAnchoredPosition = new Vector2(0f, -180f);
+        private static readonly Vector2 HeadingTapeSize = new Vector2(520f, 64f);
 
         [Header("Duplicate HUD Protection")]
         [SerializeField] private bool disableWorldSpaceSymbologyCanvas = true;
@@ -336,7 +336,10 @@ namespace FAA.Customization
         {
             foreach (Transform transform in FindObjectsByType<Transform>(FindObjectsInactive.Include, FindObjectsSortMode.None))
             {
-                if (transform != null && transform.gameObject.name == HeadingTapeOverlayName && IsLoadedSceneObject(transform.gameObject))
+                // Awake/OnEnable can run before scene.isLoaded becomes true.
+                // Reuse authored objects during that window instead of
+                // repeatedly creating and destroying the heading canvas.
+                if (transform != null && transform.gameObject.name == HeadingTapeOverlayName && transform.gameObject.scene.IsValid())
                 {
                     return transform;
                 }
@@ -371,7 +374,7 @@ namespace FAA.Customization
             Canvas canvas = null;
             foreach (Canvas candidate in FindObjectsByType<Canvas>(FindObjectsInactive.Include, FindObjectsSortMode.None))
             {
-                if (candidate == null || candidate.gameObject.name != HeadingTapeCanvasName || !IsLoadedSceneObject(candidate.gameObject))
+                if (candidate == null || candidate.gameObject.name != HeadingTapeCanvasName || !candidate.gameObject.scene.IsValid())
                 {
                     continue;
                 }

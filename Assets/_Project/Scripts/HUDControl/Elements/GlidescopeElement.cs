@@ -78,6 +78,7 @@ namespace HUDControl.Elements
         private float navigationTargetPulse;
         
         public override string ElementId => "Glidescope";
+        public bool HasDeviationData { get; private set; }
         
         protected override void OnInitialize()
         {
@@ -248,6 +249,8 @@ namespace HUDControl.Elements
         
         public void SetDeviation(float dots)
         {
+            HasDeviationData = !float.IsNaN(dots) && !float.IsInfinity(dots);
+            if (!HasDeviationData) return;
             simulateDeviation = false;
             targetDeviation = Mathf.Clamp(dots, -2.5f, 2.5f);
         }

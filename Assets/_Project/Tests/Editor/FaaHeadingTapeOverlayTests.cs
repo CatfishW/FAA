@@ -99,7 +99,7 @@ namespace FAA.Customization.Tests
         }
 
         [Test]
-        public void HeadingNorth_RestoresAndKeepsAllNewsLabelsInsideTheClip()
+        public void HeadingNorth_ShowsFocusedSweepAndCurrentHeadingWithoutOppositeCardinals()
         {
             Type overlayType = Type.GetType("FAA.Customization.FaaHeadingTapeOverlay, Assembly-CSharp");
             Assert.That(overlayType, Is.Not.Null);
@@ -131,7 +131,7 @@ namespace FAA.Customization.Tests
 
                 InvokePrivate(overlayType, overlay, "Update");
 
-                foreach (string cardinal in new[] { "N", "E", "W", "S" })
+                foreach (string cardinal in new[] { "N" })
                 {
                     Graphic label = FindVisibleText(clipRect, cardinal);
                     Assert.That(label, Is.Not.Null, $"{cardinal} was not rendered.");
@@ -148,6 +148,13 @@ namespace FAA.Customization.Tests
                         Is.LessThanOrEqualTo(halfClipWidth + 0.01f),
                         $"{cardinal} was clipped by the heading-tape viewport.");
                 }
+                Assert.That(FindVisibleText(clipRect, "E"), Is.Null, "The full compass must not be compressed into the HUD tape.");
+                Assert.That(FindVisibleText(clipRect, "S"), Is.Null);
+                Assert.That(FindVisibleText(clipRect, "W"), Is.Null);
+                Transform readout = root.transform.Find("Current Heading Readout");
+                Assert.That(readout.gameObject.activeSelf, Is.True);
+                Graphic heading = readout.GetComponent<Graphic>();
+                Assert.That(heading.GetType().GetProperty("text").GetValue(heading).ToString(), Does.Contain("000"));
             }
             finally
             {
@@ -265,19 +272,22 @@ namespace FAA.Customization.Tests
         }
 
         [Test]
-        public void RadialMenu_SubcommandsHaveNonOverlappingFanSpacing()
+        public void RadialMenu_SubcommandsUseSeparatedRowsOutsideTheCategoryWheel()
         {
             Type menuType = Type.GetType("VoiceControl.UI.UIToolkitRadialMenuAdvanced, Assembly-CSharp");
             Assert.That(menuType, Is.Not.Null);
 
-            float width = ReadConstant(menuType, "SubSegmentWidth");
-            float spread = ReadConstant(menuType, "SubMenuSpreadDegrees");
-            float radius = 390f;
-            float adjacentAngle = spread / 4f * Mathf.Deg2Rad;
-            float adjacentChord = 2f * radius * Mathf.Sin(adjacentAngle * 0.5f);
-
-            Assert.That(spread, Is.GreaterThanOrEqualTo(120f));
-            Assert.That(adjacentChord, Is.GreaterThan(width + 20f));
+            MethodInfo layout = menuType.GetMethod("GetCommandRect");
+            Assert.That(layout, Is.Not.Null);
+            Rect previous = default;
+            for (int i = 0; i < 8; i++)
+            {
+                Rect row = (Rect)layout.Invoke(null, new object[] { i, 8 });
+                Assert.That(row.xMin, Is.GreaterThan(241f), "Commands must sit outside the wheel.");
+                Assert.That(row.height, Is.GreaterThanOrEqualTo(44f), "Retain a touch-sized target.");
+                if (i > 0) Assert.That(row.yMin - previous.yMax, Is.GreaterThanOrEqualTo(8f));
+                previous = row;
+            }
         }
 
         [Test]

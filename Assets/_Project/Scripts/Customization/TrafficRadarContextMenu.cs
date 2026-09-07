@@ -23,10 +23,10 @@ namespace FAA.Customization
     {
         private const float CompactPanelWidth = 284f;
         private const float FocusPanelWidth = 386f;
-        private const float CompactRowHeight = 48f;
+        private const float CompactRowHeight = 44f;
         private const float FocusRowHeight = 58f;
         private const float RowGap = 8f;
-        private const float HeaderHeight = 62f;
+        private const float HeaderHeight = 52f;
         private const float PanelPadding = 14f;
         private const float RadarGap = 20f;
         private const float CompactTopSafeInset = 86f;
@@ -117,6 +117,9 @@ namespace FAA.Customization
         private bool _simulatorInputPanelStateCaptured;
 
         public bool IsOpen => _targetOpen || _progress > 0.01f;
+        // Requested state is separate from the outgoing animation. Companion
+        // drawers must close on the same tap, not wait for IsOpen to fade out.
+        public bool IsRequestedOpen => _targetOpen;
         public bool IsTargetSetupOpen => _targetSetupOpen;
 
         /// <summary>

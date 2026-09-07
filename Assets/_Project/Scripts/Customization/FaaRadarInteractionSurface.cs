@@ -250,6 +250,8 @@ namespace FAA.Customization
         public FaaRadarKind RadarKind => radarKind;
         public bool IsOpen => _open;
 
+        public void CloseContextMenu() => _trafficContextMenu?.Close();
+
         public void Configure(FaaRadarControlsOverlay sourceOwner, FaaRadarKind kind, bool useReducedMotion)
         {
             owner = sourceOwner;
@@ -382,6 +384,7 @@ namespace FAA.Customization
                     // in compact and pilot-focus views. Every action carries
                     // an animated leader to the affected area of the scope.
                     _trafficContextMenu.ToggleAtScreenPoint(eventData.position, eventData.pressEventCamera);
+                    owner?.SetRadarConfigurationVisible(FaaRadarKind.Traffic, _trafficContextMenu.IsRequestedOpen);
                     eventData.Use();
                     return;
                 }

@@ -54,8 +54,8 @@ namespace FAA.Editor
         private static readonly Vector2 WeatherRadarSize = new Vector2(280f, 280f);
         private static readonly Vector2 TrafficRadarSize = new Vector2(296f, 296f);
         private static readonly Vector2 ScreenFlightHudAnchoredPosition = new Vector2(960f, 690f);
-        private static readonly Vector2 HeadingTapeAnchoredPosition = new Vector2(-610f, 430f);
-        private static readonly Vector2 HeadingTapeSize = new Vector2(600f, 38f);
+        private static readonly Vector2 HeadingTapeAnchoredPosition = new Vector2(0f, -180f);
+        private static readonly Vector2 HeadingTapeSize = new Vector2(520f, 64f);
         private static readonly Color HudGreen = new Color(0.2f, 1f, 0.2f, 1f);
         private static readonly Color HudGreenDim = new Color(0.2f, 1f, 0.2f, 0.74f);
         private const int ScreenFlightHudSortingOrder = 5000;
@@ -2399,7 +2399,7 @@ namespace FAA.Editor
             SetFloat(serializedPrimary, "pixelsPerKnot", 0.0018f);
             SetFloat(serializedPrimary, "maxTapeOffsetPixels", 0.18f);
             SetFloat(serializedPrimary, "referenceAirspeed", 100f);
-            SetString(serializedPrimary, "displayFormat", "{0:000}");
+            SetString(serializedPrimary, "displayFormat", "<mspace=0.62em>{0:000}</mspace>");
             SetFloat(serializedPrimary, "animationSpeed", 14f);
             SetBool(serializedPrimary, "isEnabled", tape != null || readout != null);
             serializedPrimary.ApplyModifiedPropertiesWithoutUndo();
@@ -2442,7 +2442,7 @@ namespace FAA.Editor
             SetFloat(serializedPrimary, "pixelsPerFoot", 0.00018f);
             SetFloat(serializedPrimary, "maxTapeOffsetPixels", 0.18f);
             SetFloat(serializedPrimary, "referenceAltitude", 10000f);
-            SetString(serializedPrimary, "displayFormat", "{0:00000}");
+            SetString(serializedPrimary, "displayFormat", "{0:#,##0}");
             SetFloat(serializedPrimary, "animationSpeed", 14f);
             SetBool(serializedPrimary, "isEnabled", tape != null || readout != null);
             serializedPrimary.ApplyModifiedPropertiesWithoutUndo();

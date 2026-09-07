@@ -1726,8 +1726,12 @@ namespace FAA.XPlaneIntegration.Runtime
         {
             if (data != null)
             {
-                ForEach(_localizerElements, element => element.SetDeviation(data.courseDeviation));
-                ForEach(_glidescopeElements, element => element.SetDeviation(data.glideslopeDeviation));
+                // Absent datarefs previously became zero dots, falsely drawing
+                // an on-course cue and masking a pilot-selected map target.
+                float lateralGuidance = data.ilsValid ? GetNavigationDeviation(_snapshot.Systems, float.NaN) : float.NaN;
+                float verticalGuidance = data.ilsValid ? GetGlideslopeDeviation(_snapshot.Systems, float.NaN) : float.NaN;
+                ForEach(_localizerElements, element => element.SetDeviation(lateralGuidance));
+                ForEach(_glidescopeElements, element => element.SetDeviation(verticalGuidance));
                 bool airspeedValid = TryGetFinite(
                     _snapshot.Aircraft,
                     "sim/flightmodel/position/indicated_airspeed",
@@ -1787,6 +1791,8 @@ namespace FAA.XPlaneIntegration.Runtime
 
         private void ClearEngineHudPointers()
         {
+            ForEach(_localizerElements, element => element.SetDeviation(float.NaN));
+            ForEach(_glidescopeElements, element => element.SetDeviation(float.NaN));
             ForEach(_airspeedIndicatorElements, element => element.ClearExternalData());
             ForEach(_altimeterElements, element => element.ClearExternalData());
             ForEach(_torquePanelElements, element => element.ClearExternalData());
@@ -3564,9 +3570,9 @@ namespace FAA.XPlaneIntegration.Runtime
             return !float.IsNaN(pascals) ? pascals * 0.000295300f : 29.92f;
         }
 
-        private static float GetNavigationDeviation(IDictionary<string, float> systems)
+        private static float GetNavigationDeviation(IDictionary<string, float> systems, float unavailable = 0f)
         {
-            return GetAny(systems, 0f,
+            return GetAny(systems, unavailable,
                 "sim/cockpit2/radios/indicators/hsi_hdef_dots_pilot",
                 "sim/cockpit2/radios/indicators/nav1_hdef_dots_pilot",
                 "sim/cockpit2/radios/indicators/nav2_hdef_dots_pilot",
@@ -3576,9 +3582,9 @@ namespace FAA.XPlaneIntegration.Runtime
                 "sim/cockpit/radios/gps_hdef_dot");
         }
 
-        private static float GetGlideslopeDeviation(IDictionary<string, float> systems)
+        private static float GetGlideslopeDeviation(IDictionary<string, float> systems, float unavailable = 0f)
         {
-            return GetAny(systems, 0f,
+            return GetAny(systems, unavailable,
                 "sim/cockpit2/radios/indicators/hsi_vdef_dots_pilot",
                 "sim/cockpit2/radios/indicators/nav1_vdef_dots_pilot",
                 "sim/cockpit2/radios/indicators/nav2_vdef_dots_pilot",

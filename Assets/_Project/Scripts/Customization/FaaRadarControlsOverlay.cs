@@ -24,7 +24,7 @@ namespace FAA.Customization
         private const float WeatherCompactWidth = 382f;
         private const float WeatherAdvancedWidth = 420f;
         private const float TrafficCollapsedWidth = 346f;
-        private const float TrafficCompactWidth = 476f;
+        private const float TrafficCompactWidth = 376f;
         private const float TrafficAdvancedWidth = 488f;
         private const float TrafficFocusToolbarWidth = 448f;
         private const float ThreeRowStripHeight = 156f;
@@ -288,7 +288,9 @@ namespace FAA.Customization
                 _weatherConfigurationVisible = show;
                 if (show)
                 {
+                    _weatherExpanded = true;
                     _trafficConfigurationVisible = false;
+                    _trafficInteractionSurface?.CloseContextMenu();
                 }
 
                 _weatherConditionsStrip?.SetExpanded(show);
@@ -299,28 +301,37 @@ namespace FAA.Customization
                 _trafficConfigurationVisible = show;
                 if (show)
                 {
+                    _trafficExpanded = true;
                     _weatherConfigurationVisible = false;
                     _weatherConditionsStrip?.SetExpanded(false);
                 }
             }
 
+            EnsureControlStrips();
+            UpdateLabels();
             ApplyRadarConfigurationVisibility();
         }
+
+        public bool IsRadarConfigurationVisible(FaaRadarKind radarKind) =>
+            radarKind == FaaRadarKind.Weather ? _weatherConfigurationVisible : _trafficConfigurationVisible;
 
         public void SetRadarConfigurationVisible(FaaRadarKind radarKind, bool visible, bool immediate = false)
         {
             if (radarKind == FaaRadarKind.Weather)
             {
                 _weatherConfigurationVisible = visible;
+                if (visible) _weatherExpanded = true;
                 _weatherConditionsStrip?.SetExpanded(visible, immediate);
                 if (visible)
                 {
                     _trafficConfigurationVisible = false;
+                    _trafficInteractionSurface?.CloseContextMenu();
                 }
             }
             else
             {
                 _trafficConfigurationVisible = visible;
+                if (visible) _trafficExpanded = true;
                 if (visible)
                 {
                     _weatherConfigurationVisible = false;
@@ -825,9 +836,9 @@ namespace FAA.Customization
             bool focused = _trafficDisplay != null && _trafficDisplay.IsFullscreen;
             if (focused)
             {
-                // Never carry an open advanced drawer into pilot-focus mode;
-                // the focused row is the intentionally small command surface.
-                _trafficConfigurationVisible = false;
+                // Preserve the pilot's open/closed choice across FULL/REST.
+                // Only the advanced content collapses in pilot-focus mode.
+                _showTrafficAdvancedControls = false;
             }
 
             ApplyTrafficFocusPresentation(focused);
@@ -1137,7 +1148,9 @@ namespace FAA.Customization
 
             FaaRadarConfigurationDrawer drawer = strip.GetComponent<FaaRadarConfigurationDrawer>() ??
                                                    strip.gameObject.AddComponent<FaaRadarConfigurationDrawer>();
-            drawer.ConfigureWithContentRows(reducedMotion, FindDrawerContentRows(strip));
+            // The whole panel is a drawer, including its primary row. Leaving
+            // that row opaque was the reason the configuration bars never hid.
+            drawer.Configure(reducedMotion);
             return drawer;
         }
 
@@ -1217,7 +1230,7 @@ namespace FAA.Customization
             ApplyDrawerState(
                 _trafficStrip,
                 _trafficDrawer,
-                trafficEnabled && !trafficFocus && _trafficConfigurationVisible,
+                trafficEnabled && _trafficConfigurationVisible,
                 trafficEnabled,
                 immediate);
 
@@ -1281,6 +1294,7 @@ namespace FAA.Customization
             if (expanded)
             {
                 _trafficConfigurationVisible = false;
+                _trafficInteractionSurface?.CloseContextMenu();
             }
 
             ApplyRadarConfigurationVisibility();
@@ -1400,17 +1414,17 @@ namespace FAA.Customization
 
             if (_trafficExpanded)
             {
-                _trafficExpandText = GetButtonLabel(EnsureButton(primaryRow, "TCASExpandToggle", "‹", ToggleTrafficExpanded, 30f));
+                _trafficExpandText = null;
                 _trafficRangeText = EnsureLabel(primaryRow, "TCASRangeValue", "40 NM", 72f);
                 EnsureButton(primaryRow, "TCASRangeDown", "−", TrafficRangeDown, 34f);
                 EnsureButton(primaryRow, "TCASRangeUp", "+", TrafficRangeUp, 34f);
-                _trafficTargetText = EnsureLabel(primaryRow, "TCASTargetValue", "0 / 50", 60f);
+                _trafficTargetText = null;
                 _trafficAutoText = GetButtonLabel(EnsureButton(primaryRow, "TCASAutoToggle", "AUTO", ToggleTrafficAutoRange, 54f));
                 _trafficAdvancedText = GetButtonLabel(EnsureButton(primaryRow, "TCASAdvancedToggle", "MORE", ToggleTrafficAdvanced, 64f));
                 _trafficFullscreenText = GetButtonLabel(EnsureButton(primaryRow, "TCASFullscreenToggle", "FULL", ToggleTrafficFullscreen, 58f));
                 HideUnexpectedRowChildren(
                     primaryRow,
-                    "TCASExpandToggle", "TCASRangeValue", "TCASRangeDown", "TCASRangeUp", "TCASTargetValue",
+                    "TCASRangeValue", "TCASRangeDown", "TCASRangeUp",
                     "TCASAutoToggle", "TCASAdvancedToggle", "TCASFullscreenToggle");
             }
             else

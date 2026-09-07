@@ -223,11 +223,22 @@ source changes. Review the Hierarchy and Inspector, then save deliberately.
 
 ### HUD and radar presentation
 
-The compact radar strips are designed to stay readable without covering the
-flight path. Weather and traffic controls can be expanded or collapsed, and
-advanced controls are available on demand. The engine readouts use explicit
+Weather and traffic configuration bars are hidden by default. Tap either radar
+to reveal its controls; tap it again to close them. The traffic menu remains
+open after an action and retains its open/closed state across FULL/REST.
+Advanced controls are available on demand. The engine readouts use explicit
 labels (for example TORQUE, NR/N2, and left/right identifiers) instead of
 unexplained fixed scale numbers.
+
+IAS/KT and ALT/FT use restrained brackets, clear unit captions, and grouped
+altitude digits. The heading tape is centered below the flight/navigation
+scales, with a limited heading sweep and a numeric current-heading readout.
+The wheel menu separates category selection from a column of touch-sized
+commands; hovering does not change the selected category.
+
+To apply the presentation to the current scene in edit mode, use
+**FAA → HUD → Apply Clean Pilot Presentation**, then save the scene. This
+selective migration does not rebuild the scene or replace its data bindings.
 
 The traffic radar context menu follows these rules:
 
@@ -295,6 +306,16 @@ A map tap is never an implicit navigation command. To create a target:
 Target creation is intentionally limited to fullscreen map focus to prevent
 accidental selections in the compact radar. The context menu remains open
 after confirmation or cancellation until the radar itself is tapped.
+
+The horizontal HUD scale shows target bearing and distance; the vertical scale
+shows **ALONG TRACK** distance (ahead/behind the aircraft), not an invented
+glideslope. Small, steady hollow diamonds replace the large pulsing cues.
+Without a confirmed target or valid external deviation data, the scales read
+**NO TARGET** and do not show a misleading centered guidance diamond. Valid
+ILS/deviation input takes precedence; missing or stale values clear that
+guidance. The heading target caption stays within the tape bounds to avoid
+overlapping engine readouts. These are simulation/research cues, not certified
+flight guidance.
 
 ### Weather radar controls
 
