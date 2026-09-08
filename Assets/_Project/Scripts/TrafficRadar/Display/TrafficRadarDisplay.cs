@@ -271,6 +271,27 @@ namespace TrafficRadar
         private Texture2D _blackPlaceholder;
         private RectTransform rectTransform;
         private List<RadarTrafficTarget> currentTargets = new List<RadarTrafficTarget>();
+        private RadarTrafficOverlay trafficAnnotations;
+        private float trafficReceivedAt;
+        public IReadOnlyList<RadarTrafficTarget> DisplayTargets => currentTargets;
+        public bool ShowAltitudeLabels { get => showAltitudeLabels; set => showAltitudeLabels = value; }
+        public float SecondsSinceTrafficUpdate => Application.isPlaying ? Mathf.Max(0, Time.unscaledTime - trafficReceivedAt) : 0;
+
+        public void EnsureTrafficAnnotations()
+        {
+            if (trafficAnnotations == null)
+            {
+                var existing = transform.Find("Traffic Symbols and Altitudes");
+                var go = existing != null ? existing.gameObject : new GameObject("Traffic Symbols and Altitudes", typeof(RectTransform));
+                go.transform.SetParent(transform, false);
+                var rt = go.GetComponent<RectTransform>();
+                rt.anchorMin = Vector2.zero; rt.anchorMax = Vector2.one;
+                rt.offsetMin = rt.offsetMax = Vector2.zero; rt.localScale = Vector3.one;
+                trafficAnnotations = go.GetComponent<RadarTrafficOverlay>() ?? go.AddComponent<RadarTrafficOverlay>();
+                trafficAnnotations.Configure(this);
+                MarkRadarDirty();
+            }
+        }
 
         // Pilot-selected navigation cue.  The marker is a separate crisp UI
         // graphic rather than texture pixels, so it remains sharp in the XR-3
@@ -330,6 +351,11 @@ namespace TrafficRadar
         private float _lastChartRequestLat = float.NaN;
         private float _lastChartRequestLon = float.NaN;
         private float _lastChartRequestRange = float.NaN;
+        private ChartLoadStatus _chartLoadStatus = ChartLoadStatus.Idle;
+        private int _chartRetryCount;
+        private float _nextChartRetryTime;
+        private const float ChartRetryBaseSeconds = 1.25f;
+        private const float ChartRetryMaxSeconds = 12f;
 
         // Pilot-focus map interaction state.  The chart is moved relative to
         // the fixed traffic scope so dragging never displaces the REST/FULL
@@ -826,6 +852,7 @@ namespace TrafficRadar
             if (chartProvider != null)
             {
                 chartProvider.OnChartTileLoaded -= OnChartLoaded;
+                chartProvider.OnStatusChanged -= OnChartStatusChanged;
                 chartProvider.OnMapSourceChanged -= OnChartMapSourceChanged;
             }
         }
@@ -941,8 +968,19 @@ namespace TrafficRadar
                 // subscribed twice when the component was already enabled.
                 chartProvider.OnChartTileLoaded -= OnChartLoaded;
                 chartProvider.OnChartTileLoaded += OnChartLoaded;
+                chartProvider.OnStatusChanged -= OnChartStatusChanged;
+                chartProvider.OnStatusChanged += OnChartStatusChanged;
                 chartProvider.OnMapSourceChanged -= OnChartMapSourceChanged;
                 chartProvider.OnMapSourceChanged += OnChartMapSourceChanged;
+
+                // A provider can finish a request before the display is
+                // enabled/subscribed (scene activation order and XR canvas
+                // toggles both do this). Re-attach its retained composite so
+                // the chart never depends on a one-shot event.
+                if (chartProvider.CurrentTexture != null)
+                {
+                    OnChartLoaded(chartProvider.CurrentTexture);
+                }
             }
         }
 
@@ -1212,10 +1250,12 @@ namespace TrafficRadar
         private void Update()
         {
             EnsureRuntimeDisplayReady();
+            EnsureTrafficAnnotations();
 
             UpdateChartFade();
             UpdateReferenceLineworkFade();
             TryFetchChartForCurrentPosition(false);
+            RetryChartAfterTransientFailure();
 
             // Handle zoom animation
             if (isAnimatingZoom)
@@ -1779,6 +1819,10 @@ namespace TrafficRadar
             SetupDisplay();
             MarkRadarDirty();
             FullscreenChanged?.Invoke(true);
+            // The listener replaces the compact settings drawer with the
+            // shorter focus toolbar. Size against that final toolbar, not
+            // the pre-transition drawer height.
+            ApplyFullscreenLayout(root, canvasRect);
             ApplyPilotLabelStyle();
             PositionCompassLabels(_currentHeadingRotation);
 
@@ -1834,7 +1878,6 @@ namespace TrafficRadar
                 }
 
                 float margin = Mathf.Max(0f, fullscreenMargin);
-                float availableWidth = Mathf.Max(1f, canvasSize.x - margin * 2f);
                 // Reserve a small band for the sibling traffic strip. Without
                 // this, a square that reaches the top of a 16:9 Canvas pushes
                 // REST/CHT controls into the clipped XR view.
@@ -1848,16 +1891,16 @@ namespace TrafficRadar
                         : 0f;
                     // The shared instrument header remains separate from the
                     // configuration drawer, including in the focus layout.
-                    controlsReserve = Mathf.Max(0f, (controlsHeight + 68f) * 2f);
+                    controlsReserve = Mathf.Max(0f, controlsHeight + 68f);
                 }
 
-                float availableHeight = Mathf.Max(1f, canvasSize.y - margin * 2f - controlsReserve);
-                float focusSize = Mathf.Min(availableWidth, availableHeight);
+                Rect focus = CalculateFocusMapRect(canvasSize, margin, controlsReserve);
+                float focusSize = focus.width;
 
                 root.anchorMin = new Vector2(0.5f, 0.5f);
                 root.anchorMax = new Vector2(0.5f, 0.5f);
                 root.pivot = new Vector2(0.5f, 0.5f);
-                root.anchoredPosition = Vector2.zero;
+                root.anchoredPosition = focus.center;
                 root.sizeDelta = new Vector2(focusSize, focusSize);
                 root.localPosition = new Vector3(root.localPosition.x, root.localPosition.y, _fullscreenOriginalLocalPosition.z);
                 root.localRotation = Quaternion.identity;
@@ -1872,6 +1915,15 @@ namespace TrafficRadar
             {
                 _updatingFullscreenLayout = false;
             }
+        }
+
+        /// <summary>Reserve the toolbar once, above the map, rather than on both sides.</summary>
+        public static Rect CalculateFocusMapRect(Vector2 canvasSize, float margin, float topReserve)
+        {
+            margin = Mathf.Max(0, margin);
+            topReserve = Mathf.Max(0, topReserve);
+            float diameter = Mathf.Max(1, Mathf.Min(canvasSize.x - margin * 2, canvasSize.y - margin * 2 - topReserve));
+            return new Rect(-diameter * .5f, -topReserve * .5f - diameter * .5f, diameter, diameter);
         }
 
         private void ReverseFullscreenEnter(bool animate)
@@ -3400,7 +3452,8 @@ namespace TrafficRadar
 
         private void OnTrafficUpdated(List<RadarTrafficTarget> targets)
         {
-            currentTargets = targets;
+            currentTargets = targets ?? new List<RadarTrafficTarget>();
+            trafficReceivedAt = Time.unscaledTime;
             MarkRadarDirty();
         }
         
@@ -3410,6 +3463,7 @@ namespace TrafficRadar
         private void OnControllerTargetsUpdated(IReadOnlyList<RadarTarget> targets)
         {
             currentTargets.Clear();
+            trafficReceivedAt = Time.unscaledTime;
             
             if (targets == null)
             {
@@ -3429,6 +3483,7 @@ namespace TrafficRadar
                     heading = target.Heading,
                     groundSpeedKts = target.GroundSpeedKnots,
                     verticalRateFpm = target.VerticalRateFpm,
+                    sampleAgeSeconds = target.TimeSinceUpdate,
                     distanceNM = target.DistanceNM,
                     bearingDeg = target.BearingDegrees,
                     relativeAltitudeFt = target.RelativeAltitudeFeet,
@@ -3457,6 +3512,48 @@ namespace TrafficRadar
                     BeginChartFade(chartOpacity, true);
                 }
             }
+
+            _chartRetryCount = 0;
+            _nextChartRetryTime = 0f;
+        }
+
+        private void OnChartStatusChanged(ChartLoadStatus status)
+        {
+            _chartLoadStatus = status;
+            if (status == ChartLoadStatus.Ready)
+            {
+                _chartRetryCount = 0;
+                _nextChartRetryTime = 0f;
+                return;
+            }
+
+            if (status != ChartLoadStatus.Error && status != ChartLoadStatus.Fallback)
+            {
+                return;
+            }
+
+            // Keep the last successful chart visible and retry with bounded
+            // backoff.  This covers transient ArcGIS/network failures and
+            // avoids the old blank-circle flash after a single failed tile.
+            _chartRetryCount = Mathf.Min(_chartRetryCount + 1, 5);
+            float delay = Mathf.Min(
+                ChartRetryMaxSeconds,
+                ChartRetryBaseSeconds * Mathf.Pow(2f, Mathf.Max(0, _chartRetryCount - 1)));
+            _nextChartRetryTime = Time.unscaledTime + delay;
+            ApplyChartVisualOpacity();
+        }
+
+        private void RetryChartAfterTransientFailure()
+        {
+            if (!showChartBackground || preferXPlaneTrafficTexture || chartProvider == null ||
+                chartProvider.IsLoading || (_chartLoadStatus != ChartLoadStatus.Error &&
+                                             _chartLoadStatus != ChartLoadStatus.Fallback) ||
+                Time.unscaledTime < _nextChartRetryTime)
+            {
+                return;
+            }
+
+            TryFetchChartForCurrentPosition(true);
         }
 
         private void OnChartMapSourceChanged(FAAChartMapSource source)
@@ -4377,6 +4474,9 @@ namespace TrafficRadar
 
         private void DrawTrafficSymbols(int centerX, int centerY, float radius)
         {
+            // Keep the chart/linework texture cached. Target geometry and SDF
+            // altitude tags animate independently at canvas resolution.
+            if (trafficAnnotations != null && trafficAnnotations.isActiveAndEnabled) return;
             foreach (var target in currentTargets)
             {
                 // Convert radar position (-1 to 1) to pixel position

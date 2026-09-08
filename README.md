@@ -265,6 +265,78 @@ drawers still start hidden, remain open after an action, and close on a second
 radar tap. Maximized traffic reserves separate space for the status header
 and drawer; destinations cannot be set while its local display is OFF.
 
+Radar settings use labeled pages instead of letter-code buttons:
+
+- **Weather → Radar:** range (NM), full mode names, antenna tilt (degrees),
+  and echo gain (dB). **Display:** local visibility, instrument size (pixels),
+  and a clearly named picture-refresh action.
+- **Traffic → Radar:** range, automatic/manual range mode, the maximum number
+  of aircraft symbols, and **Open full map**. A manual range adjustment turns
+  auto range off so the next update does not undo the pilot's selection.
+- **Traffic → Map:** named chart source, track-up/north-up orientation,
+  chart opacity (%), and show/hide chart. **Display:** range-ring count,
+  dark backdrop, instrument size, and traffic refresh.
+
+Only four settings appear on a page. Hover, touch, or focus a control to read
+its explanation in the panel footer; no extra tooltip window blocks the map.
+Size changes resize the compact instrument, while range changes alter the
+geographic area shown. Full-map controls explicitly name **Chart opacity**,
+**Map range**, **Center aircraft**, and **Restore HUD**. Detailed traffic
+settings dock below the primary HUD, beside the quick-action menu.
+
+### Vector attitude / rotorcraft pitch presentation
+
+The central pitch ladder uses a vector mesh and TextMeshPro distance-field
+numbers, not the vertically stretched artificial-horizon bitmap. It remains
+sharp as the Game view or canvas resolution changes. Numbered marks are at
+**5°** intervals; shorter, dimmer **2.5°** intermediate marks within ±10° help
+read small attitude changes. Positive marks are solid, negative marks dashed,
+and end hooks point toward the horizon. The zero-pitch line is emphasized.
+
+Spacing is angular, not a fixed rotorcraft-specific pixel distance. The
+renderer projects earth-elevation directions into aircraft pitch/bank axes,
+using the view camera's projection matrix and the canvas's actual screen
+scale. At zero bank on the centerline, the displacement is
+`focalLength × tan(markPitch − aircraftPitch)`. Changing field of view therefore
+changes pixel spacing while each numbered interval still represents 5°.
+Pitching up moves the horizon down; right bank rotates it counterclockwise.
+There is no legacy texture-height multiplier or plausible-looking edge clamp.
+
+The fixed aircraft reference and forward-flight vector are also drawn as
+compact vectors without flashing, bloom, or scale pulsing. The flight-path
+vector uses reported flight-path angle and track relative to heading on the
+same projection. Below **5 kt ground speed** it is suppressed and labeled
+**FPV · LOW SPEED**; it is not a helicopter hover-velocity indicator. Missing
+or unhealthy attitude data replaces the ladder with **ATT · NO LIVE DATA**.
+Out-of-view flight paths are labeled **FPV · OFF SCALE**, never pinned to a
+false direction at the viewport edge; unavailable flight-path inputs are
+identified separately.
+
+Apply **FAA → HUD → Apply Vector Pitch Ladder** in edit mode, then save the
+scene. The component's editor-preview pitch/bank values affect only edit-mode
+preview, never incoming X-Plane data. Intermediate ticks and the low-speed
+threshold are inspector settings. Retired bitmap renderers remain in the
+hierarchy for compatibility but do not draw over the new instrument.
+
+This is a **head-fixed research attitude instrument**, not a certified or
+optically calibrated conformal rotorcraft HUD. The authored HUD position is
+retained; camera FOV scaling alone does not align it to the outside world.
+Per-eye XR projection, eye position, combiner optics, display latency and
+aircraft integration require separate validation. The 5°/2.5° layout is a
+project design choice, not a claimed FAA rotorcraft requirement. General HUD
+alignment guidance is discussed in [FAA AC 25-11B, Appendix F](https://www.faa.gov/documentlibrary/media/advisory_circular/ac_25-11b.pdf),
+whose certification scope is transport-category airplanes, not this prototype.
+
+### Traffic radar quick actions
+
+Quick actions use seven original, editable **24×24 SVG line icons** (guide
+rings, folded map, range ruler, navigation target, aircraft center, expand,
+restore), while retaining the readable action names. Source artwork lives in
+`Assets/_Project/UI/Icons/Radar`. **FAA → HUD → Rebuild SVG Radar Icons** uses
+Unity's built-in vector module to tessellate the SVG paths into the resource
+mesh library; runtime buttons render that geometry directly, not letter
+badges or enlarged bitmap sprites. No extra SVG package is required.
+
 The traffic radar context menu follows these rules:
 
 1. Tap the traffic radar to open the menu.
@@ -275,6 +347,54 @@ The traffic radar context menu follows these rules:
 4. Tap the radar again to close the menu.
 5. When the radar is in focus/fullscreen mode, unrelated HUD panels fade out
    while the radar toolbar and menu remain available.
+
+### Traffic altitude tags and motion
+
+Traffic symbols now render as independent vector geometry with crisp SDF
+altitude tags. **REL ALT ×100 FT** identifies their signed altitude difference
+from ownship: `+12` means 1,200 ft above, `−06` means 600 ft below. They are
+**not MSL altitude or flight-level labels**. A tag is normally placed above
+the symbol for higher traffic and below it for lower traffic. An up/down
+arrow appears at a reported climb/descent rate of **500 ft/min or more**;
+missing/non-finite altitude is shown as a dash instead of a fabricated zero.
+These presentation conventions are described in
+[FAA AC 90-120](https://www.faa.gov/documentLibrary/media/Advisory_Circular/AC_90-120.pdf).
+The project's distance/altitude-based threat classification is experimental,
+not an approved TCAS/ACAS collision-avoidance system or maneuver command.
+
+Dark tag backplates and symbol knockout strokes improve contrast over dense
+chart ink. Collision-aware placement keeps tags inside the circular scope,
+avoids ownship and nearby symbols, and adds a fine leader when displaced.
+Threat-priority/nearest tracks get first label placement. If a compact scope
+cannot fit all tags, its legend reports the crowded count and prompts the
+pilot to expand the map; the traffic symbols themselves remain visible.
+The existing **Show Altitude Labels** inspector switch now actually controls
+the tags and trend arrows.
+
+New ordinary tracks fade in over 0.25 s with one fixed-size acquisition-bracket
+fade. Motion settles with a frame-rate-independent 0.1 s time constant; large
+range/layout jumps snap to the correct location. There is no continuous
+flashing, size pulsing, or extrapolation beyond received positions. Advisory
+symbols appear immediately. Tracks older than 15 s, including the age of
+their source sample, are removed rather than animated as live traffic.
+
+### Torque, engine speed, and vertical speed
+
+**FAA → HUD → Apply Vector Engine Instruments** replaces legacy bar/scale
+graphics in the authored HUD with vector rails and unit-labelled SDF readouts
+in edit mode as well as Play mode. Torque and engine N2 have separate L/R
+tracks, aligned one-decimal percentage values and numbered 0/50/100 references.
+Rotor NR is identified separately below the N2 instrument; it is not silently
+substituted with an engine value. Missing fields or an unhealthy feed show
+`—`, not cached readings or false zeros. Edit-mode previews also use dashes.
+
+Vertical speed has a signed **FT/MIN** readout, a zero-centered linear
+±2,000 ft/min scale, and CLIMB/LEVEL/DESCENT text. Numbers are rounded to
+10 ft/min, while the pointer settles smoothly. Values beyond the scale are
+still displayed numerically with **OFF SCALE**. The percentage reference
+rails are not aircraft-specific safe/unsafe operating bands: rotorcraft
+limits, alert thresholds and approved instrument calibration still require
+airframe-specific validation.
 
 ### Fullscreen map focus
 
@@ -800,15 +920,17 @@ evidence.
 
 ### Verification snapshot
 
-The documentation pass for this branch recorded the following state on
-2026-09-02:
+The documentation pass and subsequent HUD/network validation recorded the
+following state (updated 2026-09-07):
 
 | Check | Result |
 | --- | --- |
 | Traffic radar C# assembly compile | Passed; warnings only. |
 | Main and editor C# assembly compile | Passed; warnings only. |
 | Headless Unity import/compile invocation | Exit 0; no C# compiler errors observed. |
-| Full EditMode/PlayMode suite | Not claimed as passing in this environment; a prior editor-run attempt was blocked by a Unity recovery/modal state. Reopen the project and run the commands above before release. |
+| Full EditMode suite | 251/253 passed. The two `TestCesiumSubScene` failures require the missing macOS `CesiumForUnityNative-Runtime` library. |
+| X-Plane API recovery tests | 16/16 passed, including real loopback HTTP failures, bounded retries, empty snapshots, legacy endpoints, malformed JSON, and recovery. |
+| Automated PlayMode suite | Not rerun in this validation pass; run the commands above before release. |
 | Native XR-3/SA-147 visual validation | Hardware-dependent; desktop simulator coverage is not optical/hardware certification. |
 
 ## Troubleshooting
@@ -843,6 +965,37 @@ The documentation pass for this branch recorded the following state on
    destination IP, UDP 49009, command port 49000, and firewall rules.
 6. For a relay setup, test the 37211 TCP tunnel and make sure only one relay
    process owns the listening port.
+
+### Console repeats `Curl error 56` / `Connection reset by peer`
+
+A listening SSH forward is not proof that its remote API is running. If
+`127.0.0.1:12678` accepts a connection but the destination service is stopped,
+the SSH channel can reset the connection. Check the API on the simulator host
+as well as through the local tunnel:
+
+~~~bash
+ssh 4090 'systemctl is-active xplane12-autoflight.service xplane12-data-api.service'
+ssh 4090 'curl --max-time 5 -fsS http://127.0.0.1:12678/health'
+curl --max-time 5 -fsS http://127.0.0.1:12678/health
+~~~
+
+For the configured systemd host, the API requires the autoflight service.
+Stopping autoflight also stops the API; restarting autoflight alone must bring
+the API back. Configure that dependency once, then start the API:
+
+~~~bash
+ssh 4090 'sudo systemctl add-wants xplane12-autoflight.service xplane12-data-api.service'
+ssh 4090 'sudo systemctl start xplane12-data-api.service'
+~~~
+
+The Unity bridge retries failed snapshot requests after 1, 2, 4, 8, then at
+most 10 seconds, using realtime even when simulation time is paused. It tries
+legacy endpoints only after HTTP 404/405—not after a reset, timeout, 429, 5xx,
+or invalid JSON. A valid empty snapshot means the simulator is still loading,
+not that every category should be requested separately. Optional radar rasters
+and gauge manifests wait while the feed is unavailable. Diagnostics are exposed
+as `ConsecutiveHttpFailures`, `HttpRetrySecondsRemaining`, and `LastError`;
+the HUD retains its stale/no-data indications until fresh data returns.
 
 ### Traffic radar is empty or duplicates targets
 

@@ -58,7 +58,7 @@ namespace FAA.Customization
             public Image Background;
             public Image Accent;
             public Image IconPlate;
-            public TMP_Text Icon;
+            public FaaSvgIconGraphic Icon;
             public TMP_Text Title;
             public TMP_Text State;
             public Button Button;
@@ -430,12 +430,17 @@ namespace FAA.Customization
                 9);
             iconPlate.raycastTarget = false;
 
-            RectTransform iconRect = EnsureTextRect(iconPlateRect, "Glyph", out TMP_Text icon);
-            Stretch(iconRect);
-            icon.text = ActionIcon(kind);
-            icon.fontSize = 10.5f;
-            icon.fontStyle = FontStyles.Bold;
-            icon.alignment = TextAlignmentOptions.Center;
+            Transform oldGlyph = iconPlateRect.Find("Glyph");
+            if (oldGlyph != null) oldGlyph.gameObject.SetActive(false);
+            Transform existingIcon = iconPlateRect.Find("SVG Icon");
+            var iconObject = existingIcon != null ? existingIcon.gameObject : new GameObject("SVG Icon", typeof(RectTransform));
+            iconObject.transform.SetParent(iconPlateRect, false);
+            var iconRect = (RectTransform)iconObject.transform;
+            iconRect.anchorMin = iconRect.anchorMax = iconRect.pivot = new Vector2(.5f, .5f);
+            iconRect.anchoredPosition = Vector2.zero;
+            iconRect.sizeDelta = new Vector2(23, 23);
+            if (!iconObject.TryGetComponent(out FaaSvgIconGraphic icon)) icon = iconObject.AddComponent<FaaSvgIconGraphic>();
+            icon.SetIcon(ActionIcon(kind));
             icon.color = Accent;
 
             RectTransform titleRect = EnsureTextRect(actionRect, "Label", out TMP_Text title);
@@ -510,7 +515,7 @@ namespace FAA.Customization
                 }
                 if (action.Icon != null)
                 {
-                    action.Icon.fontSize = focused ? 12f : 10.5f;
+                    action.Icon.rectTransform.sizeDelta = Vector2.one * (focused ? 27f : 23f);
                 }
                 float y = -HeaderHeight - PanelPadding - rowHeight * 0.5f -
                           visibleIndex * (rowHeight + RowGap);
@@ -593,7 +598,10 @@ namespace FAA.Customization
                     Vector3[] corners = new Vector3[4];
                     controlsRect.GetWorldCorners(corners);
                     float controlsBottom = _hostRect.InverseTransformPoint(corners[0]).y;
-                    topSafeInset = Mathf.Max(topSafeInset, canvasMax.y - controlsBottom + (focused ? 18f : 12f));
+                    float controlsLeft = _hostRect.InverseTransformPoint(corners[0]).x;
+                    float controlsRight = _hostRect.InverseTransformPoint(corners[2]).x;
+                    if (controlsRight > desiredX - panelWidth * .5f && controlsLeft < desiredX + panelWidth * .5f)
+                        topSafeInset = Mathf.Max(topSafeInset, canvasMax.y - controlsBottom + (focused ? 18f : 12f));
                 }
             }
 
@@ -1442,7 +1450,7 @@ namespace FAA.Customization
                             ? compactTarget
                                 ? "FULL · EDIT"
                                 : $"{_display.CurrentNavigationTarget.BearingDegrees:000}° · {_display.CurrentNavigationTarget.DistanceNM:0.0} NM"
-                            : compactTarget ? "FULL TO SET" : "TAP MAP";
+                            : compactTarget ? "FULL MAP" : "TAP MAP";
                         break;
                     case ActionKind.Center:
                         action.Title.text = "OWN-SHIP";
@@ -1451,6 +1459,7 @@ namespace FAA.Customization
                     case ActionKind.View:
                         action.Title.text = "RADAR VIEW";
                         action.State.text = _display.IsFullscreen ? "RESTORE" : "MAXIMIZE";
+                        action.Icon?.SetIcon(_display.IsFullscreen ? FaaRadarIcon.Restore : FaaRadarIcon.Expand);
                         break;
                 }
 
@@ -1654,16 +1663,16 @@ namespace FAA.Customization
             return upper.Length <= 7 ? upper : upper.Substring(0, 7);
         }
 
-        private static string ActionIcon(ActionKind kind)
+        private static FaaRadarIcon ActionIcon(ActionKind kind)
         {
             switch (kind)
             {
-                case ActionKind.Linework: return "LN";
-                case ActionKind.Map: return "MAP";
-                case ActionKind.Range: return "NM";
-                case ActionKind.Target: return "TGT";
-                case ActionKind.Center: return "AC";
-                default: return "FIT";
+                case ActionKind.Linework: return FaaRadarIcon.Lines;
+                case ActionKind.Map: return FaaRadarIcon.Map;
+                case ActionKind.Range: return FaaRadarIcon.Range;
+                case ActionKind.Target: return FaaRadarIcon.Target;
+                case ActionKind.Center: return FaaRadarIcon.Center;
+                default: return FaaRadarIcon.Expand;
             }
         }
 

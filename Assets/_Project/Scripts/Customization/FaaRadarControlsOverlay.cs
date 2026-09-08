@@ -16,7 +16,7 @@ namespace FAA.Customization
 {
     [DefaultExecutionOrder(10020)]
     [AddComponentMenu("FAA/Customization/FAA Radar Controls Overlay")]
-    public class FaaRadarControlsOverlay : MonoBehaviour
+    public partial class FaaRadarControlsOverlay : MonoBehaviour
     {
         private const float CompactStripHeight = 60f;
         private const float RowHeight = 44f;
@@ -485,11 +485,13 @@ namespace FAA.Customization
 
         public void TrafficRangeDown()
         {
+            _trafficController?.SetAutoRangeEnabled(false);
             _trafficController?.DecreaseRange();
         }
 
         public void TrafficRangeUp()
         {
+            _trafficController?.SetAutoRangeEnabled(false);
             _trafficController?.IncreaseRange();
         }
 
@@ -1108,7 +1110,7 @@ namespace FAA.Customization
                 }
 
                 _weatherStrip = EnsureStrip(_weatherRoot, "WeatherControlStrip", GetWeatherStripSize());
-                EnsureWeatherControls(_weatherStrip);
+                EnsureReadableWeatherControls(_weatherStrip);
                 _weatherDrawer = EnsureDrawer(_weatherStrip);
                 _weatherInteractionSurface = EnsureInteractionSurface(_weatherRoot, FaaRadarKind.Weather);
                 _weatherConditionsStrip = EnsureWeatherConditionsStrip(_weatherRoot, _weatherStrip);
@@ -1122,7 +1124,7 @@ namespace FAA.Customization
             {
                 EnsurePresentation(_trafficRoot, FaaRadarKind.Traffic);
                 _trafficStrip = EnsureStrip(_trafficRoot, "TrafficControlStrip", GetTrafficStripSize());
-                EnsureTrafficControls(_trafficStrip);
+                EnsureReadableTrafficControls(_trafficStrip);
                 _trafficDrawer = EnsureDrawer(_trafficStrip);
                 _trafficInteractionSurface = EnsureInteractionSurface(_trafficRoot, FaaRadarKind.Traffic);
             }
@@ -1353,165 +1355,6 @@ namespace FAA.Customization
             return rectTransform;
         }
 
-        private void EnsureWeatherControls(RectTransform strip)
-        {
-            RectTransform primaryRow = EnsureRow(strip, "WeatherControlRowPrimary");
-            RectTransform secondaryRow = EnsureRow(strip, "WeatherControlRowSecondary");
-            RectTransform tertiaryRow = EnsureRow(strip, "WeatherControlRowTertiary");
-            HideDirectControlChildren(strip, primaryRow, secondaryRow, tertiaryRow);
-
-            if (_weatherExpanded)
-            {
-                _weatherExpandText = GetButtonLabel(EnsureButton(primaryRow, "WXExpandToggle", "‹", ToggleWeatherExpanded, 30f));
-                _weatherRangeText = EnsureLabel(primaryRow, "WXRangeValue", "160 NM", 72f);
-                EnsureButton(primaryRow, "WXRangeDown", "−", WeatherRangeDown, 34f);
-                EnsureButton(primaryRow, "WXRangeUp", "+", WeatherRangeUp, 34f);
-                _weatherModeText = GetButtonLabel(EnsureButton(primaryRow, "WXModeCycle", "WX", CycleWeatherMode, 52f));
-                _weatherAdvancedText = GetButtonLabel(EnsureButton(primaryRow, "WXAdvancedToggle", "MORE", ToggleWeatherAdvanced, 64f));
-                HideUnexpectedRowChildren(
-                    primaryRow,
-                    "WXExpandToggle", "WXRangeValue", "WXRangeDown", "WXRangeUp", "WXModeCycle", "WXAdvancedToggle");
-            }
-            else
-            {
-                _weatherSummaryText = GetButtonLabel(EnsureButton(primaryRow, "WXSummaryToggle", "WEATHER · WX · 160 NM", ToggleWeatherExpanded, WeatherCollapsedWidth - 12f));
-                _weatherExpandText = null;
-                HideUnexpectedRowChildren(primaryRow, "WXSummaryToggle");
-            }
-
-            _weatherTiltText = EnsureLabel(secondaryRow, "WXTiltValue", "T+0.0", 58f);
-            EnsureButton(secondaryRow, "WXTiltDown", "T-", WeatherTiltDown, 32f);
-            EnsureButton(secondaryRow, "WXTiltUp", "T+", WeatherTiltUp, 32f);
-            _weatherGainText = EnsureLabel(secondaryRow, "WXGainValue", "G+0", 50f);
-            EnsureButton(secondaryRow, "WXGainDown", "G-", WeatherGainDown, 32f);
-            EnsureButton(secondaryRow, "WXGainUp", "G+", WeatherGainUp, 32f);
-            HideUnexpectedRowChildren(
-                secondaryRow,
-                "WXTiltValue", "WXTiltDown", "WXTiltUp", "WXGainValue", "WXGainDown", "WXGainUp");
-
-            _weatherPowerText = GetButtonLabel(EnsureButton(tertiaryRow, "WXPowerToggle", "DISPLAY ON", ToggleWeatherProvider, 96f));
-            EnsureButton(tertiaryRow, "WXRefresh", "REF", RefreshWeatherTexture, 42f);
-            EnsureButton(tertiaryRow, "WXSizeDown", "S-", WeatherSizeDown, 32f);
-            _weatherSizeText = EnsureLabel(tertiaryRow, "WXSizeValue", "296PX", 58f);
-            EnsureButton(tertiaryRow, "WXSizeUp", "S+", WeatherSizeUp, 32f);
-            HideUnexpectedRowChildren(
-                tertiaryRow,
-                "WXPowerToggle", "WXRefresh", "WXSizeDown", "WXSizeValue", "WXSizeUp");
-            secondaryRow.gameObject.SetActive(_weatherExpanded && _showWeatherAdvancedControls);
-            tertiaryRow.gameObject.SetActive(_weatherExpanded && _showWeatherAdvancedControls);
-        }
-
-        private void EnsureTrafficControls(RectTransform strip)
-        {
-            RectTransform primaryRow = EnsureRow(strip, "TrafficControlRowPrimary");
-            RectTransform secondaryRow = EnsureRow(strip, "TrafficControlRowSecondary");
-            RectTransform tertiaryRow = EnsureRow(strip, "TrafficControlRowTertiary");
-            RectTransform focusRow = EnsureRow(strip, "TrafficControlRowFocus");
-            HideDirectControlChildren(strip, primaryRow, secondaryRow, tertiaryRow);
-
-            if (_trafficExpanded)
-            {
-                _trafficExpandText = null;
-                _trafficRangeText = EnsureLabel(primaryRow, "TCASRangeValue", "40 NM", 72f);
-                EnsureButton(primaryRow, "TCASRangeDown", "−", TrafficRangeDown, 34f);
-                EnsureButton(primaryRow, "TCASRangeUp", "+", TrafficRangeUp, 34f);
-                _trafficTargetText = null;
-                _trafficAutoText = GetButtonLabel(EnsureButton(primaryRow, "TCASAutoToggle", "AUTO", ToggleTrafficAutoRange, 54f));
-                _trafficAdvancedText = GetButtonLabel(EnsureButton(primaryRow, "TCASAdvancedToggle", "MORE", ToggleTrafficAdvanced, 64f));
-                _trafficFullscreenText = GetButtonLabel(EnsureButton(primaryRow, "TCASFullscreenToggle", "FULL", ToggleTrafficFullscreen, 58f));
-                HideUnexpectedRowChildren(
-                    primaryRow,
-                    "TCASRangeValue", "TCASRangeDown", "TCASRangeUp",
-                    "TCASAutoToggle", "TCASAdvancedToggle", "TCASFullscreenToggle");
-            }
-            else
-            {
-                _trafficSummaryText = GetButtonLabel(EnsureButton(primaryRow, "TCASSummaryToggle", "TRAFFIC · 0 / 50 · 40 NM", ToggleTrafficExpanded, TrafficCollapsedWidth - 77f));
-                _trafficFullscreenText = GetButtonLabel(EnsureButton(primaryRow, "TCASFullscreenToggle", "FULL", ToggleTrafficFullscreen, 60f));
-                _trafficExpandText = null;
-                HideUnexpectedRowChildren(primaryRow, "TCASSummaryToggle", "TCASFullscreenToggle");
-            }
-
-            _trafficMaxText = EnsureLabel(secondaryRow, "TCASMaxValue", "MAX 50", 56f);
-            EnsureButton(secondaryRow, "TCASMaxDown", "M-", TrafficMaxTargetsDown, 32f);
-            EnsureButton(secondaryRow, "TCASMaxUp", "M+", TrafficMaxTargetsUp, 32f);
-            _trafficModeText = GetButtonLabel(EnsureButton(secondaryRow, "TCASTrackToggle", "TRK", ToggleTrafficTrackMode, 44f));
-            _trafficChartText = GetButtonLabel(EnsureButton(secondaryRow, "TCASChartToggle", "CHT", ToggleTrafficChart, 44f));
-            _trafficBackgroundText = GetButtonLabel(EnsureButton(secondaryRow, "TCASBackgroundToggle", "BKG", ToggleTrafficBackground, 44f));
-            HideUnexpectedRowChildren(
-                secondaryRow,
-                "TCASMaxValue", "TCASMaxDown", "TCASMaxUp", "TCASTrackToggle",
-                "TCASChartToggle", "TCASBackgroundToggle");
-
-            _trafficRingsText = EnsureLabel(tertiaryRow, "TCASRingsValue", "R4", 34f);
-            EnsureButton(tertiaryRow, "TCASRingsDown", "R-", TrafficRingsDown, 32f);
-            EnsureButton(tertiaryRow, "TCASRingsUp", "R+", TrafficRingsUp, 32f);
-            _trafficOpacityText = EnsureLabel(tertiaryRow, "TCASOpacityValue", "50%", 40f);
-            EnsureButton(tertiaryRow, "TCASOpacityDown", "O-", TrafficOpacityDown, 32f);
-            EnsureButton(tertiaryRow, "TCASOpacityUp", "O+", TrafficOpacityUp, 32f);
-            _trafficSizeDownText = GetButtonLabel(EnsureButton(
-                tertiaryRow,
-                "TCASSizeDown",
-                _trafficDisplay != null && _trafficDisplay.IsFullscreen ? "Z-" : "S-",
-                TrafficSizeDown,
-                32f));
-            _trafficSizeText = EnsureLabel(tertiaryRow, "TCASSizeValue", "320PX", 58f);
-            _trafficSizeUpText = GetButtonLabel(EnsureButton(
-                tertiaryRow,
-                "TCASSizeUp",
-                _trafficDisplay != null && _trafficDisplay.IsFullscreen ? "Z+" : "S+",
-                TrafficSizeUp,
-                32f));
-            EnsureButton(tertiaryRow, "TCASRefresh", "REF", RefreshTraffic, 42f);
-            HideUnexpectedRowChildren(
-                tertiaryRow,
-                "TCASRingsValue", "TCASRingsDown", "TCASRingsUp", "TCASOpacityValue",
-                "TCASOpacityDown", "TCASOpacityUp", "TCASSizeDown", "TCASSizeValue", "TCASSizeUp", "TCASRefresh");
-            secondaryRow.gameObject.SetActive(_trafficExpanded && _showTrafficAdvancedControls);
-            tertiaryRow.gameObject.SetActive(_trafficExpanded && _showTrafficAdvancedControls);
-
-            EnsureTrafficFocusToolbar(focusRow);
-            bool focused = _trafficDisplay != null && _trafficDisplay.IsFullscreen;
-            // Replace the regular rows with one compact focus row. Keeping a
-            // single active row preserves the original strip height, so the
-            // display's reserved control band remains valid during transition.
-            primaryRow.gameObject.SetActive(!focused);
-            if (focused)
-            {
-                secondaryRow.gameObject.SetActive(false);
-                tertiaryRow.gameObject.SetActive(false);
-            }
-        }
-
-        private void EnsureTrafficFocusToolbar(RectTransform row)
-        {
-            if (row == null)
-            {
-                return;
-            }
-
-            _trafficFocusSourceText = GetButtonLabel(EnsureButton(
-                row,
-                "TCASFocusSource",
-                "SEC",
-                CycleTrafficMapSource,
-                58f));
-            EnsureButton(row, "TCASFocusOpacityDown", "O-", TrafficOpacityDown, 34f);
-            _trafficFocusOpacityText = EnsureLabel(row, "TCASFocusOpacityValue", "28%", 48f);
-            EnsureButton(row, "TCASFocusOpacityUp", "O+", TrafficOpacityUp, 34f);
-            EnsureButton(row, "TCASFocusZoomDown", "-", TrafficSizeDown, 30f);
-            _trafficFocusRangeText = EnsureLabel(row, "TCASFocusRangeValue", "40NM", 56f);
-            EnsureButton(row, "TCASFocusZoomUp", "+", TrafficSizeUp, 30f);
-            EnsureButton(row, "TCASFocusRecenter", "CTR", RecenterTrafficMap, 48f);
-            GetButtonLabel(EnsureButton(row, "TCASFocusRestore", "REST", ToggleTrafficFullscreen, 54f));
-            HideUnexpectedRowChildren(
-                row,
-                "TCASFocusSource", "TCASFocusOpacityDown", "TCASFocusOpacityValue", "TCASFocusOpacityUp",
-                "TCASFocusZoomDown", "TCASFocusRangeValue", "TCASFocusZoomUp", "TCASFocusRecenter", "TCASFocusRestore");
-
-            bool focused = _trafficDisplay != null && _trafficDisplay.IsFullscreen;
-            row.gameObject.SetActive(focused);
-        }
 
         private RectTransform EnsureRow(RectTransform strip, string rowName)
         {
@@ -1630,71 +1473,7 @@ namespace FAA.Customization
             return label;
         }
 
-        private void UpdateLabels()
-        {
-            if (_weatherDataProvider != null)
-            {
-                WeatherRadarData data = _weatherDataProvider.RadarData;
-                string modeText = data.currentMode.ToString().Replace("_", "+");
-                bool visible = _weatherRoot?.GetComponent<FaaRadarPresentation>()?.IsDisplayOn ?? true;
-                string powerText = visible ? modeText : "DISPLAY OFF";
-                SetText(_weatherSummaryText, $"WEATHER · {powerText} · {data.currentRange:0} NM");
-                SetText(_weatherRangeText, $"{data.currentRange:0} NM");
-                SetText(_weatherTiltText, $"T{Signed(data.tiltAngle, "0.0")}");
-                SetText(_weatherGainText, $"G{Signed(data.gainOffset, "0")}");
-                SetText(_weatherModeText, modeText);
-                SetInlineWeatherText(_weatherRoot, "ModeLabel", modeText);
-                SetInlineWeatherText(_weatherRoot, "RangeLabel", $"{data.currentRange:0} NM");
-                SetInlineWeatherText(_weatherRoot, "TiltLabel", $"TILT {Signed(data.tiltAngle, "0.0")}°");
-            }
-
-            if (_weatherProvider != null)
-            {
-                bool visible = _weatherRoot?.GetComponent<FaaRadarPresentation>()?.IsDisplayOn ?? true;
-                SetText(_weatherPowerText, visible ? "DISPLAY ON" : "DISPLAY OFF");
-            }
-
-            if (_trafficController != null)
-            {
-                int liveTrafficCount = _xPlaneBridge != null && _xPlaneBridge.IsFeedHealthy
-                    ? _xPlaneBridge.TrafficCount
-                    : _trafficController.TargetCount;
-                SetText(_trafficSummaryText, $"TRAFFIC · {liveTrafficCount} / {_trafficController.MaxTargets} · {_trafficController.RangeNM:0} NM");
-                SetText(_trafficRangeText, $"{_trafficController.RangeNM:0} NM");
-                SetText(_trafficTargetText, $"{liveTrafficCount} / {_trafficController.MaxTargets}");
-                SetText(_trafficMaxText, $"MAX {_trafficController.MaxTargets}");
-                SetText(_trafficAutoText, _trafficController.AutoRangeEnabled ? "AUTO" : "MAN");
-            }
-
-            if (_trafficDisplay != null)
-            {
-                SetText(_trafficModeText, _trafficDisplay.TrackUpModeEnabled ? "TRK" : "NUP");
-                SetText(_trafficChartText, _trafficDisplay.ChartBackgroundVisible ? "CHT" : "NO");
-                SetText(_trafficBackgroundText, _trafficDisplay.ShowRadarBackground ? "BKG" : "CLR");
-                SetText(_trafficRingsText, $"R{_trafficDisplay.RangeRingCount}");
-                SetText(_trafficOpacityText, $"{Mathf.RoundToInt(_trafficDisplay.ChartOpacity * 100f)}%");
-                SetText(_trafficSizeDownText, _trafficDisplay.IsFullscreen ? "Z-" : "S-");
-                SetText(_trafficSizeUpText, _trafficDisplay.IsFullscreen ? "Z+" : "S+");
-                SetText(_trafficFullscreenText, _trafficDisplay.IsFullscreen ? "REST" : "FULL");
-                SetText(_trafficFocusSourceText, CompactMapSourceName(_trafficDisplay.MapSourceName));
-                SetText(_trafficFocusOpacityText, $"{Mathf.RoundToInt(_trafficDisplay.ChartOpacity * 100f)}%");
-                SetText(_trafficFocusRangeText, $"{_trafficDisplay.RangeNM:0}NM");
-            }
-
-            RectTransform weatherRect = _weatherRoot as RectTransform ?? _weatherRoot?.GetComponent<RectTransform>();
-            RectTransform trafficRect = _trafficRoot as RectTransform ?? _trafficRoot?.GetComponent<RectTransform>();
-            SetText(_weatherSizeText, $"{Mathf.RoundToInt(GetRadarPixelSize(weatherRect))}PX");
-            SetText(_trafficSizeText, $"{Mathf.RoundToInt(GetRadarPixelSize(trafficRect))}PX");
-
-            SetText(_weatherAdvancedText, _showWeatherAdvancedControls ? "LESS" : "MORE");
-            SetText(_trafficAdvancedText, _showTrafficAdvancedControls ? "LESS" : "MORE");
-            SetText(_weatherExpandText, _weatherExpanded ? "‹" : "›");
-            SetText(_trafficExpandText, _trafficExpanded ? "‹" : "›");
-            SetButtonActive(_weatherAdvancedText, _showWeatherAdvancedControls);
-            SetButtonActive(_trafficAdvancedText, _showTrafficAdvancedControls);
-            SetButtonActive(_weatherPowerText, _weatherRoot?.GetComponent<FaaRadarPresentation>()?.IsDisplayOn ?? true);
-            SetButtonActive(_trafficFullscreenText, _trafficDisplay != null && _trafficDisplay.IsFullscreen);
-        }
+        private void UpdateLabels() => RefreshReadableValues();
 
         private void SyncWeatherProviderSettings()
         {
@@ -1847,9 +1626,7 @@ namespace FAA.Customization
 
         private Vector2 GetWeatherStripSize()
         {
-            return _showWeatherAdvancedControls
-                ? new Vector2(Mathf.Max(weatherStripSize.x, WeatherAdvancedWidth), Mathf.Max(weatherStripSize.y, ThreeRowStripHeight))
-                : new Vector2(_weatherExpanded ? WeatherCompactWidth : WeatherCollapsedWidth, CompactStripHeight);
+            return new Vector2(SettingsPanelWidth, SettingsPanelHeight);
         }
 
         private Vector2 GetTrafficStripSize()
@@ -1861,13 +1638,11 @@ namespace FAA.Customization
                 // and recenter remain reachable without reopening the full
                 // configuration drawer.
                 return new Vector2(
-                    Mathf.Max(trafficStripSize.x, TrafficFocusToolbarWidth),
-                    CompactStripHeight);
+                    ReadableFocusWidth,
+                    ReadableFocusHeight);
             }
 
-            return _showTrafficAdvancedControls
-                ? new Vector2(Mathf.Max(trafficStripSize.x, TrafficAdvancedWidth), Mathf.Max(trafficStripSize.y, ThreeRowStripHeight))
-                : new Vector2(_trafficExpanded ? TrafficCompactWidth : TrafficCollapsedWidth, CompactStripHeight);
+            return new Vector2(SettingsPanelWidth, SettingsPanelHeight);
         }
 
         private void SuppressLegacyRadarControlPanels()
@@ -2288,6 +2063,14 @@ namespace FAA.Customization
             if (rightAnchored)
             {
                 strip.pivot = new Vector2(1f, 0f);
+                if (root == _trafficRoot)
+                {
+                    // Keep the primary flight instruments clear. The quick
+                    // action menu sits beside the scope; detailed settings
+                    // dock beside that menu in the lower, unused HUD area.
+                    strip.anchoredPosition = CalculateTrafficSettingsDock(rootRect.anchoredPosition, rootWidth);
+                    return;
+                }
                 float rootRightEdge = rootRect.anchoredPosition.x + (rootWidth * (1f - rootRect.pivot.x));
                 float desiredRightAnchorOffset = rootRightEdge - stripOffset.x;
                 // The editor Game view can expose a render target that is

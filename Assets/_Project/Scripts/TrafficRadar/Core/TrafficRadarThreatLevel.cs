@@ -151,6 +151,7 @@ namespace TrafficRadar
         public float heading;
         public float groundSpeedKts;
         public float verticalRateFpm;
+        public float sampleAgeSeconds;
         
         // Calculated fields
         public float distanceNM;

@@ -1,7 +1,7 @@
 {
   "name": "FAA.Customization.EditorTests",
   "rootNamespace": "FAA.Customization.Tests",
-  "references": [],
+  "references": ["Unity.TextMeshPro"],
   "includePlatforms": [
     "Editor"
   ],

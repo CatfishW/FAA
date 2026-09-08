@@ -109,7 +109,7 @@ namespace TrafficRadar.Core
                     RelativeAltitudeFeet = aircraft.AltitudeFeet - ownAltFt,
                     ThreatLevel = _thresholds.DetermineThreatLevel(distanceNM, altDiffFt),
                     RadarPosition = CalculateRadarPosition(distanceNM, bearing, ownHeading),
-                    TimeSinceUpdate = (float)(DateTime.Now - aircraft.LastUpdate).TotalSeconds
+                    TimeSinceUpdate = CalculateSampleAgeSeconds(aircraft.LastUpdate, DateTime.UtcNow)
                 };
                 
                 _processedTargets.Add(target);
@@ -124,6 +124,10 @@ namespace TrafficRadar.Core
             return _processedTargets;
         }
         
+        /// <summary>Compare in UTC; sources may supply UTC or local timestamps.</summary>
+        public static float CalculateSampleAgeSeconds(DateTime timestamp, DateTime nowUtc) =>
+            Mathf.Max(0, (float)(nowUtc.ToUniversalTime() - timestamp.ToUniversalTime()).TotalSeconds);
+
         /// <summary>
         /// Calculate distance between two points using Haversine formula
         /// </summary>

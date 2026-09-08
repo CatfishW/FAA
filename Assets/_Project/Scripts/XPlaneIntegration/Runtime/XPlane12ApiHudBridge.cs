@@ -139,6 +139,11 @@ namespace FAA.XPlaneIntegration.Runtime
         [SerializeField] private bool verboseLogging = false;
 
         private readonly XPlane12ApiSnapshot _snapshot = new XPlane12ApiSnapshot();
+        private readonly XPlaneApiRetryPolicy _httpRetryPolicy = new XPlaneApiRetryPolicy();
+        private sealed class HttpRequestOutcome
+        {
+            public bool AllowsCompatibilityFallback;
+        }
         private Coroutine _pollRoutine;
         private Coroutine _renderAssetRoutine;
         private AviationFlightData _rawFlightData;
@@ -219,6 +224,8 @@ namespace FAA.XPlaneIntegration.Runtime
         public string LastError { get; private set; } = string.Empty;
         public float LastPacketAgeSeconds { get; private set; } = float.PositiveInfinity;
         public string LastSender { get; private set; } = string.Empty;
+        public int ConsecutiveHttpFailures => _httpRetryPolicy.ConsecutiveFailures;
+        public double HttpRetrySecondsRemaining => _httpRetryPolicy.SecondsRemaining(Time.realtimeSinceStartupAsDouble);
         public int TrafficCount { get; private set; }
         public AviationFlightData LatestFlightData => _latestFlightData;
         public AviationFlightData LatestRawFlightData => _rawFlightData;
@@ -306,6 +313,7 @@ namespace FAA.XPlaneIntegration.Runtime
                 return;
             }
 
+            _httpRetryPolicy.Reset();
             FindDependencies();
             if (transportMode == TransportMode.WebSocketStream || transportMode == TransportMode.TcpNdjsonStream)
             {
@@ -1102,12 +1110,18 @@ namespace FAA.XPlaneIntegration.Runtime
                 {
                     yield return PollOnce();
                 }
-                yield return new WaitForSeconds(Mathf.Max(0.05f, pollIntervalSeconds));
+                yield return new WaitForSecondsRealtime(Mathf.Max(
+                    Mathf.Max(0.05f, pollIntervalSeconds), (float)HttpRetrySecondsRemaining));
             }
         }
 
         private IEnumerator PollOnce()
         {
+            if (!_httpRetryPolicy.CanRequest(Time.realtimeSinceStartupAsDouble))
+            {
+                yield break;
+            }
+
             if (transportMode == TransportMode.WebSocketStream || transportMode == TransportMode.TcpNdjsonStream)
             {
                 yield return RequestJson("v1/snapshot", snapshot =>
@@ -1125,13 +1139,14 @@ namespace FAA.XPlaneIntegration.Runtime
             // traffic all come from the same websocket-origin packet. The
             // category endpoints remain a compatibility fallback for older
             // API builds.
-            bool receivedCoherentSnapshot = false;
+            var snapshotOutcome = new HttpRequestOutcome();
             yield return RequestJson("v1/snapshot", snapshot =>
             {
                 ApplySnapshotEnvelope(snapshot);
-                receivedCoherentSnapshot = snapshot != null && _snapshot.Aircraft.Count > 0;
-            }, suppressFailureState: true);
-            if (receivedCoherentSnapshot)
+            }, suppressFailureState: true, outcome: snapshotOutcome);
+            // A valid but empty/stale snapshot means the simulator is loading.
+            // Retrying every legacy category cannot make that packet arrive sooner.
+            if (!snapshotOutcome.AllowsCompatibilityFallback)
             {
                 yield break;
             }
@@ -1139,19 +1154,26 @@ namespace FAA.XPlaneIntegration.Runtime
             bool receivedAny = false;
 
             bool receivedHealth = false;
+            var healthOutcome = new HttpRequestOutcome();
             yield return RequestJson("api/health", json =>
             {
                 ApplyHealth(json);
                 receivedHealth = true;
                 receivedAny = true;
-            }, suppressFailureState: true);
-            if (!receivedHealth)
+            }, suppressFailureState: true, outcome: healthOutcome);
+            if (healthOutcome.AllowsCompatibilityFallback)
             {
                 yield return RequestJson("health", json =>
                 {
                     ApplyHealth(json);
+                    receivedHealth = true;
                     receivedAny = true;
                 });
+            }
+
+            if (!receivedHealth)
+            {
+                yield break;
             }
 
             if (pollAircraft)
@@ -1199,20 +1221,19 @@ namespace FAA.XPlaneIntegration.Runtime
 
         private IEnumerator RequestValues(string category, Action<Dictionary<string, float>> onSuccess)
         {
-            bool receivedValues = false;
+            var outcome = new HttpRequestOutcome();
             string primaryUrl = BuildUrl($"api/data?category={category}");
             yield return RequestJson(primaryUrl, json =>
             {
                 onSuccess?.Invoke(ReadValues(json));
-                receivedValues = true;
                 string lastError = json.Value<string>("last_error") ?? string.Empty;
                 if (!string.IsNullOrWhiteSpace(lastError))
                 {
                     LastError = lastError;
                 }
-            }, true, suppressFailureState: true);
+            }, true, suppressFailureState: true, outcome: outcome);
 
-            if (receivedValues)
+            if (!outcome.AllowsCompatibilityFallback)
             {
                 yield break;
             }
@@ -1233,8 +1254,15 @@ namespace FAA.XPlaneIntegration.Runtime
             string relativeOrAbsoluteUrl,
             Action<JObject> onSuccess,
             bool alreadyBuiltUrl = false,
-            bool suppressFailureState = false)
+            bool suppressFailureState = false,
+            HttpRequestOutcome outcome = null,
+            bool affectsFeedHealth = true)
         {
+            if (!_httpRetryPolicy.CanRequest(Time.realtimeSinceStartupAsDouble))
+            {
+                yield break;
+            }
+
             string url = alreadyBuiltUrl ? relativeOrAbsoluteUrl : BuildUrl(relativeOrAbsoluteUrl);
             using (UnityWebRequest request = UnityWebRequest.Get(url))
             {
@@ -1243,10 +1271,16 @@ namespace FAA.XPlaneIntegration.Runtime
 
                 if (request.result != UnityWebRequest.Result.Success)
                 {
-                    if (!suppressFailureState)
+                    bool missingEndpoint = XPlaneApiRetryPolicy.AllowsCompatibilityFallback(request.responseCode);
+                    if (outcome != null)
                     {
-                        LastError = $"{url}: {request.error}";
-                        SetHealthy(false);
+                        outcome.AllowsCompatibilityFallback = missingEndpoint;
+                    }
+                    // Suppression applies only to an expected compatibility probe,
+                    // not to connection failures that make the live feed unavailable.
+                    if (affectsFeedHealth && !(suppressFailureState && missingEndpoint))
+                    {
+                        RecordHttpFailure(url, request.error);
                     }
                     yield break;
                 }
@@ -1255,16 +1289,27 @@ namespace FAA.XPlaneIntegration.Runtime
                 {
                     JObject json = JObject.Parse(request.downloadHandler.text);
                     onSuccess?.Invoke(json);
+                    if (affectsFeedHealth)
+                    {
+                        _httpRetryPolicy.Reset();
+                    }
                 }
                 catch (Exception ex)
                 {
-                    if (!suppressFailureState)
+                    if (affectsFeedHealth)
                     {
-                        LastError = $"{url}: JSON parse failed: {ex.Message}";
-                        SetHealthy(false);
+                        RecordHttpFailure(url, $"JSON processing failed: {ex.Message}");
                     }
                 }
             }
+        }
+
+        private void RecordHttpFailure(string url, string error)
+        {
+            _httpRetryPolicy.RecordFailure(Time.realtimeSinceStartupAsDouble);
+            LastError = $"{url}: {error}. Retrying in {HttpRetrySecondsRemaining:0}s; check the snapshot API and SSH tunnel.";
+            LastPacketAgeSeconds = float.PositiveInfinity;
+            SetHealthy(false);
         }
 
         private void ApplyHealth(JObject json)
@@ -2894,6 +2939,13 @@ namespace FAA.XPlaneIntegration.Runtime
         {
             while (enabled)
             {
+                // Optional raster/manifest requests must not amplify an outage or
+                // reset the snapshot retry budget while the primary feed is down.
+                if (!IsFeedHealthy || !_httpRetryPolicy.CanRequest(Time.realtimeSinceStartupAsDouble))
+                {
+                    yield return new WaitForSecondsRealtime(Mathf.Max(0.5f, (float)HttpRetrySecondsRemaining));
+                    continue;
+                }
                 // The weather panel is fed by ApplyStreamWeatherTexture from
                 // the live snapshot. Native X-Plane raster downloads remain an
                 // explicit fallback only and are disabled for this scene.
@@ -2938,9 +2990,9 @@ namespace FAA.XPlaneIntegration.Runtime
                 yield return RequestJson("v1/render/gauges.json", json =>
                 {
                     _snapshot.GaugeManifest = json.ToString(Newtonsoft.Json.Formatting.None);
-                }, suppressFailureState: true);
+                }, suppressFailureState: true, affectsFeedHealth: false);
 
-                yield return new WaitForSeconds(Mathf.Max(0.5f, renderAssetPollIntervalSeconds));
+                yield return new WaitForSecondsRealtime(Mathf.Max(0.5f, renderAssetPollIntervalSeconds));
             }
         }
 
@@ -3111,6 +3163,11 @@ namespace FAA.XPlaneIntegration.Runtime
 
         private IEnumerator DownloadTexture(string relativeUrl, Action<Texture2D> onSuccess)
         {
+            if (!IsFeedHealthy || !_httpRetryPolicy.CanRequest(Time.realtimeSinceStartupAsDouble))
+            {
+                yield break;
+            }
+
             string separator = relativeUrl.Contains("?") ? "&" : "?";
             string url = BuildUrl(relativeUrl) + separator + "t=" + DateTimeOffset.UtcNow.ToUnixTimeMilliseconds().ToString(CultureInfo.InvariantCulture);
             using (UnityWebRequest request = UnityWebRequestTexture.GetTexture(url, false))

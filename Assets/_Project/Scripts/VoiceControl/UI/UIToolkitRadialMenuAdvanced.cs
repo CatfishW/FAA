@@ -100,10 +100,13 @@ namespace VoiceControl.UI
         [SerializeField] private float subLabelFontSize = 13f;
         [SerializeField] private float centerTitleFontSize = 21f;
         [SerializeField] private float centerSubtitleFontSize = 13f;
-        private static readonly Color PanelBackgroundColor = new Color(0.004f, 0.018f, 0.026f, 0.985f);
-        private static readonly Color SegmentBackgroundColor = new Color(0.012f, 0.055f, 0.070f, 0.985f);
-        private static readonly Color SegmentBorderColor = new Color(0.38f, 0.66f, 0.70f, 0.40f);
-        private static readonly Color SubBorderBaseColor = new Color(0.38f, 0.66f, 0.70f, 0.30f);
+        // FAA-inspired night-cockpit palette: dark blue-green surfaces keep
+        // outside-world contrast while cyan/emerald accents make the active
+        // command obvious without a distracting glow.
+        private static readonly Color PanelBackgroundColor = new Color(0.008f, 0.035f, 0.047f, 0.985f);
+        private static readonly Color SegmentBackgroundColor = new Color(0.012f, 0.078f, 0.084f, 0.985f);
+        private static readonly Color SegmentBorderColor = new Color(0.14f, 0.78f, 0.73f, 0.58f);
+        private static readonly Color SubBorderBaseColor = new Color(0.20f, 0.72f, 0.72f, 0.38f);
         private const float CenterSizePadding = 54f;
 
         // Events
@@ -1215,9 +1218,7 @@ namespace VoiceControl.UI
             var hud = CreateCategory("hud", "HUD");
             TryAddCommand(hud, commandLookup, "symbology", "show", "Show HUD");
             TryAddCommand(hud, commandLookup, "symbology", "hide", "Hide HUD");
-            TryAddCommand(hud, commandLookup, "symbology", "set_white", "Set White");
-            TryAddCommand(hud, commandLookup, "symbology", "set_green", "Set Green");
-            TryAddCommand(hud, commandLookup, "symbology", "set_black", "Set Black");
+            AddPilotOpacityCommands(hud);
             if (hud.Commands.Count > 0) _categories.Add(hud);
 
             var vision = CreateCategory("visionbriefing", "Vision Briefing");
@@ -1254,9 +1255,7 @@ namespace VoiceControl.UI
             var hud = CreateCategory("hud", "HUD");
             AddDemoCommand(hud, "symbology", "show", "Show HUD");
             AddDemoCommand(hud, "symbology", "hide", "Hide HUD");
-            AddDemoCommand(hud, "symbology", "set_white", "Set White");
-            AddDemoCommand(hud, "symbology", "set_green", "Set Green");
-            AddDemoCommand(hud, "symbology", "set_black", "Set Black");
+            AddPilotOpacityCommands(hud);
             _categories.Add(hud);
 
             var vision = CreateCategory("visionbriefing", "Vision Briefing");
@@ -1264,6 +1263,22 @@ namespace VoiceControl.UI
             AddDemoCommand(vision, "visionbriefing", "sectional_briefing", "Traffic Briefing");
             AddDemoCommand(vision, "visionbriefing", "hide_briefing", "Hide Briefing");
             _categories.Add(vision);
+        }
+
+        private void AddPilotOpacityCommands(MenuCategory hud)
+        {
+            if (hud == null)
+            {
+                return;
+            }
+
+            // Parameter-free actions keep opacity usable from a touch wheel.
+            // Voice control still exposes continuous percentage values; the
+            // wheel deliberately uses four glanceable pilot presets.
+            AddDemoCommand(hud, "hud_opacity", "set_100", "HUD 100%");
+            AddDemoCommand(hud, "hud_opacity", "set_80", "HUD 80%");
+            AddDemoCommand(hud, "hud_opacity", "set_60", "HUD 60%");
+            AddDemoCommand(hud, "hud_opacity", "set_40", "HUD 40%");
         }
 
         private MenuCategory CreateCategory(string id, string displayName)
@@ -2004,6 +2019,13 @@ namespace VoiceControl.UI
 
             OnCommandExecuted?.Invoke(cmd);
 
+            if (cmd != null && string.Equals(cmd.TargetId, "hud_opacity", StringComparison.OrdinalIgnoreCase))
+            {
+                ExecuteHudOpacityPreset(cmd.CommandName);
+                SetMenuOpen(false);
+                return;
+            }
+
             var registry = VoiceCommandRegistry.Instance;
             if (registry != null)
             {
@@ -2011,6 +2033,24 @@ namespace VoiceControl.UI
             }
 
             SetMenuOpen(false);
+        }
+
+        private static void ExecuteHudOpacityPreset(string commandName)
+        {
+            FAA.Customization.FaaHudOpacityController controller =
+                UnityEngine.Object.FindAnyObjectByType<FAA.Customization.FaaHudOpacityController>();
+            if (controller == null)
+            {
+                return;
+            }
+
+            switch ((commandName ?? string.Empty).Trim().ToLowerInvariant())
+            {
+                case "set_100": controller.SetFullOpacity(); break;
+                case "set_80": controller.SetHighOpacity(); break;
+                case "set_60": controller.SetMediumOpacity(); break;
+                case "set_40": controller.SetLowOpacity(); break;
+            }
         }
 
         private void PlaySound(AudioClip clip)
@@ -2482,8 +2522,8 @@ namespace VoiceControl.UI
         public void ApplyAviationHudPreset(bool refresh = true)
         {
             innerRadius = 88f;
-            middleRadius = 225f;
-            outerRadius = 350f;
+            middleRadius = 206f;
+            outerRadius = 308f;
             collapsedButtonSize = 48f;
             collapsedButtonPosition = new Vector2(34f, 34f);
             collapsedButtonTopRight = true;
@@ -2495,17 +2535,17 @@ namespace VoiceControl.UI
             subSegmentStagger = 0.02f;
             hoverScaleBoost = 0.015f;
             menuTransparency = 1f;
-            ringBackgroundTransparency = 0.90f;
-            segmentTransparency = 0.99f;
+            ringBackgroundTransparency = 0.82f;
+            segmentTransparency = 0.96f;
             centerTransparency = 1f;
             useBackdrop = true;
-            backdropOpacity = 0.30f;
+            backdropOpacity = 0.42f;
             closeOnBackdropClick = true;
             hideHudWhileOpen = true;
-            mainLabelFontSize = 15f;
-            subLabelFontSize = 15f;
-            centerTitleFontSize = 17f;
-            centerSubtitleFontSize = 11f;
+            mainLabelFontSize = 14f;
+            subLabelFontSize = 14f;
+            centerTitleFontSize = 18f;
+            centerSubtitleFontSize = 12f;
             usePulseAnimation = false;
             useGestures = false;
             useRippleEffect = true;
