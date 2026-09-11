@@ -52,7 +52,7 @@ on the same branch name, `codex/pilot-hud-telemetry-release`, in the
 
 | Area | What is implemented |
 | --- | --- |
-| Flight HUD | Attitude, airspeed, altitude, heading, vertical speed, torque, NR/N2, localizer, glideslope, flight-path and compass elements. The default implementation is the uGUI HUD; a UI Toolkit HUD can be enabled as a secondary presentation. |
+| Flight HUD | Attitude, airspeed, altitude, heading, vertical speed, torque, NR/N2, localizer, glideslope, flight-path and compass elements. The default implementation is the uGUI HUD; a UI Toolkit HUD can be enabled as a secondary presentation. The primary HUD defaults to aircraft-referenced conformal projection while retaining a head-fixed compatibility mode. |
 | Traffic radar | Circular, masked radar with threat-level symbology, range rings, bearing ticks, compass labels, ownship cue, altitude labels, smooth zoom, track-up mode, animated linework, and a compact/fullscreen presentation. |
 | Contextual controls | A modern radar menu opens on demand, keeps its state after an action, and closes when the radar is tapped again. Animated leader lines point from each action to the affected radar region. |
 | Sectional maps | FAA VFR Sectional, Terminal Area, World Aeronautical, StreetMap, and configurable custom tile sources. Chart opacity, source, range/zoom, linework, panning, and recentering are controllable at runtime. |
@@ -340,9 +340,32 @@ preview, never incoming X-Plane data. Intermediate ticks and the low-speed
 threshold are inspector settings. Retired bitmap renderers remain in the
 hierarchy for compatibility but do not draw over the new instrument.
 
-This is a **head-fixed research attitude instrument**, not a certified or
-optically calibrated conformal rotorcraft HUD. The authored HUD position is
-retained; camera FOV scaling alone does not align it to the outside world.
+### Conformal HUD presentation and pilot look-around
+
+The primary flight symbology defaults to **Conformal** mode. The HUD reference
+is derived from the aircraft attitude and the camera's no-look aircraft
+reference, then projected into the current camera viewport. It is not parented
+to the pilot camera's manual yaw/pitch offset: looking out a side window moves
+the symbology off-boresight instead of dragging it with the head. The projected
+anchor also carries aircraft roll so the pitch ladder and flight-path cues keep
+the same outside-world relationship. The separate heading-tape overlay is
+projected from the same reference, so it does not remain stranded at the old
+screen center.
+
+The implementation is a calibrated research presentation, not an FAA-certified
+or optically calibrated combiner. The calibration distance and screen-space
+reference resolution are explicit inspector settings, and native XR tracked
+pose remains the authority for headset pose. The dormant authored
+`FAASymbologyCanvasWorldSpace` is retained for scenes that have a fully
+calibrated world-space layout; legacy scenes use the safer screen-projection
+path automatically.
+
+Use `FaaConformalHudController.SetPresentationMode` to switch between
+`Conformal` and `HeadFixed` from a pilot-facing control. Head-fixed mode restores
+the authored HUD anchor and is useful for desktop familiarisation, UI review,
+and regression comparisons. The camera's existing smooth return still returns
+the view to aircraft-forward when look input is released; it does not modify
+the conformal reference.
 Per-eye XR projection, eye position, combiner optics, display latency and
 aircraft integration require separate validation. The 5°/2.5° layout is a
 project design choice, not a claimed FAA rotorcraft requirement. General HUD

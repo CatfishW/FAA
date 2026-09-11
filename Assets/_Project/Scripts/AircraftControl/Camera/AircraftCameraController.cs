@@ -164,6 +164,7 @@ namespace AircraftControl.Camera
         // First person HUD compensation
         private float _smoothedFlightPathPitch;
         private float _currentVerticalOffset;
+        private Quaternion _aircraftReferenceRotation = Quaternion.identity;
         
         #endregion
         
@@ -183,6 +184,14 @@ namespace AircraftControl.Camera
         /// </summary>
         public bool IsLookActive => _isLookActive;
         public Transform AircraftTransform => aircraftTransform;
+
+        /// <summary>
+        /// The aircraft-relative cockpit viewing rotation with the manual
+        /// look-around offset removed. Conformal HUDs use this reference so
+        /// their boresight remains tied to the aircraft while the pilot looks
+        /// through the side windows.
+        /// </summary>
+        public Quaternion AircraftReferenceRotation => _aircraftReferenceRotation;
         
         #endregion
         
@@ -208,6 +217,7 @@ namespace AircraftControl.Camera
             _currentPitch = 0f;
             _currentYaw = 0f;
             _smoothedFlightPathPitch = GetAircraftPitchDegrees();
+            _aircraftReferenceRotation = aircraftTransform.rotation;
         }
         
         private void LateUpdate()
@@ -345,6 +355,7 @@ namespace AircraftControl.Camera
             float compensatedPitch = GetCompensatedPitch(basePitch);
             aircraftEuler.x = -compensatedPitch; // Invert so nose-up points camera to the sky
             Quaternion compensatedRotation = Quaternion.Euler(aircraftEuler);
+            _aircraftReferenceRotation = compensatedRotation;
 
             // Apply vertical head-lag offset driven by climb/dive
             cockpitPosition += GetVerticalOffset(compensatedRotation);
@@ -368,6 +379,7 @@ namespace AircraftControl.Camera
         
         private void UpdateChaseCamera()
         {
+            _aircraftReferenceRotation = aircraftTransform.rotation;
             // Calculate desired position behind aircraft
             Vector3 desiredPosition = aircraftTransform.position 
                 - aircraftTransform.forward * chaseDistance 
@@ -401,6 +413,7 @@ namespace AircraftControl.Camera
         private void UpdateFreeCamera()
         {
             _lastAircraftRotation = aircraftTransform.rotation;
+            _aircraftReferenceRotation = aircraftTransform.rotation;
             
             // Update free rotation with aircraft movement and look input
             if (!_isLookActive)

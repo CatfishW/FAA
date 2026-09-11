@@ -85,6 +85,17 @@ snapshot and cite only evidence actually returned by their read-only tools.
   cached value or plausible-looking zero.
 - The desktop look control returns smoothly to the aircraft-forward view after
   the pilot releases look input. Native tracked-pose operation is not overridden.
+- Added `FaaConformalHudController`. Conformal mode is now the default primary
+  HUD presentation: aircraft attitude and the camera's no-look reference are
+  projected into the viewport, while manual camera yaw/pitch is deliberately
+  excluded. A pilot looking through a side window therefore sees the HUD move
+  off-boresight instead of following the camera.
+- The separate heading tape uses the same projected reference, keeping the
+  navigation scale aligned with the primary attitude symbology during a look.
+- Kept `HeadFixed` as an explicit compatibility mode. It restores the authored
+  screen anchor for desktop familiarisation and regression comparison. A
+  dormant world-space duplicate is only used when a scene opts into a calibrated
+  layout; legacy scenes use the screen-projection path.
 
 ### Radar controls and visual hierarchy
 
@@ -221,7 +232,7 @@ Final checks performed on 2026-09-10:
 | Check | Result |
 | --- | --- |
 | Unity script import/recompile | Completed; no compiler errors reported |
-| Direct edit-time assertion runner | 95 passed: view alignment 24, screen cues 22, cue stability 17, traffic type metadata 17, turbulence mode 15 |
+| Direct edit-time assertion runner | 96 passed: view alignment 25 (including conformal side-look projection), screen cues 22, cue stability 17, traffic type metadata 17, turbulence mode 15 |
 | Host Python unit tests | 21 passed: rotorcraft/weather 11, traffic metadata 6, WebSocket mapping 3, catalog recovery 1 |
 | Native AI profile readback | 12/12 slots matched; ownship remained S76 |
 | Unity live type ingestion | 6 General, 3 Helicopter, 3 Commercial |
@@ -269,6 +280,7 @@ full PlayMode regression, and a production build remain separate release gates.
 | 2026-09-08 | Evidence workspace | Added the streamed, source-linked explanation harness and then reduced it to the compact four-action, no-typing Pilot Brief requested for pilots. |
 | 2026-09-09 | Map, cue, and briefing refinement | Improved chart zoom/pan behavior, control-panel placement, screen-cue decluttering, compact briefing layout, and fixed-height brief pagination. |
 | 2026-09-10 | Geometry and simulator completion pass | Added view auto-return, exact radar/cue target geometry, native ICAO category mapping, mixed AI traffic, all-layer turbulence telemetry, truthful TURB status, tests, and release documentation. |
+| 2026-09-11 | Conformal HUD presentation | Added aircraft-referenced HUD projection, independent of manual camera look, with a head-fixed compatibility mode and viewport calibration notes. |
 
 ## Repository hygiene included in this branch
 
@@ -312,6 +324,9 @@ Git history.
       outside the repository.
 - [ ] Verify traffic types, range, chart pan/zoom, camera return, and cue/map
       alignment against a fresh X-Plane snapshot.
+- [ ] Verify Conformal mode with forward, left-window, and right-window looks;
+      confirm the primary HUD leaves boresight with the outside view while
+      remaining tied to aircraft attitude. Compare HeadFixed mode for regression.
 - [ ] Exercise WX, WX+T, TURB, standby, stale, display-off, and unknown-power states.
 - [ ] Tune and re-run the rotorcraft stability acceptance test before unattended
       turbulence demonstrations.

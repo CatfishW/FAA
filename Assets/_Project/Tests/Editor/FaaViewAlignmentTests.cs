@@ -59,6 +59,61 @@ namespace FAA.Customization.Tests
         }
 
         [Test]
+        public void ConformalProjection_LeavesBoresightWhenCameraLooksSideways()
+        {
+            var cameraObject = new GameObject("Conformal projection camera", typeof(Camera));
+            var aircraftObject = new GameObject("Conformal projection aircraft");
+            var canvasObject = new GameObject("Conformal projection canvas", typeof(RectTransform), typeof(Canvas), typeof(UnityEngine.UI.CanvasScaler));
+            var rootObject = new GameObject("Second Interation GUI", typeof(RectTransform));
+            try
+            {
+                var camera = cameraObject.GetComponent<Camera>();
+                camera.pixelRect = new Rect(0f, 0f, 1920f, 1080f);
+                camera.fieldOfView = 60f;
+                camera.transform.position = aircraftObject.transform.position;
+                camera.transform.rotation = aircraftObject.transform.rotation;
+
+                var canvas = canvasObject.GetComponent<Canvas>();
+                canvas.renderMode = RenderMode.ScreenSpaceOverlay;
+                var scaler = canvasObject.GetComponent<UnityEngine.UI.CanvasScaler>();
+                scaler.uiScaleMode = UnityEngine.UI.CanvasScaler.ScaleMode.ScaleWithScreenSize;
+                scaler.referenceResolution = new Vector2(1920f, 1080f);
+                var root = rootObject.GetComponent<RectTransform>();
+                root.SetParent(canvasObject.transform, false);
+                root.anchoredPosition = new Vector2(960f, 690f);
+
+                Type conformal = Runtime("FAA.Customization.FaaConformalHudController");
+                var controller = canvasObject.AddComponent(conformal);
+                Set(controller, "aircraftTransform", aircraftObject.transform);
+                Set(controller, "projectionCamera", camera);
+                Set(controller, "_screenCanvas", canvas);
+                Set(controller, "_screenHudRoot", root);
+                Set(controller, "_headFixedAnchoredPosition", root.anchoredPosition);
+                Set(controller, "_headFixedLocalRotation", root.localRotation);
+                Set(controller, "_headFixedRootCaptured", true);
+
+                MethodInfo project = conformal.GetMethod("UpdateScreenConformalProjection", Any);
+                project.Invoke(controller, null);
+                Assert.That(root.anchoredPosition.x, Is.EqualTo(960f).Within(.01f));
+
+                camera.transform.rotation = aircraftObject.transform.rotation * Quaternion.Euler(0f, 45f, 0f);
+                project.Invoke(controller, null);
+                Assert.That(root.anchoredPosition.x, Is.LessThan(960f), "A right-looking camera must move the aircraft-referenced HUD left, not rotate it with the head.");
+
+                MethodInfo restore = conformal.GetMethod("RestoreHeadFixedRoot", Any);
+                restore.Invoke(controller, null);
+                Assert.That(root.anchoredPosition.x, Is.EqualTo(960f).Within(.01f));
+            }
+            finally
+            {
+                UnityEngine.Object.DestroyImmediate(cameraObject);
+                UnityEngine.Object.DestroyImmediate(aircraftObject);
+                UnityEngine.Object.DestroyImmediate(rootObject);
+                UnityEngine.Object.DestroyImmediate(canvasObject);
+            }
+        }
+
+        [Test]
         public void Return_FollowsCurrentAircraftHeading_NotInitialWorldHeading()
         {
             var go = new GameObject("View turn test");
