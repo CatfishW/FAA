@@ -128,9 +128,13 @@ namespace FAA.Customization.Tests
             var library = Resources.Load("HudIcons/FaaRadarIconLibrary", type);
             Assert.That(library, Is.Not.Null);
             var entries = (Array)type.GetField("entries").GetValue(library);
-            Assert.That(entries.Length, Is.EqualTo(7));
+            var iconType = Type.GetType("FAA.Customization.FaaRadarIcon, Assembly-CSharp", true);
+            Assert.That(entries.Length, Is.EqualTo(Enum.GetValues(iconType).Length));
+            var bakedIcons = new System.Collections.Generic.HashSet<object>();
             foreach (var entry in entries)
             {
+                Assert.That(bakedIcons.Add(entry.GetType().GetField("icon").GetValue(entry)), Is.True,
+                    "Each declared icon must have its own baked geometry entry.");
                 var vertices = (Vector2[])entry.GetType().GetField("vertices").GetValue(entry);
                 var triangles = (int[])entry.GetType().GetField("triangles").GetValue(entry);
                 Assert.That(vertices.Length, Is.GreaterThan(20));

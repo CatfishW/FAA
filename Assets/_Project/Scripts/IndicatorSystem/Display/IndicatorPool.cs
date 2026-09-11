@@ -142,7 +142,9 @@ namespace IndicatorSystem.Display
                     return null;
                 }
                 
-                _activeTypes[id] = TrafficRadarDataManager.AircraftType.Unknown;
+                // Absence of a typed entry means this instance belongs to the
+                // generic pool, even for an unknown-type traffic target.
+                _activeTypes.Remove(id);
             }
             
             indicator.SetVisible(true);
@@ -177,7 +179,7 @@ namespace IndicatorSystem.Display
             
             indicator.SetVisible(true);
             _activeIndicators[id] = indicator;
-            _activeTypes[id] = TrafficRadarDataManager.AircraftType.Unknown;
+            _activeTypes.Remove(id);
             
             return indicator;
         }

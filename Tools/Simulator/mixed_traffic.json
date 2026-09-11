@@ -1,0 +1,16 @@
+{
+  "ai_aircraft": [
+    { "aircraft": { "path": "Aircraft/Laminar Research/Cessna 172 SP/Cessna_172SP.acf" }, "mission": "atc" },
+    { "aircraft": { "path": "Aircraft/Laminar Research/Sikorsky S-76/S-76C.acf" }, "mission": "atc" },
+    { "aircraft": { "path": "Aircraft/Laminar Research/Piper PA-18 Super Cub/PA-18-150.acf" }, "mission": "atc" },
+    { "aircraft": { "path": "Aircraft/Laminar Research/Boeing 737-800/b738.acf" }, "mission": "atc" },
+    { "aircraft": { "path": "Aircraft/Laminar Research/Beechcraft Baron 58/Baron_58.acf" }, "mission": "atc" },
+    { "aircraft": { "path": "Aircraft/Laminar Research/Robinson R22 Beta II/Robinson R22 Beta II.acf" }, "mission": "atc" },
+    { "aircraft": { "path": "Aircraft/Laminar Research/Beechcraft King Air C90B/C90B.acf" }, "mission": "atc" },
+    { "aircraft": { "path": "Aircraft/Laminar Research/McDonnell Douglas MD-82/MD80.acf" }, "mission": "atc" },
+    { "aircraft": { "path": "Aircraft/Laminar Research/Cirrus SR22/Cirrus SR22.acf" }, "mission": "atc" },
+    { "aircraft": { "path": "Aircraft/Laminar Research/Sikorsky S-76/S-76C.acf" }, "mission": "atc" },
+    { "aircraft": { "path": "Aircraft/Laminar Research/Cessna Citation X/Cessna_CitationX.acf" }, "mission": "atc" },
+    { "aircraft": { "path": "Aircraft/Laminar Research/Airbus A330-300/A330_AI.acf" }, "mission": "atc" }
+  ]
+}

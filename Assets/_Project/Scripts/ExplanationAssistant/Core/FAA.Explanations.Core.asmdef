@@ -1,0 +1,7 @@
+{
+  "name": "FAA.Explanations.Core",
+  "rootNamespace": "FAA.Explanations",
+  "references": [],
+  "autoReferenced": true,
+  "noEngineReferences": true
+}

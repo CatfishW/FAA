@@ -25,7 +25,7 @@ public static class FaaSvgIconBaker
         library.entries = Enum.GetValues(typeof(FaaRadarIcon)).Cast<FaaRadarIcon>().Select(BakeIcon).ToArray();
         EditorUtility.SetDirty(library);
         AssetDatabase.SaveAssets();
-        Debug.Log("[FAA HUD] Seven SVG menu icons tessellated with Unity's built-in vector module.");
+        Debug.Log($"[FAA HUD] {library.entries.Length} SVG menu and screen-cue icons tessellated.");
     }
 
     private static FaaSvgIconLibrary.Entry BakeIcon(FaaRadarIcon icon)

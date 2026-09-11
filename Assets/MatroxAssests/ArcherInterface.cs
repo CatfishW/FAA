@@ -29,6 +29,13 @@ public class ArcherInterface : MonoBehaviour
     //private static uint Header_Size = (2 * sizeof(uint)) + (2 * sizeof(ushort));
     private static uint Payload_Size = sizeof(long) + sizeof(uint) + (6 * sizeof(float));
 
+    private readonly object forwardLock = new object();
+    private AutoResetEvent forwardSignal;
+    private Thread forwardThread;
+    private volatile bool forwardWorkerRunning;
+    private ArcherPose pendingPose;
+    private bool shutdownComplete;
+
     private static float Deg2Rad(float x)
     {
         return x * MathF.PI / 180f;
@@ -91,6 +98,11 @@ public class ArcherInterface : MonoBehaviour
 #else
         try
         {
+            if (SAPrefab == null)
+            {
+                throw new InvalidOperationException("SA-147 rig reference is not assigned.");
+            }
+
             archerReader = CreateArcherHeadTracker();
             int baud = GetDefaultBaudRate(archerReader);
             StartArcher(archerReader, "COM6", baud);
@@ -106,6 +118,7 @@ public class ArcherInterface : MonoBehaviour
             Application.onBeforeRender += onBeforeRender;
             udpForwarder = new UdpClient();
             udpForwarder.Connect(SendToAddress, SendToPort);
+            StartForwardWorker();
         }
         catch (Exception ex)
         {
@@ -118,7 +131,7 @@ public class ArcherInterface : MonoBehaviour
     // Update is called once per frame
     void onBeforeRender()
     {
-        if (archerReader != null && IsArcherRunning(archerReader))
+        if (archerReader != IntPtr.Zero && IsArcherRunning(archerReader))
         {
             var pose = new ArcherPose();
             
@@ -130,7 +143,7 @@ public class ArcherInterface : MonoBehaviour
                                                            InitialRotation.y + (pose.RotAz),
                                                            InitialRotation.z - (pose.RotRoll));
 
-            new Thread(() => { ForwardArcherState(pose); }).Start();
+            QueueArcherState(pose);
 
             //Debug.Log($"ReadTime: {pose.ReadTime / ticksPerMS} - CalledTime: {pose.CalledTime / ticksPerMS} - Difference: {(pose.CalledTime - pose.ReadTime) / ticksPerMS}");
             //transform.rotation = Quaternion.AngleAxis(InitialRotation.y + Rad2Deg(pose.RotAz), Vector3.up) * 
@@ -189,11 +202,88 @@ public class ArcherInterface : MonoBehaviour
         }
     }
 
+    private void StartForwardWorker()
+    {
+        forwardSignal = new AutoResetEvent(false);
+        forwardWorkerRunning = true;
+        forwardThread = new Thread(ForwardWorkerLoop)
+        {
+            IsBackground = true,
+            Name = "FAA SA-147 Archer UDP Forwarder"
+        };
+        forwardThread.Start();
+    }
+
+    private void QueueArcherState(ArcherPose pose)
+    {
+        lock (forwardLock)
+        {
+            // Keep only the newest pose. Head tracking must remain low-latency;
+            // building a backlog is worse than dropping an intermediate packet.
+            pendingPose = pose;
+        }
+
+        forwardSignal?.Set();
+    }
+
+    private void ForwardWorkerLoop()
+    {
+        while (forwardWorkerRunning)
+        {
+            forwardSignal?.WaitOne(100);
+            if (!forwardWorkerRunning)
+            {
+                break;
+            }
+
+            ArcherPose pose;
+            lock (forwardLock)
+            {
+                pose = pendingPose;
+                pendingPose = null;
+            }
+
+            if (pose != null)
+            {
+                ForwardArcherState(pose);
+            }
+        }
+    }
+
     private void OnApplicationQuit()
     {
+        Shutdown();
+    }
+
+    private void OnDestroy()
+    {
+        Shutdown();
+    }
+
+    private void Shutdown()
+    {
+        if (shutdownComplete)
+        {
+            return;
+        }
+
+        shutdownComplete = true;
+        Application.onBeforeRender -= onBeforeRender;
+        forwardWorkerRunning = false;
+        forwardSignal?.Set();
+        if (forwardThread != null && forwardThread.IsAlive)
+        {
+            forwardThread.Join(250);
+        }
+
+        forwardThread = null;
+        forwardSignal?.Dispose();
+        forwardSignal = null;
+
 #if UNITY_STANDALONE_WIN || UNITY_EDITOR_WIN
         if (archerReader == IntPtr.Zero)
         {
+            CloseForwarder();
             return;
         }
 
@@ -205,14 +295,23 @@ public class ArcherInterface : MonoBehaviour
         if (archerReader != IntPtr.Zero)
         {
             DestroyArcherHeadTracker(archerReader);
+            archerReader = IntPtr.Zero;
         }
 
-        if (udpForwarder is not null)
-        {
-            udpForwarder.Close();
-            udpForwarder.Dispose();
-        }
+        CloseForwarder();
 #endif
+    }
+
+    private static void CloseForwarder()
+    {
+        if (udpForwarder is null)
+        {
+            return;
+        }
+
+        udpForwarder.Close();
+        udpForwarder.Dispose();
+        udpForwarder = null;
     }
 
 

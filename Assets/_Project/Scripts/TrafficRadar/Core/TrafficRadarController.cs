@@ -67,8 +67,11 @@ namespace TrafficRadar.Core
         #region Private Fields
         
         private RadarDataProcessor _processor;
+        private RadarDataProcessor _indicatorProcessor;
         private List<AircraftState> _cachedAircraftStates = new List<AircraftState>();
         private OwnShipPosition _currentOwnPosition;
+        private OwnShipPosition _processedOwnPosition;
+        private bool _hasProcessedOwnPosition;
         private float _nextUpdateTime;
         private int _lastTargetCount;
         private ThreatLevel _lastHighestThreat = ThreatLevel.OtherTraffic;
@@ -98,6 +101,19 @@ namespace TrafficRadar.Core
         public int TargetCount => _currentTargets?.Count ?? 0;
         public ThreatLevel HighestThreat => _lastHighestThreat;
         public OwnShipPosition OwnPosition => _currentOwnPosition;
+        public OwnShipPosition TargetReferencePosition => _hasProcessedOwnPosition ? _processedOwnPosition : _currentOwnPosition;
+
+        /// <summary>Independent marker range; never changes the radar zoom or its target cap.</summary>
+        public IReadOnlyList<RadarTarget> GetIndicatorTargets(float markerRangeNM)
+        {
+            if (_indicatorProcessor == null)
+                _indicatorProcessor = new RadarDataProcessor(threatThresholds);
+            _indicatorProcessor.RangeNM = markerRangeNM;
+            _indicatorProcessor.MaxTargets = 200;
+            // Match the map's ownship sample, not a newer heading/altitude
+            // received between its processing tick and this screen-cue refresh.
+            return _indicatorProcessor.ProcessAircraft(_cachedAircraftStates, TargetReferencePosition);
+        }
         public bool AutoRangeEnabled
         {
             get => autoRangeEnabled;
@@ -366,6 +382,7 @@ namespace TrafficRadar.Core
                 {
                     Icao24 = aircraft.icao24,
                     Callsign = aircraft.callsign,
+                    AircraftType = aircraft.type,
                     Latitude = aircraft.latitude,
                     Longitude = aircraft.longitude,
                     AltitudeMeters = aircraft.altitude,
@@ -422,6 +439,7 @@ namespace TrafficRadar.Core
                     {
                         Icao24 = aircraft.icao24,
                         Callsign = aircraft.callsign,
+                        AircraftType = aircraft.type,
                         Latitude = aircraft.latitude,
                         Longitude = aircraft.longitude,
                         AltitudeMeters = aircraft.altitude,
@@ -435,7 +453,9 @@ namespace TrafficRadar.Core
             }
             
             // Process aircraft into radar targets
-            _currentTargets = _processor.ProcessAircraft(_cachedAircraftStates, _currentOwnPosition);
+            _processedOwnPosition = _currentOwnPosition;
+            _hasProcessedOwnPosition = true;
+            _currentTargets = _processor.ProcessAircraft(_cachedAircraftStates, _processedOwnPosition);
             
             // Log processing results
             if (_cachedAircraftStates.Count > 0)

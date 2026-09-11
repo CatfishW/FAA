@@ -347,6 +347,27 @@ namespace FAA.Headset
                 RestoreTrackedPoseDriver();
             }
 
+            // Desktop mouse look belongs to the aircraft camera. A simulated
+            // HMD otherwise overwrites it again before rendering (often with
+            // world-north/identity), leaving the map and screen cues at odds.
+            // Native head tracking and explicit XR-controller testing are unchanged.
+            if (UseDesktopAircraftView(_activeMode, preferEditorPointerInput,
+                xrCamera.GetComponent<AircraftControl.Camera.AircraftCameraController>() != null))
+            {
+                if (_trackedPoseDriver == null)
+                {
+                    _trackedPoseDriverCamera = xrCamera;
+                    _trackedPoseDriver = xrCamera.GetComponent<TrackedPoseDriver>();
+                    if (_trackedPoseDriver != null)
+                    {
+                        _existingTrackedPoseDriverEnabled = _trackedPoseDriver.enabled;
+                        _existingTrackedPoseDriverStateCaptured = true;
+                    }
+                }
+                if (_trackedPoseDriver != null) _trackedPoseDriver.enabled = false;
+                return;
+            }
+
             if (_trackedPoseDriver != null)
             {
                 if (!_trackedPoseDriver.enabled)
@@ -397,6 +418,9 @@ namespace FAA.Headset
             _trackedPoseDriver.rotationInput = new InputActionProperty(rotationAction);
             _trackedPoseDriver.trackingStateInput = new InputActionProperty(trackingStateAction);
         }
+
+        public static bool UseDesktopAircraftView(ActivationMode mode, bool desktopPointer, bool hasAircraftCamera)
+            => mode == ActivationMode.UnitySimulator && desktopPointer && hasAircraftCamera;
 
         private void RestoreTrackedPoseDriver()
         {

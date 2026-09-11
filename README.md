@@ -17,6 +17,7 @@ XR-3 workflow or the SA-147 multi-display output path.
 ## Contents
 
 - [Capabilities](#capabilities)
+- [Current pilot-system update](#current-pilot-system-update)
 - [Architecture](#architecture)
 - [Requirements](#requirements)
 - [Clone and open the project](#clone-and-open-the-project)
@@ -35,6 +36,17 @@ XR-3 workflow or the SA-147 multi-display output path.
 - [Performance and operational limits](#performance-and-operational-limits)
 - [Attribution and licensing](#attribution-and-licensing)
 - [Contributing](#contributing)
+
+## Current pilot-system update
+
+The consolidated HUD, radar, sectional-chart, screen-cue, Pilot Brief, X-Plane
+traffic, and turbulence update is documented in
+[Pilot HUD and telemetry release — 2026-09-10](docs/PILOT_HUD_TELEMETRY_RELEASE_2026-09-10.md).
+That document includes the cross-repository deployment boundary, architecture,
+operator behavior, verification evidence, known limitations, rollback notes,
+and a dated implementation timeline. The matching X-Plane API work is published
+on the same branch name, `codex/pilot-hud-telemetry-release`, in the
+`CatfishW/xplane12api` repository.
 
 ## Capabilities
 
@@ -162,7 +174,7 @@ After the editor finishes importing:
 | --- | --- | --- |
 | Assets/_Project/Scenes/ExperimentScene.unity | Working FAA/X-Plane integration scene. It contains the live HUD, weather and traffic radar canvases, chart map, controls overlay, terrain hooks, and XR integration objects. | Exists in the project but is **not currently enabled** in EditorBuildSettings.asset. |
 | Assets/_Project/Scenes/Main.unity | Primary FAA scene selected for the standalone build configuration. | The only scene currently enabled in ProjectSettings/EditorBuildSettings.asset. |
-| Archive/LegacyScenes/* | Historical/recovery scenes retained for reference. They are outside the active Assets tree so Unity does not import stale scene references. | Never use as a shipping scene without review. |
+| Git history | Retired historical/recovery scenes remain available in earlier revisions but are no longer shipped in the working tree. | Restore a specific revision only for forensic comparison; never use it as a shipping scene without review. |
 
 The enabled build list is a project setting, not a guarantee that the scene is
 ready for a particular headset or simulator. Before a release, verify the
@@ -258,6 +270,16 @@ menu remains a separate control.
   Quarter-range labels follow the selected range; the sweep stops when the
   picture is stale or in standby. Traffic guides retain a quieter major/minor
   hierarchy, with range and orientation outside the plotting area.
+- In **SIM WX**, range now zooms a fixed, north-aligned field in nautical miles,
+  not just the ring labels. Changing 40 NM to 20 NM moves a cell at the same
+  physical distance twice as far from ownship on the display. Returning to the
+  previous range restores the same field (allowing for aircraft movement).
+- **Echo gain** changes simulated echo amplitude from −8 to +8 dB: raising it
+  reveals weak returns and brightens existing returns; lowering it suppresses
+  them. Range/gain changes bypass the normal synthetic-picture update interval
+  on the next live flight update. Gain does not change X-Plane precipitation,
+  and maximum gain does not manufacture returns in dry weather. Native image
+  sources remain responsible for honouring their own requested radar settings.
 
 Use **FAA → HUD → Apply Clean Radar Presentation** and save to apply the radar
 headers, footers, and weather vector preview in edit mode. Configuration
@@ -544,6 +566,14 @@ Implementation details:
 - source tiles are 256 px and are combined into a 3×3 composite;
 - the default composite is 1024 px so the enlarged focus/XR scope stays
   sharper than the former 512 px texture;
+- the displayed crop is registered to the aircraft's geographic position and
+  range, so zoom changes continuously even within one tile level; the full-map
+  panning margin does not change the scale of the visible scope;
+- chart rotation, compass labels, and traffic share the same track-up bearing;
+  screen-pixel drag gestures are converted into the map's canvas units;
+- **Map range −** decreases the range (zooms in), **+** increases it (zooms
+  out), and manual zoom disables automatic range. The 2 NM close view requests
+  level 12 tiles; enlarging a raster chart cannot add unpublished detail;
 - up to 50 tiles are cached for one hour by default;
 - requests have cancellation, timeout, retry, and generation checks so an old
   center cannot overwrite a newer drag/zoom request;
@@ -1075,13 +1105,14 @@ Assets/
 └── TextMesh Pro/               Unity package content
 Packages/                       manifest and lock files
 ProjectSettings/                Unity version, build scenes, XR settings
-Archive/LegacyScenes/           historical scenes outside Unity import
+docs/                           release notes, timelines, and review records
 ~~~
 
-There are 381 C# files under the first-party script tree, including editor,
-runtime, and deprecated/test areas. Folders named Deprecated or Archive are
-retained for migration/reference work and should not be added to the active
-scene without an explicit compatibility review.
+First-party scripts include editor, runtime, deprecated, and test areas.
+Folders named Deprecated are retained for migration/reference work and should
+not be added to the active scene without an explicit compatibility review.
+Retired recovery scenes and editor caches are excluded from the repository;
+use Git history rather than committing machine-local recovery copies.
 
 ## Performance and operational limits
 

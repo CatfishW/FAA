@@ -98,6 +98,7 @@ namespace TrafficRadar.Core
                 {
                     Icao24 = aircraft.Icao24,
                     Callsign = aircraft.Callsign,
+                    AircraftType = aircraft.AircraftType,
                     Latitude = aircraft.Latitude,
                     Longitude = aircraft.Longitude,
                     AltitudeFeet = aircraft.AltitudeFeet,

@@ -244,11 +244,11 @@ namespace VoiceControl.Adapters
             switch (type.ToLower())
             {
                 case "traffic":
-                    settings.showTrafficIndicators = visible;
+                    controller.SetTypeVisible(IndicatorSystem.Core.IndicatorType.Traffic, visible);
                     Log($"Traffic indicators: {(visible ? "shown" : "hidden")}");
                     return true;
                 case "weather":
-                    settings.showWeatherIndicators = visible;
+                    controller.SetTypeVisible(IndicatorSystem.Core.IndicatorType.Weather, visible);
                     Log($"Weather indicators: {(visible ? "shown" : "hidden")}");
                     return true;
                 default:
@@ -269,9 +269,9 @@ namespace VoiceControl.Adapters
             switch (type.ToLower())
             {
                 case "traffic":
-                    return SetIndicatorVisibility("traffic", !settings.showTrafficIndicators);
+                    return SetIndicatorVisibility("traffic", !controller.IsTypeVisible(IndicatorSystem.Core.IndicatorType.Traffic));
                 case "weather":
-                    return SetIndicatorVisibility("weather", !settings.showWeatherIndicators);
+                    return SetIndicatorVisibility("weather", !controller.IsTypeVisible(IndicatorSystem.Core.IndicatorType.Weather));
                 default:
                     Log($"Unknown indicator type: {type}");
                     return false;

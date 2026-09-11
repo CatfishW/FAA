@@ -465,7 +465,16 @@ namespace FAA.Customization
                 return;
             }
 
-            Vector2 delta = eventData.delta;
+            // Pointer deltas are screen pixels; the map expects its own local
+            // canvas units. Convert both points so scaled and XR canvases pan
+            // with the pointer instead of amplifying or rotating the gesture.
+            var mapRect = _trafficDisplay.transform as RectTransform;
+            if (!RectTransformUtility.ScreenPointToLocalPointInRectangle(mapRect,
+                    eventData.position, eventData.pressEventCamera, out Vector2 currentPoint) ||
+                !RectTransformUtility.ScreenPointToLocalPointInRectangle(mapRect,
+                    eventData.position - eventData.delta, eventData.pressEventCamera, out Vector2 previousPoint))
+                return;
+            Vector2 delta = currentPoint - previousPoint;
             if (delta.sqrMagnitude < 0.0001f)
             {
                 return;

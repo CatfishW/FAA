@@ -54,6 +54,10 @@ namespace IndicatorSystem.Integration
         private readonly List<TrafficIndicatorTarget> _convertedTargets = new List<TrafficIndicatorTarget>();
         private bool _isConnected;
         private float _ownHeadingDegrees;
+        private float _nextRefresh;
+        private FAA.XPlaneIntegration.Runtime.XPlane12ApiHudBridge _feed;
+        public string SourceStatus { get; private set; } = "WAITING FOR DATA";
+        public int TargetCount => _convertedTargets.Count;
         
         #endregion
         
@@ -66,7 +70,20 @@ namespace IndicatorSystem.Integration
         
         private void OnEnable()
         {
+            AutoFindComponents();
             Connect();
+        }
+
+        private void Update()
+        {
+            if (Time.unscaledTime < _nextRefresh) return;
+            _nextRefresh = Time.unscaledTime + 0.2f;
+            if (!_isConnected || trafficRadarController == null || !trafficRadarController.isActiveAndEnabled || indicatorController == null)
+            {
+                AutoFindComponents();
+                Connect();
+            }
+            RefreshTargets();
         }
         
         private void OnDisable()
@@ -109,9 +126,18 @@ namespace IndicatorSystem.Integration
         
         private void AutoFindComponents()
         {
-            if (trafficRadarController == null)
+            if (_feed == null)
+                _feed = FindAnyObjectByType<FAA.XPlaneIntegration.Runtime.XPlane12ApiHudBridge>();
+            if (trafficRadarController == null || !trafficRadarController.isActiveAndEnabled)
             {
-                trafficRadarController = FindObjectOfType<TrafficRadarController>();
+                // Scenes can contain an inactive prefab copy with the same name.
+                // Never bind the live cues to that dormant controller.
+                if (_isConnected && trafficRadarController != null)
+                    trafficRadarController.OnTargetsUpdated.RemoveListener(OnTrafficTargetsUpdated);
+                _isConnected = false;
+                trafficRadarController = null;
+                foreach (var candidate in FindObjectsByType<TrafficRadarController>(FindObjectsInactive.Exclude, FindObjectsSortMode.None))
+                    if (candidate.isActiveAndEnabled) { trafficRadarController = candidate; break; }
             }
             
             if (indicatorController == null)
@@ -140,24 +166,41 @@ namespace IndicatorSystem.Integration
         
         private void Disconnect()
         {
-            if (!_isConnected || trafficRadarController == null)
-                return;
-            
-            trafficRadarController.OnTargetsUpdated.RemoveListener(OnTrafficTargetsUpdated);
+            if (_isConnected && trafficRadarController != null)
+                trafficRadarController.OnTargetsUpdated.RemoveListener(OnTrafficTargetsUpdated);
             _isConnected = false;
+            _convertedTargets.Clear();
+            indicatorController?.SetTargetsForType(IndicatorType.Traffic, _convertedTargets);
+            SourceStatus = "DISCONNECTED";
             
             Log("Disconnected from TrafficRadarController");
         }
         
         private void OnTrafficTargetsUpdated(IReadOnlyList<RadarTarget> targets)
         {
+            RefreshTargets();
+        }
+
+        private void RefreshTargets()
+        {
             if (indicatorController == null)
                 return;
+
+            if (trafficRadarController == null || !trafficRadarController.isActiveAndEnabled || (_feed != null && !_feed.IsFeedHealthy))
+            {
+                _convertedTargets.Clear();
+                indicatorController.SetTargetsForType(IndicatorType.Traffic, _convertedTargets);
+                SourceStatus = "WAITING FOR DATA";
+                return;
+            }
+
+            var targets = trafficRadarController.GetIndicatorTargets(
+                indicatorController.Settings != null ? indicatorController.Settings.maxDisplayDistance : 80f);
             
             // Update reference position from radar if enabled
             if (syncPositionFromRadar && trafficRadarController != null)
             {
-                var ownPos = trafficRadarController.OwnPosition;
+                var ownPos = trafficRadarController.TargetReferencePosition;
                 if (ownPos.Latitude != 0 || ownPos.Longitude != 0)
                 {
                     referenceLatitude = ownPos.Latitude;
@@ -172,8 +215,11 @@ namespace IndicatorSystem.Integration
             _convertedTargets.Clear();
             foreach (var target in targets)
             {
-                _convertedTargets.Add(ConvertToIndicatorTarget(target));
+                // A healthy transport does not make an old individual track current.
+                if (target.TimeSinceUpdate <= 10f)
+                    _convertedTargets.Add(ConvertToIndicatorTarget(target));
             }
+            SourceStatus = _convertedTargets.Count > 0 ? "LIVE TRAFFIC" : "NO TRAFFIC IN RANGE";
             
             // Update only traffic targets so weather indicators can coexist.
             indicatorController.SetTargetsForType(IndicatorType.Traffic, _convertedTargets);
@@ -186,14 +232,13 @@ namespace IndicatorSystem.Integration
             Vector3 worldPos;
             if (useRadarRelativeScreenProjection)
             {
-                float relativeBearing = ScreenIndicatorCalculator.CalculateRelativeBearing(
-                    radarTarget.BearingDegrees,
-                    _ownHeadingDegrees);
-                worldPos = ScreenIndicatorCalculator.RadarRelativeToWorldPosition(
+                // X-Plane world north is Unity +Z. Do not rotate world targets with
+                // the pilot's head: only the viewing camera should affect projection.
+                worldPos = ScreenIndicatorCalculator.RadarBearingToWorldPosition(
                     radarTarget.DistanceNM,
-                    relativeBearing,
+                    radarTarget.BearingDegrees,
                     radarTarget.RelativeAltitudeFeet,
-                    GetPositionReference());
+                    GetPositionReference().position);
             }
             else
             {
@@ -215,6 +260,8 @@ namespace IndicatorSystem.Integration
             {
                 id = radarTarget.Icao24,
                 worldPosition = worldPos,
+                projectionOrigin = useRadarRelativeScreenProjection ? GetPositionReference() : null,
+                worldOffset = useRadarRelativeScreenProjection ? worldPos - GetPositionReference().position : Vector3.zero,
                 displayColor = color,
                 priority = GetPriorityForThreatLevel(radarTarget.ThreatLevel),
                 label = !string.IsNullOrEmpty(radarTarget.Callsign) ? radarTarget.Callsign : radarTarget.Icao24,
@@ -229,6 +276,8 @@ namespace IndicatorSystem.Integration
 
         private Transform GetPositionReference()
         {
+            var view = Camera.main != null ? Camera.main.GetComponent<AircraftControl.Camera.AircraftCameraController>() : null;
+            if (view != null && view.AircraftTransform != null) return view.AircraftTransform;
             if (positionReference != null)
             {
                 return positionReference;
@@ -287,6 +336,8 @@ namespace IndicatorSystem.Integration
     {
         public string id;
         public Vector3 worldPosition;
+        public Transform projectionOrigin;
+        public Vector3 worldOffset;
         public Color displayColor;
         public int priority;
         public string label;
@@ -299,7 +350,9 @@ namespace IndicatorSystem.Integration
         
         // IIndicatorTarget implementation
         public string Id => id;
-        public Vector3 WorldPosition => worldPosition;
+        // Relative bearing is already in world-north axes. Only translate with
+        // ownship; never rotate a target when the aircraft or pilot turns.
+        public Vector3 WorldPosition => projectionOrigin != null ? projectionOrigin.position + worldOffset : worldPosition;
         public Color DisplayColor => displayColor;
         public int Priority => priority;
         public IndicatorType Type => IndicatorType.Traffic;

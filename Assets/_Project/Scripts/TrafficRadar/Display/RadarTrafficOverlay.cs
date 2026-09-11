@@ -79,7 +79,9 @@ namespace TrafficRadar
                         !IsFresh(data.sampleAgeSeconds, display.SecondsSinceTrafficUpdate)) continue;
                     string id = !string.IsNullOrWhiteSpace(data.icao24) ? data.icao24 :
                         !string.IsNullOrWhiteSpace(data.callsign) ? data.callsign : "slot-" + i;
-                    Vector2 point = data.radarPosition * radius * .9f;
+                    // Derive from the same true bearing/range as screen cues,
+                    // using the chart's currently displayed heading and range.
+                    Vector2 point = display.GetTargetDisplayPosition(data) * radius * .9f;
                     if (point.sqrMagnitude > (radius - 10) * (radius - 10)) continue;
                     if (!tracks.TryGetValue(id, out var track))
                     {
@@ -89,8 +91,7 @@ namespace TrafficRadar
                     }
                     track.seen = true; track.data = data;
                     // Range/format changes snap to the correct reference. No extrapolated positions.
-                    track.position = (point - track.position).sqrMagnitude > 35 * 35 || !Application.isPlaying
-                        ? point : SmoothPosition(track.position, point, Time.unscaledDeltaTime);
+                    track.position = point;
                     track.alpha = Application.isPlaying ? Mathf.Clamp01((Time.unscaledTime - track.born) / .25f) : 1;
                     if (data.threatLevel >= ThreatLevel.TrafficAdvisory) track.alpha = 1;
                     visible.Add(track);

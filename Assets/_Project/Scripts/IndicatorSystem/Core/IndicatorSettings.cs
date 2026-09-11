@@ -12,6 +12,9 @@ namespace IndicatorSystem.Core
         [Header("General Settings")]
         [Tooltip("Enable/disable the entire indicator system")]
         public bool enabled = true;
+
+        [Tooltip("Compact vector cues with callsign, range, relative altitude and explicit off-screen labels.")]
+        public bool usePilotCueStyle = true;
         
         [Tooltip("Maximum number of indicators to show at once")]
         [Range(1, 100)]

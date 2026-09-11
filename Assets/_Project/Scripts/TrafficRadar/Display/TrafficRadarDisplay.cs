@@ -728,6 +728,9 @@ namespace TrafficRadar
         public bool UsesXPlaneTrafficTexture => preferXPlaneTrafficTexture;
         public Texture XPlaneTrafficTexture => _xPlaneTrafficTexture;
         public RawImage RadarImage => radarImage;
+        /// <summary>Read-only access for scoped visual explanations; consumers must not alter the display.</summary>
+        public RawImage ChartImage => chartBackgroundImage;
+        public TrafficRadarController TrafficController => radarController;
         public RectTransform DisplayRectTransform => rectTransform;
 
         /// <summary>
@@ -1400,7 +1403,9 @@ namespace TrafficRadar
             
             float heading = radarController.OwnPosition.HeadingDegrees;
             
-            // Target rotation: negative heading so heading points up
+            // Clockwise bearing offset used by the sin/cos compass geometry.
+            // Unity's positive Z rotation is counterclockwise, so transforms
+            // must use the opposite sign (see ApplyHeadingPresentation).
             _targetHeadingRotation = -heading;
             
             // Smooth rotation using lerp
@@ -1412,10 +1417,17 @@ namespace TrafficRadar
                 MarkRadarDirty();
             }
             
-            // Rotate compass ticks container as a whole
+            ApplyHeadingPresentation();
+        }
+
+        private void ApplyHeadingPresentation()
+        {
+            Quaternion mapRotation = Quaternion.Euler(0, 0, -_currentHeadingRotation);
+            // A north-up chart heading east must put east at the top and north
+            // at the left, exactly like PositionCompassLabels and radar targets.
             if (compassTicksContainer != null)
             {
-                compassTicksContainer.localRotation = Quaternion.Euler(0, 0, _currentHeadingRotation);
+                compassTicksContainer.localRotation = mapRotation;
             }
             
             // Rotate compass labels around center, keeping text upright.
@@ -1427,7 +1439,7 @@ namespace TrafficRadar
                 RectTransform chartRect = chartBackgroundImage.GetComponent<RectTransform>();
                 if (chartRect != null)
                 {
-                    chartRect.localRotation = Quaternion.Euler(0, 0, _currentHeadingRotation);
+                    chartRect.localRotation = mapRotation;
                     UpdateChartMaskParameters();
                 }
             }
@@ -1565,6 +1577,7 @@ namespace TrafficRadar
         /// </summary>
         public void ZoomIn()
         {
+            radarController?.SetAutoRangeEnabled(false);
             float targetRange = rangeNM / zoomSpeed;
             if (isAnimatingZoom) targetRange = zoomToRange / zoomSpeed;
             
@@ -1586,6 +1599,7 @@ namespace TrafficRadar
         /// </summary>
         public void ZoomOut()
         {
+            radarController?.SetAutoRangeEnabled(false);
             float targetRange = rangeNM * zoomSpeed;
             if (isAnimatingZoom) targetRange = zoomToRange * zoomSpeed;
             
@@ -2263,7 +2277,8 @@ namespace TrafficRadar
 
         /// <summary>
         /// Move the chart by a display-local pixel delta.  Positive X moves
-        /// east/right and positive Y moves north/up in the UI.  The offset is
+        /// right and positive Y moves up in the UI, regardless of track-up
+        /// orientation. The offset is
         /// clamped to keep the composite covering the circular radar mask.
         /// </summary>
         public void PanMap(Vector2 deltaPixels)
@@ -3341,7 +3356,21 @@ namespace TrafficRadar
             }
 
             chartRect.anchoredPosition = _chartBaseAnchoredPosition + offset;
+            UpdateChartGeographicCrop(chartRect);
             UpdateChartMaskParameters();
+        }
+
+        private void UpdateChartGeographicCrop(RectTransform chartRect)
+        {
+            if (chartProvider == null || preferXPlaneTrafficTexture || !TryResolveChartPosition(out float latitude, out float longitude)) return;
+            float scopeDiameter = rectTransform != null ? Mathf.Min(rectTransform.rect.width, rectTransform.rect.height) : displaySize;
+            // The fullscreen map has extra geometry for panning. Expand its UV
+            // coverage by exactly that factor, not its geographic scale on screen.
+            float coverage = chartRect.rect.width / Mathf.Max(1f, scopeDiameter);
+            if (chartProvider.TryGetChartUvRect(latitude, longitude, rangeNM * coverage, out Rect uv))
+                chartBackgroundImage.uvRect = uv;
+            else
+                chartBackgroundImage.uvRect = new Rect(0, 0, 1, 1);
         }
 
         public static Vector2 CalculateCompactChartSize(Vector2 scopeSize)
@@ -3456,6 +3485,16 @@ namespace TrafficRadar
             trafficReceivedAt = Time.unscaledTime;
             MarkRadarDirty();
         }
+
+        public static Vector2 CalculateTargetDisplayPosition(float distanceNM, float bearingDegrees,
+            float displayRangeNM, float headingDegrees, bool trackUp)
+        {
+            float angle = (bearingDegrees - (trackUp ? headingDegrees : 0f)) * Mathf.Deg2Rad;
+            return new Vector2(Mathf.Sin(angle), Mathf.Cos(angle)) * (distanceNM / Mathf.Max(1f, displayRangeNM));
+        }
+
+        public Vector2 GetTargetDisplayPosition(RadarTrafficTarget target) => CalculateTargetDisplayPosition(
+            target.distanceNM, target.bearingDeg, rangeNM, -_currentHeadingRotation, enableTrackUpMode);
         
         /// <summary>
         /// Called by TrafficRadarController when targets are updated
@@ -3507,6 +3546,7 @@ namespace TrafficRadar
                 chartBackgroundImage.texture = chartTexture;
                 chartTexture.filterMode = FilterMode.Bilinear;
                 chartTexture.wrapMode = TextureWrapMode.Clamp;
+                ApplyMapPanVisual(true);
                 if (showChartBackground && !preferXPlaneTrafficTexture && _chartVisualOpacity <= 0.001f)
                 {
                     BeginChartFade(chartOpacity, true);
@@ -4480,8 +4520,9 @@ namespace TrafficRadar
             foreach (var target in currentTargets)
             {
                 // Convert radar position (-1 to 1) to pixel position
-                int x = centerX + (int)(target.radarPosition.x * radius * 0.9f);
-                int y = centerY + (int)(target.radarPosition.y * radius * 0.9f);
+                Vector2 position = GetTargetDisplayPosition(target);
+                int x = centerX + (int)(position.x * radius * 0.9f);
+                int y = centerY + (int)(position.y * radius * 0.9f);
 
                 // Get symbol properties based on threat level
                 Color symbolColor = ThreatLevelConfig.GetColor(target.threatLevel);

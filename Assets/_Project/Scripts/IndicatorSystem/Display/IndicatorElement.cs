@@ -72,6 +72,11 @@ namespace IndicatorSystem.Display
         private Image _weatherBoltImage;
         private Image _weatherPointerImage;
         private bool _weatherVisualActive;
+        private PilotIndicatorCue _pilotCue;
+        private bool _pilotCueActive;
+        private float _pilotCueAge;
+        private readonly System.Collections.Generic.Dictionary<Graphic, bool> _legacyGraphicStates =
+            new System.Collections.Generic.Dictionary<Graphic, bool>();
         private float _weatherVisualSeed;
 
         private static Sprite _weatherDiscSprite;
@@ -119,6 +124,7 @@ namespace IndicatorSystem.Display
         
         private void Update()
         {
+            if (_pilotCueActive) return;
             if (!_isInitialized || !_currentData.IsActive)
                 return;
             
@@ -272,6 +278,48 @@ namespace IndicatorSystem.Display
             }
             
             SetVisible(true);
+            if (settings != null && settings.usePilotCueStyle)
+            {
+                if (!_pilotCueActive)
+                {
+                    foreach (Graphic graphic in GetComponentsInChildren<Graphic>(true))
+                    {
+                        if (_pilotCue != null && graphic.transform.IsChildOf(_pilotCue.transform)) continue;
+                        _legacyGraphicStates[graphic] = graphic.enabled;
+                        graphic.enabled = false;
+                    }
+                    _pilotCueActive = true;
+                    SetWeatherVisualActive(false);
+                }
+                if (_pilotCue == null) _pilotCue = PilotIndicatorCue.Create(transform);
+                _pilotCue.gameObject.SetActive(true);
+                Vector2 position = ScreenToIndicatorLocalPosition(data.ScreenPosition);
+                // A target anchor is geometry, not decoration. Do not lag it
+                // behind the final camera pose while the pilot looks around.
+                _currentPosition = position;
+                _hasValidPosition = true;
+                rectTransform.anchoredPosition = _currentPosition;
+                rectTransform.localRotation = Quaternion.identity;
+                rectTransform.localScale = Vector3.one * settings.globalScale;
+                _pilotCue.Present(data);
+                _pilotCueAge += Time.unscaledDeltaTime;
+                float alpha = _opacityOverride ? _baseOpacity : settings.globalOpacity;
+                if (!_opacityOverride && settings.useProximityOpacity && data.DistanceNM <= settings.nearbyDistanceThresholdNM)
+                    alpha = Mathf.Min(alpha, settings.nearbyOpacity);
+                // A new detection must not restart a whole-label flash/fade cycle.
+                // Motion is smoothed, but the identification and readout stay steady.
+                canvasGroup.alpha = alpha;
+                canvasGroup.blocksRaycasts = false;
+                return;
+            }
+            if (_pilotCueActive)
+            {
+                _pilotCueActive = false;
+                if (_pilotCue != null) _pilotCue.gameObject.SetActive(false);
+                foreach (var state in _legacyGraphicStates)
+                    if (state.Key != null) state.Key.enabled = state.Value;
+                _legacyGraphicStates.Clear();
+            }
             _smoothMovement = settings == null || settings.smoothMovement;
             if (settings != null)
             {
@@ -1050,6 +1098,7 @@ namespace IndicatorSystem.Display
             _targetRotation = 0f;
             _currentRotation = 0f;
             _hasValidPosition = false;
+            _pilotCueAge = 0f;
             _pulseTimer = 0f;
             _baseOpacity = 1f;
             _opacityOverride = false;

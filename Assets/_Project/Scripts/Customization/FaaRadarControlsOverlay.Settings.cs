@@ -191,8 +191,8 @@ namespace FAA.Customization
                 "Switch the active chart or street-map source.");
             _trafficFocusOpacityText = FocusStep(root, "TCASFocusOpacity", 220, 154, "Chart opacity", TrafficOpacityDown, TrafficOpacityUp,
                 "Make the chart more transparent.", "Make the chart more opaque.");
-            _trafficFocusRangeText = FocusStep(root, "TCASFocusZoom", 382, 154, "Map range · NM", TrafficSizeDown, TrafficSizeUp,
-                "Zoom out to show a wider area.", "Zoom in to show a smaller area.");
+            _trafficFocusRangeText = FocusStep(root, "TCASFocusZoom", 382, 154, "Map range · NM", TrafficSizeUp, TrafficSizeDown,
+                "Decrease range: zoom in for more chart detail.", "Increase range: zoom out to show a wider area.");
             FocusChoice(root, "TCASFocusRecenter", 544, 114, "Map position", "Center aircraft", RecenterTrafficMap, "Return the map center to your aircraft.");
             FocusChoice(root, "TCASFocusRestore", 666, 118, "Exit full map", "Restore HUD", ToggleTrafficFullscreen, "Return to the compact radar and restore the flight HUD.");
         }

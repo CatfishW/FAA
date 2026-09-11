@@ -126,6 +126,8 @@ namespace TrafficRadar
         private float lastSuccessfulLatitude;
         private float lastSuccessfulLongitude;
         private float lastSuccessfulRangeNM;
+        private int lastSuccessfulZoomLevel;
+        private int compositeCenterTileX, compositeCenterTileY;
         // A no-coverage fallback waits one frame before changing the source.
         // Display updates can arrive during that window; suppress duplicate
         // requests for the failed source until the fallback has resolved.
@@ -163,6 +165,37 @@ namespace TrafficRadar
         public float LastSuccessfulLatitude => lastSuccessfulLatitude;
         public float LastSuccessfulLongitude => lastSuccessfulLongitude;
         public float LastSuccessfulRangeNM => lastSuccessfulRangeNM;
+        public int LastSuccessfulZoomLevel => lastSuccessfulZoomLevel;
+
+        /// <summary>Geographic crop of the last-good mosaic, independent of its discrete tile LOD.</summary>
+        public bool TryGetChartUvRect(float latitude, float longitude, float radiusNM, out Rect uv)
+        {
+            uv = new Rect(0, 0, 1, 1);
+            if (!hasLastGoodTexture || usingProceduralFallback || lastSuccessfulZoomLevel <= 0) return false;
+            uv = CalculateChartUvRect(latitude, longitude, radiusNM, lastSuccessfulZoomLevel,
+                compositeCenterTileX, compositeCenterTileY);
+            return true;
+        }
+
+        public static Rect CalculateChartUvRect(float latitude, float longitude, float radiusNM,
+            int zoom, int centerTileX, int centerTileY)
+        {
+            // XYZ/Web Mercator: columns increase east; rows increase south.
+            // Unity UVs increase north. The ownship is not the centre of its tile.
+            double n = System.Math.Pow(2, Mathf.Clamp(zoom, 0, 23));
+            double lat = ClampLatitude(latitude) * System.Math.PI / 180d;
+            double x = (WrapLongitude(longitude) + 180d) / 360d * n;
+            double sin = System.Math.Sin(lat);
+            double y = (0.5d - System.Math.Log((1d + sin) / (1d - sin)) / (4d * System.Math.PI)) * n;
+            double deltaX = x - centerTileX;
+            deltaX -= System.Math.Round(deltaX / n) * n;
+            float u = (float)((deltaX + 1d) / 3d);
+            float v = (float)((centerTileY + 2d - y) / 3d);
+            double tileWidthNM = 40075016.68557849d * System.Math.Cos(lat) / (n * 1852d);
+            float safeRadius = float.IsNaN(radiusNM) || float.IsInfinity(radiusNM) ? 20f : Mathf.Max(.01f, radiusNM);
+            float span = (float)(safeRadius * 2d / (3d * tileWidthNM));
+            return new Rect(u - span * .5f, v - span * .5f, span, span);
+        }
         public float LastRequestedLatitude => lastFetchLat;
         public float LastRequestedLongitude => lastFetchLon;
         public float LastRequestedRangeNM => lastFetchRangeNM;
@@ -605,6 +638,9 @@ namespace TrafficRadar
                 lastSuccessfulLatitude = latitude;
                 lastSuccessfulLongitude = longitude;
                 lastSuccessfulRangeNM = rangeNM;
+                lastSuccessfulZoomLevel = requestZoom;
+                compositeCenterTileX = centerTile.x;
+                compositeCenterTileY = centerTile.y;
                 lastError = string.Empty;
                 SetStatus(ChartLoadStatus.Ready);
             }
@@ -941,8 +977,8 @@ namespace TrafficRadar
                 // by three, e.g. the default 512x512 texture.
                 int startX = TileBoundary(offset.offsetX + 1, compositeSize);
                 int endX = TileBoundary(offset.offsetX + 2, compositeSize);
-                int startY = TileBoundary(offset.offsetY + 1, compositeSize);
-                int endY = TileBoundary(offset.offsetY + 2, compositeSize);
+                int startY = TileBoundary(1 - offset.offsetY, compositeSize);
+                int endY = TileBoundary(2 - offset.offsetY, compositeSize);
 
                 if (endX <= startX || endY <= startY)
                 {
@@ -1088,6 +1124,7 @@ namespace TrafficRadar
         private int GetZoomForRange(float rangeNM)
         {
             // Map range to appropriate zoom level
+            if (rangeNM <= 2.5f) return 12;
             if (rangeNM <= 5) return 11;
             if (rangeNM <= 10) return 10;
             if (rangeNM <= 20) return 9;

@@ -10,8 +10,6 @@ namespace IndicatorSystem.Core
     {
         private const float NauticalMileToMeters = 1852f;
         private const float FeetToMeters = 0.3048f;
-        private const float LowerBandEligibleHeightRatio = 0.58f;
-        private const float LowerBandTargetHeightRatio = 0.42f;
 
         /// <summary>
         /// Calculate indicator data from a world position.
@@ -36,12 +34,16 @@ namespace IndicatorSystem.Core
                 RelativeAltitudeFeet = target.RelativeAltitudeFeet,
                 WorldPosition = target.WorldPosition,
                 AircraftType = target.AircraftType,
+                WeatherKind = target is IWeatherIndicatorTarget weather ? weather.WeatherKind : WeatherCueKind.Return,
+                IsIllustrativeWeather = target is IWeatherIndicatorTarget source && source.IsIllustrative,
                 Heading = target.Heading,
                 IsActive = true
             };
 
             // Check distance limit
-            if (target.DistanceNM > edgeConfig.MaxDisplayDistance)
+            if (!IsFinite(target.DistanceNM) || target.DistanceNM < 0f ||
+                !IsFinite(target.WorldPosition.x) || !IsFinite(target.WorldPosition.y) ||
+                !IsFinite(target.WorldPosition.z) || target.DistanceNM > edgeConfig.MaxDisplayDistance)
             {
                 data.Visibility = IndicatorVisibility.OutOfRange;
                 data.IsActive = false;
@@ -61,25 +63,28 @@ namespace IndicatorSystem.Core
             }
 
             // Convert to screen space
-            float screenWidth = Screen.width;
-            float screenHeight = Screen.height;
+            Rect viewport = camera.pixelRect;
+            float screenWidth = viewport.width;
+            float screenHeight = viewport.height;
             Vector2 screenPos = new Vector2(
                 viewportPos.x * screenWidth,
                 viewportPos.y * screenHeight
             );
 
-            // Determine if on-screen (within padded bounds)
-            float padding = edgeConfig.EdgePadding;
+            // Visibility describes the actual camera frustum, not our UI inset.
+            // Padding only locates off-screen arrows; a visible edge target
+            // must keep its exact projection instead of becoming a false arrow.
+            float padding = Mathf.Clamp(edgeConfig.EdgePadding, 0f, Mathf.Min(screenWidth, screenHeight) * 0.45f);
             bool isOnScreen = viewportPos.z > 0 &&
-                              screenPos.x >= padding &&
-                              screenPos.x <= screenWidth - padding &&
-                              screenPos.y >= padding &&
-                              screenPos.y <= screenHeight - padding;
+                              screenPos.x >= 0f &&
+                              screenPos.x <= screenWidth &&
+                              screenPos.y >= 0f &&
+                              screenPos.y <= screenHeight;
 
             if (isOnScreen)
             {
                 data.Visibility = IndicatorVisibility.OnScreen;
-                data.ScreenPosition = screenPos;
+                data.ScreenPosition = screenPos + viewport.position;
                 data.ArrowRotation = 0f;
             }
             else
@@ -88,12 +93,15 @@ namespace IndicatorSystem.Core
                 if (data.Visibility != IndicatorVisibility.Behind)
                     data.Visibility = IndicatorVisibility.OffScreen;
                 
+                Vector2 screenCenter = new Vector2(screenWidth / 2f, screenHeight / 2f);
+                // Directly behind projects onto the screen centre. Give it an
+                // explicit aft cue at the bottom edge, never an on-screen target.
+                if ((screenPos - screenCenter).sqrMagnitude < 0.001f)
+                    screenPos = screenCenter + Vector2.down * screenHeight;
                 Vector2 clampedPos = ClampToScreenEdge(screenPos, screenWidth, screenHeight, padding);
-                clampedPos = ApplyLowerBandBias(target.Type, screenPos, clampedPos, screenWidth, screenHeight, padding);
-                data.ScreenPosition = clampedPos;
+                data.ScreenPosition = clampedPos + viewport.position;
                 
                 // Calculate arrow rotation pointing toward target
-                Vector2 screenCenter = new Vector2(screenWidth / 2f, screenHeight / 2f);
                 Vector2 direction = (screenPos - screenCenter).normalized;
                 data.ArrowRotation = Mathf.Atan2(direction.x, direction.y) * Mathf.Rad2Deg;
             }
@@ -134,33 +142,15 @@ namespace IndicatorSystem.Core
             return center + direction * t;
         }
 
-        private static Vector2 ApplyLowerBandBias(
-            IndicatorType type,
-            Vector2 sourceScreenPos,
-            Vector2 clampedPos,
-            float width,
-            float height,
-            float padding)
+        private static bool IsFinite(float value) => !float.IsNaN(value) && !float.IsInfinity(value);
+
+        public static Vector3 RadarBearingToWorldPosition(float distanceNM, float bearingDegrees,
+            float relativeAltitudeFeet, Vector3 origin)
         {
-            if (type != IndicatorType.Weather && type != IndicatorType.Traffic)
-            {
-                return clampedPos;
-            }
-
-            bool sideClamped = clampedPos.x <= padding + 1f || clampedPos.x >= width - padding - 1f;
-            bool lowerHalfTarget = sourceScreenPos.y <= height * LowerBandEligibleHeightRatio ||
-                                   clampedPos.y <= height * LowerBandEligibleHeightRatio;
-            if (!sideClamped || !lowerHalfTarget)
-            {
-                return clampedPos;
-            }
-
-            float lowerBandY = Mathf.Clamp(
-                height * LowerBandTargetHeightRatio,
-                padding + 18f,
-                height - padding - 18f);
-            clampedPos.y = Mathf.Min(clampedPos.y, lowerBandY);
-            return clampedPos;
+            float angle = bearingDegrees * Mathf.Deg2Rad;
+            float distance = Mathf.Max(0f, distanceNM) * NauticalMileToMeters;
+            return origin + new Vector3(distance * Mathf.Sin(angle),
+                relativeAltitudeFeet * FeetToMeters, distance * Mathf.Cos(angle));
         }
 
         /// <summary>
@@ -241,13 +231,7 @@ namespace IndicatorSystem.Core
             }
             forward.Normalize();
 
-            Vector3 right = reference != null ? reference.right : Vector3.right;
-            right.y = 0f;
-            if (right.sqrMagnitude < 0.0001f)
-            {
-                right = Vector3.Cross(Vector3.up, forward);
-            }
-            right.Normalize();
+            Vector3 right = Vector3.Cross(Vector3.up, forward).normalized;
 
             float bearingRad = relativeBearingDegrees * Mathf.Deg2Rad;
             float sideMeters = distanceMeters * Mathf.Sin(bearingRad);

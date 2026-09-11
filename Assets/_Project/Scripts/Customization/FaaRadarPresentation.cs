@@ -222,6 +222,16 @@ namespace FAA.Customization
             }
             _detail.color = Muted;
             bool message = CurrentState != DataState.Live && CurrentState != DataState.Preview;
+            bool turbulenceMode = weather && weatherData != null && TurbulenceEvidence.IsTurbulenceMode(weatherData.RadarData.currentMode);
+            bool turbulenceUnavailable = turbulenceMode && CurrentState == DataState.Live;
+            if (turbulenceUnavailable)
+            {
+                // A fresh rain texture must not claim the turbulence channel is live.
+                _source.text = source + " · TURB SCAN UNAVAILABLE";
+                _source.color = Caution;
+                if (weatherData.RadarData.currentMode == RadarMode.TURB) message = true;
+                else _detail.text = "WX+T · RAIN ONLY · NO TURB SCAN";
+            }
             _messageRoot.gameObject.SetActive(message);
             _message.text = CurrentState switch
             {
@@ -236,6 +246,16 @@ namespace FAA.Customization
                 DataState.Standby => "Select a weather mode to resume",
                 _ => "Do not use this picture for guidance"
             };
+            if (turbulenceUnavailable && weatherData.RadarData.currentMode == RadarMode.TURB)
+            {
+                _message.text = "TURB SCAN UNAVAILABLE";
+                _message.fontSize = 12f;
+                _message.color = Caution;
+                _messageHint.text = TurbulenceEvidence.Explanation(bridge != null ? bridge.LatestSnapshot?.Weather : null, feed);
+                _messageHint.fontSize = 10f;
+                _messageHint.textWrappingMode = TextWrappingModes.Normal;
+            }
+            else _message.fontSize = 15f;
             SuppressLegacyReadouts();
         }
 

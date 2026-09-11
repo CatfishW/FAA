@@ -186,6 +186,11 @@ namespace FAA.XPlaneIntegration.Runtime
         private bool _usingHttpFallback;
         private bool _usingMqttFallback;
         private readonly List<TrafficRadarDataManager.AircraftData> _trafficRows = new List<TrafficRadarDataManager.AircraftData>(19);
+        private float _lastStreamWeatherRangeNM = float.NaN;
+        private float _lastStreamWeatherGainDB = float.NaN;
+        private RadarMode _lastStreamWeatherDisplayMode = (RadarMode)(-1);
+        private bool _hasSimWeatherReference;
+        private float _simWeatherReferenceLatitude, _simWeatherReferenceLongitude;
 
         private struct StreamWeatherMetrics
         {
@@ -198,6 +203,10 @@ namespace FAA.XPlaneIntegration.Runtime
             public float CloudBaseMeters;
             public float TemperatureC;
             public float Intensity;
+            public float RangeNM;
+            public float GainDB;
+            public RadarMode DisplayMode;
+            public Vector2 AircraftOffsetNM;
         }
 
         private AirspeedHUD[] _airspeedHuds = Array.Empty<AirspeedHUD>();
@@ -2089,7 +2098,12 @@ namespace FAA.XPlaneIntegration.Runtime
                     verticalRate = vy,
                     onGround = elevationMeters < 5f,
                     lastUpdateTime = timestamp,
-                    type = TrafficRadarDataManager.AircraftType.Unknown
+                    // Native TCAS slots 1..19 correspond to multiplayer planes.
+                    // A third-party TCAS override can reorder them: abstain there.
+                    type = _snapshot.Systems.TryGetValue("sim/operation/override/override_TCAS", out float tcasOverride)
+                        && tcasOverride == 0f
+                        ? XPlaneTrafficTypeCatalog.CategoryForIcao(XPlaneTrafficTypeCatalog.ReadNativeIcao(traffic, i))
+                        : TrafficRadarDataManager.AircraftType.Unknown
                 });
             }
         }
@@ -2127,7 +2141,10 @@ namespace FAA.XPlaneIntegration.Runtime
 
             float now = Time.realtimeSinceStartup;
             float interval = Mathf.Max(0.25f, streamWeatherTextureIntervalSeconds);
-            if (_lastStreamWeatherTextureRealtime >= 0f && now - _lastStreamWeatherTextureRealtime < interval)
+            bool settingsChanged = !Mathf.Approximately(weatherRadarProvider.RangeNM, _lastStreamWeatherRangeNM) ||
+                !Mathf.Approximately(weatherRadarProvider.GainDB, _lastStreamWeatherGainDB) ||
+                (weatherRadarDataProvider != null && weatherRadarDataProvider.RadarData.currentMode != _lastStreamWeatherDisplayMode);
+            if (!settingsChanged && _lastStreamWeatherTextureRealtime >= 0f && now - _lastStreamWeatherTextureRealtime < interval)
             {
                 return;
             }
@@ -2141,6 +2158,20 @@ namespace FAA.XPlaneIntegration.Runtime
             }
 
             StreamWeatherMetrics metrics = ReadStreamWeatherMetrics();
+            metrics.RangeNM = weatherRadarProvider.RangeNM;
+            metrics.GainDB = weatherRadarProvider.GainDB;
+            metrics.DisplayMode = weatherRadarDataProvider != null ? weatherRadarDataProvider.RadarData.currentMode : RadarMode.WX;
+            if (!_hasSimWeatherReference)
+            {
+                _simWeatherReferenceLatitude = latitude;
+                _simWeatherReferenceLongitude = longitude;
+                _hasSimWeatherReference = true;
+            }
+            // Local tangent-plane origin is captured once, not changed by zoom or
+            // gain. Aircraft motion and heading now pan/rotate the same field.
+            metrics.AircraftOffsetNM = new Vector2(
+                Mathf.DeltaAngle(_simWeatherReferenceLongitude, longitude) * 60f * Mathf.Cos(_simWeatherReferenceLatitude * Mathf.Deg2Rad),
+                (latitude - _simWeatherReferenceLatitude) * 60f);
             Texture2D texture = BuildStreamWeatherTexture(data, metrics);
             if (texture == null)
             {
@@ -2148,6 +2179,9 @@ namespace FAA.XPlaneIntegration.Runtime
             }
 
             _lastStreamWeatherTextureRealtime = now;
+            _lastStreamWeatherRangeNM = metrics.RangeNM;
+            _lastStreamWeatherGainDB = metrics.GainDB;
+            _lastStreamWeatherDisplayMode = metrics.DisplayMode;
             if (weatherRadarProvider is XPlaneOriginalWeatherRadarProvider originalProvider)
             {
                 originalProvider.PublishTexture(texture, BuildStreamWeatherStatus(metrics));
@@ -2348,23 +2382,29 @@ namespace FAA.XPlaneIntegration.Runtime
             AviationFlightData data,
             StreamWeatherMetrics metrics)
         {
-            float intensity = Mathf.Clamp01(Mathf.Max(metrics.Intensity, metrics.Precipitation * 0.95f, metrics.CloudCoverage * 0.55f));
+            // A point/regional weather setting does not contain spatial turbulence.
+            // Never repaint rain as turbulence or manufacture magenta hazard cells.
+            if (!TurbulenceEvidence.ShouldDrawRain(metrics.DisplayMode)) return;
+            // This is an illustrative SIM WX picture, not spatial reflectivity data.
+            // Cloud alone must not manufacture precipitation returns in dry weather.
+            float intensity = Mathf.Clamp01(metrics.Precipitation);
             if (intensity <= 0.025f)
             {
                 return;
             }
 
             float heading = data != null ? data.heading : 0f;
-            float seed = Mathf.Repeat(heading * 0.73f + metrics.WindDirection * 1.37f + metrics.WindSpeed * 0.91f, 997f);
-            float stormCenter = Mathf.Lerp(0.40f, 0.70f, Mathf.Clamp01(metrics.CloudCoverage * 0.65f + metrics.Precipitation * 0.25f));
-            float threshold = Mathf.Lerp(0.80f, 0.62f, intensity);
-            float windDrift = Mathf.Clamp(Mathf.DeltaAngle(heading, metrics.WindDirection) / Mathf.Max(1f, halfAngleDegrees), -1f, 1f);
+            float rangeNM = metrics.RangeNM > 0f ? Mathf.Clamp(metrics.RangeNM, 5f, 320f) : 80f;
+            float gain = XPlaneSimWeatherField.ApplyGain(1f, metrics.GainDB);
+            float threshold = Mathf.Lerp(0.86f, 0.35f, intensity);
+            Vector2 eastPerPixel = XPlaneSimWeatherField.SamplePositionNM(Vector2.right / maxRadius, rangeNM, heading, Vector2.zero);
+            Vector2 northPerPixel = XPlaneSimWeatherField.SamplePositionNM(Vector2.up / maxRadius, rangeNM, heading, Vector2.zero);
 
             int minY = Mathf.Clamp(originY, 0, height - 1);
             for (int y = minY; y < height; y++)
             {
-                float ny = y / (float)height;
                 int row = y * size;
+                Vector2 rowOffset = metrics.AircraftOffsetNM + northPerPixel * (y - originY);
                 for (int x = 0; x < size; x++)
                 {
                     float rangeNorm;
@@ -2374,28 +2414,12 @@ namespace FAA.XPlaneIntegration.Runtime
                         continue;
                     }
 
-                    float nx = x / (float)size;
-                    float angleNorm = angleDegrees / halfAngleDegrees;
-                    float broad = Mathf.PerlinNoise(nx * 4.7f + seed * 0.011f, ny * 4.7f - seed * 0.017f);
-                    float cell = Mathf.PerlinNoise(nx * 17.5f + seed * 0.037f, ny * 17.5f + seed * 0.019f);
-                    float fine = Mathf.PerlinNoise(nx * 58f - seed * 0.023f, ny * 58f + seed * 0.041f);
-                    float streak = Mathf.PerlinNoise((rangeNorm + seed * 0.003f) * 13f, (angleNorm + windDrift * 0.35f) * 4.8f);
-                    float radialBand = Mathf.Clamp01(1f - Mathf.Abs(rangeNorm - stormCenter) / 0.30f);
-                    float windSide = Mathf.Clamp01(0.5f + (angleNorm + windDrift * 0.45f) * 0.5f);
-                    float sectorFill = Mathf.Lerp(0.66f, 1.04f, windSide) * Mathf.Clamp01(1f - rangeNorm * 0.18f);
-                    float broadMask = Mathf.SmoothStep(0.38f, 0.76f, broad);
-                    float cellMask = Mathf.SmoothStep(0.44f, 0.78f, cell);
-                    float filamentMask = Mathf.SmoothStep(0.50f, 0.84f, streak);
-                    float nearFieldClear = Mathf.SmoothStep(0.07f, 0.20f, rangeNorm);
-                    float textureMask = broadMask
-                        * Mathf.Lerp(0.24f, 1f, cellMask)
-                        * Mathf.Lerp(0.52f, 1.08f, filamentMask);
-                    float raw = textureMask * sectorFill;
-                    raw += radialBand * Mathf.Lerp(0.04f, 0.28f, intensity) * Mathf.Lerp(0.32f, 1f, cellMask);
-                    raw += metrics.Turbulence * Mathf.Max(0f, fine - 0.58f) * 0.14f;
-                    raw *= nearFieldClear * Mathf.Lerp(0.70f, 1.34f, intensity);
+                    Vector2 sampleNM = rowOffset + eastPerPixel * (x - originX);
+                    float raw = XPlaneSimWeatherField.SampleSignal(sampleNM, intensity, metrics.Turbulence);
+                    // A fixed near-field gap in NM, not a fraction of display range.
+                    raw *= SmoothWeatherMask(0.3f, 1.2f, rangeNorm * rangeNM) * gain;
 
-                    if (raw < threshold || fine < 0.18f || (fine > 0.92f && raw < 0.96f))
+                    if (raw < threshold)
                     {
                         continue;
                     }
@@ -2405,6 +2429,11 @@ namespace FAA.XPlaneIntegration.Runtime
                     pixels[row + x] = BlendRadarReturn(pixels[row + x], color);
                 }
             }
+        }
+
+        private static float SmoothWeatherMask(float lower, float upper, float value)
+        {
+            return Mathf.SmoothStep(0f, 1f, Mathf.InverseLerp(lower, upper, value));
         }
 
         private static void DrawModernRadarGrid(

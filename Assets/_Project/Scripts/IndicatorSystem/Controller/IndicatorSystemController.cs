@@ -14,6 +14,7 @@ namespace IndicatorSystem.Controller
     /// - Low Coupling: Receives targets via interface, no direct radar dependencies
     /// </summary>
     [AddComponentMenu("Indicator System/Indicator System Controller")]
+    [DefaultExecutionOrder(12000)]
     public class IndicatorSystemController : MonoBehaviour
     {
         #region Inspector Fields
@@ -49,8 +50,12 @@ namespace IndicatorSystem.Controller
         private readonly Dictionary<string, IIndicatorTarget> _targets = new Dictionary<string, IIndicatorTarget>();
         private readonly List<IndicatorData> _indicatorDataList = new List<IndicatorData>();
         private readonly HashSet<string> _activeIds = new HashSet<string>();
+        private readonly HashSet<string> _previousVisibleIds = new HashSet<string>();
         private IndicatorEdgeConfig _edgeConfig;
         private bool _isInitialized;
+        private readonly List<Rect> _occupiedCueBounds = new List<Rect>();
+        private IndicatorControlsPanel _controlsPanel;
+        private int _trafficVisible, _weatherVisible, _onScreenVisible, _offScreenVisible;
         
         #endregion
         
@@ -67,6 +72,29 @@ namespace IndicatorSystem.Controller
         
         /// <summary>Target canvas for indicators</summary>
         public Canvas TargetCanvas => targetCanvas;
+        public int TrafficVisibleCount => _trafficVisible;
+        public int WeatherVisibleCount => _weatherVisible;
+        public int OnScreenCount => _onScreenVisible;
+        public int OffScreenCount => _offScreenVisible;
+        public int SuppressedCount => Mathf.Max(0, _indicatorDataList.Count - ActiveIndicatorCount);
+
+        public bool IsTypeVisible(IndicatorType type) => settings != null && settings.enabled &&
+            isActiveAndEnabled && settings.globalOpacity > 0f && ShouldShowType(type);
+
+        public void SetTypeVisible(IndicatorType type, bool visible)
+        {
+            if (settings == null) return;
+            if (type == IndicatorType.Traffic) settings.showTrafficIndicators = visible;
+            if (type == IndicatorType.Weather) settings.showWeatherIndicators = visible;
+            if (visible)
+            {
+                settings.enabled = true;
+                if (settings.globalOpacity <= 0f) settings.globalOpacity = 1f;
+            }
+            RefreshSettings();
+            if (_isInitialized && settings.enabled && settings.globalOpacity > 0f) UpdateIndicators();
+            else _pool?.ReleaseAll();
+        }
         
         #endregion
         
@@ -79,6 +107,7 @@ namespace IndicatorSystem.Controller
         
         private void OnEnable()
         {
+            Application.onBeforeRender += RefreshProjectionBeforeRender;
             if (!_isInitialized)
                 Initialize();
         }
@@ -96,10 +125,41 @@ namespace IndicatorSystem.Controller
                 Initialize();
             }
 
-            if (!_isInitialized || settings == null || !settings.enabled)
+            if (!_isInitialized || settings == null || !settings.enabled || settings.globalOpacity <= 0f)
+            {
+                _pool?.ReleaseAll();
+                _trafficVisible = _weatherVisible = _onScreenVisible = _offScreenVisible = 0;
+                _indicatorDataList.Clear();
                 return;
+            }
             
             UpdateIndicators();
+        }
+
+        private void OnDisable()
+        {
+            Application.onBeforeRender -= RefreshProjectionBeforeRender;
+            _pool?.ReleaseAll();
+            _trafficVisible = _weatherVisible = _onScreenVisible = _offScreenVisible = 0;
+        }
+
+        [BeforeRenderOrder(100)]
+        private void RefreshProjectionBeforeRender()
+        {
+            if (_isInitialized && settings != null && settings.enabled && settings.globalOpacity > 0f)
+                UpdateIndicators();
+        }
+
+        private void OnDestroy()
+        {
+            if (_pool != null) DestroyOwnedObject(_pool.gameObject);
+            if (_controlsPanel != null) DestroyOwnedObject(_controlsPanel.gameObject);
+        }
+
+        private static void DestroyOwnedObject(GameObject owned)
+        {
+            if (Application.isPlaying) Destroy(owned);
+            else DestroyImmediate(owned);
         }
         
         #endregion
@@ -151,6 +211,8 @@ namespace IndicatorSystem.Controller
             _edgeConfig = settings.GetEdgeConfig();
             
             _isInitialized = true;
+            if (settings.usePilotCueStyle && _controlsPanel == null && _pool != null)
+                _controlsPanel = IndicatorControlsPanel.Create(this, _pool.Container.parent);
             Log("Indicator system initialized");
         }
 
@@ -196,6 +258,7 @@ namespace IndicatorSystem.Controller
             // Reinitialize pool if already running
             if (_isInitialized)
             {
+                if (_controlsPanel != null) DestroyOwnedObject(_controlsPanel.gameObject);
                 // Destroy old pool
                 if (_pool != null)
                 {
@@ -211,6 +274,8 @@ namespace IndicatorSystem.Controller
                 {
                     _pool = IndicatorPool.CreateWithCanvas(transform, settings);
                 }
+                if (settings.usePilotCueStyle)
+                    _controlsPanel = IndicatorControlsPanel.Create(this, _pool.Container.parent);
                 
                 Log($"Recreated pool on canvas: {(targetCanvas != null ? targetCanvas.name : "new overlay")}");
             }
@@ -393,6 +458,7 @@ namespace IndicatorSystem.Controller
             // Also ensure type visibility is enabled
             if (settings != null)
             {
+                settings.enabled = true;
                 settings.showTrafficIndicators = true;
                 settings.showWeatherIndicators = true;
                 settings.showWaypointIndicators = true;
@@ -420,7 +486,17 @@ namespace IndicatorSystem.Controller
                 return;
             
             _indicatorDataList.Clear();
+            _previousVisibleIds.Clear();
+            _previousVisibleIds.UnionWith(_activeIds);
             _activeIds.Clear();
+            _occupiedCueBounds.Clear();
+            if (settings.usePilotCueStyle && _controlsPanel != null && _controlsPanel.isActiveAndEnabled)
+                _occupiedCueBounds.Add(_controlsPanel.OccupiedScreenBounds());
+            _trafficVisible = _weatherVisible = _onScreenVisible = _offScreenVisible = 0;
+            _edgeConfig = settings.GetEdgeConfig();
+            float canvasScale = targetCanvas != null ? targetCanvas.scaleFactor : 1f;
+            if (settings.usePilotCueStyle)
+                _edgeConfig.EdgePadding = Mathf.Max(72f, settings.edgePadding) * canvasScale;
             
             // Calculate indicator data for each target
             foreach (var kvp in _targets)
@@ -441,7 +517,6 @@ namespace IndicatorSystem.Controller
                 if (data.IsActive)
                 {
                     _indicatorDataList.Add(data);
-                    _activeIds.Add(data.Id);
                 }
             }
             
@@ -454,16 +529,24 @@ namespace IndicatorSystem.Controller
                     return priorityCompare;
                 }
 
-                return a.DistanceNM.CompareTo(b.DistanceNM);
+                // Within the same urgency, keep a visible cue ahead of a competing
+                // overlapping label. Tiny range changes must not alternate winners.
+                int retained = _previousVisibleIds.Contains(b.Id).CompareTo(_previousVisibleIds.Contains(a.Id));
+                if (settings.usePilotCueStyle && retained != 0) return retained;
+                int distance = a.DistanceNM.CompareTo(b.DistanceNM);
+                return distance != 0 ? distance : string.CompareOrdinal(a.Id, b.Id);
             });
             
             // Limit to max indicators
-            int count = Mathf.Min(_indicatorDataList.Count, settings.maxIndicators);
-            
-            // Update active indicators
-            for (int i = 0; i < count; i++)
+            for (int i = 0; i < _indicatorDataList.Count && _activeIds.Count < settings.maxIndicators; i++)
             {
                 var data = _indicatorDataList[i];
+                if (settings.usePilotCueStyle)
+                {
+                    Rect bounds = PilotIndicatorCue.ScreenBounds(data, canvasScale * settings.globalScale);
+                    if (_occupiedCueBounds.Exists(other => other.Overlaps(bounds))) continue;
+                    _occupiedCueBounds.Add(bounds);
+                }
                 
                 // Pass the data to pool so it can select correct prefab
                 var element = _pool.GetIndicator(data.Id, data);
@@ -471,6 +554,11 @@ namespace IndicatorSystem.Controller
                 if (element != null)
                 {
                     element.UpdateIndicator(data, settings);
+                    _activeIds.Add(data.Id);
+                    if (data.Type == IndicatorType.Traffic) _trafficVisible++;
+                    if (data.Type == IndicatorType.Weather) _weatherVisible++;
+                    if (data.Visibility == IndicatorVisibility.OnScreen) _onScreenVisible++;
+                    else _offScreenVisible++;
                 }
             }
             

@@ -3,6 +3,13 @@ using TrafficRadar;
 
 namespace IndicatorSystem.Core
 {
+    /// <summary>Optional weather metadata; a radar echo alone does not identify snow, ice or lightning.</summary>
+    public interface IWeatherIndicatorTarget
+    {
+        WeatherCueKind WeatherKind { get; }
+        bool IsIllustrative { get; }
+    }
+
     /// <summary>
     /// Interface defining what any target must provide for indicator display.
     /// Enables unified handling of traffic, weather, and waypoint targets.

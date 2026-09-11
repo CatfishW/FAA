@@ -123,6 +123,11 @@ namespace WeatherRadar
             }
 
             RefreshSourceTextureIfNeeded();
+            // Neither the legacy raster nor the procedural rain texture carries a
+            // validated spatial turbulence channel. Hide it immediately in TURB,
+            // including the interval before a regenerated texture arrives.
+            if (targetImage != null)
+                targetImage.enabled = dataProvider == null || dataProvider.RadarData.currentMode != WeatherRadar.RadarMode.TURB;
 
             if (Time.realtimeSinceStartup >= _nextLabelRefreshRealtime)
             {

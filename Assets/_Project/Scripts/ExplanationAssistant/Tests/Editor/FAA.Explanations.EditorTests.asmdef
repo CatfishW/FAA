@@ -1,0 +1,8 @@
+{
+  "name": "FAA.Explanations.EditorTests",
+  "references": ["FAA.Explanations.Core", "Unity.TextMeshPro"],
+  "includePlatforms": ["Editor"],
+  "overrideReferences": true,
+  "precompiledReferences": ["Newtonsoft.Json.dll", "nunit.framework.dll"],
+  "optionalUnityReferences": ["TestAssemblies"]
+}

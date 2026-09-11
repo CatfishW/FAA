@@ -63,6 +63,7 @@ namespace TrafficRadar.Core
     {
         public string Icao24;
         public string Callsign;
+        public TrafficRadarDataManager.AircraftType AircraftType;
         public double Latitude;
         public double Longitude;
         public float AltitudeMeters;

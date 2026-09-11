@@ -3,7 +3,12 @@ using UnityEngine;
 
 namespace FAA.Customization
 {
-    public enum FaaRadarIcon { Lines, Map, Range, Target, Center, Expand, Restore }
+    public enum FaaRadarIcon
+    {
+        Lines, Map, Range, Target, Center, Expand, Restore,
+        AircraftUnknown, AircraftAirliner, AircraftGeneral, AircraftMilitary, AircraftHelicopter,
+        WeatherReturn, WeatherRainLight, WeatherRainModerate, WeatherRainHeavy
+    }
 
     /// <summary>Editor-tessellated SVGs; no bitmap atlas or runtime XML parsing.</summary>
     public sealed class FaaSvgIconLibrary : ScriptableObject

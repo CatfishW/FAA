@@ -122,9 +122,13 @@ Shader "TrafficRadar/CircularRadarMask"
                 
                 // Sample texture
                 half4 color = (tex2D(_MainTex, IN.texcoord) + _TextureSampleAdd) * IN.color;
+                // Never stretch the last tile's edge into uncharted territory
+                // while a wider range or new mosaic is loading.
+                float coverage = step(0.0, IN.texcoord.x) * step(IN.texcoord.x, 1.0)
+                               * step(0.0, IN.texcoord.y) * step(IN.texcoord.y, 1.0);
                 
                 // Apply opacity and circular mask
-                color.a *= _Opacity * circleMask;
+                color.a *= _Opacity * circleMask * coverage;
                 
                 #ifdef UNITY_UI_CLIP_RECT
                 color.a *= UnityGet2DClipping(IN.worldPosition.xy, _ClipRect);

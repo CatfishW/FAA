@@ -2,6 +2,7 @@
     "name": "AircraftControl",
     "rootNamespace": "AircraftControl",
     "references": [
+        "Unity.InputSystem",
         "TrafficRadar",
         "WeatherRadar",
         "OnlineMaps",

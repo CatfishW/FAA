@@ -1,5 +1,10 @@
 using UnityEngine;
 using AircraftControl.Core;
+using UnityEngine.EventSystems;
+#if ENABLE_INPUT_SYSTEM
+using UnityEngine.InputSystem;
+using UnityEngine.InputSystem.XR;
+#endif
 
 namespace AircraftControl.Camera
 {
@@ -17,6 +22,7 @@ namespace AircraftControl.Camera
     /// 3. Configure camera mode and settings
     /// </summary>
     [AddComponentMenu("Aircraft Control/Aircraft Camera Controller")]
+    [DefaultExecutionOrder(11100)]
     public class AircraftCameraController : MonoBehaviour
     {
         #region Camera Modes
@@ -133,6 +139,10 @@ namespace AircraftControl.Camera
         #region Private Fields
         
         private bool _isLookActive;
+        private bool _lookWasHeld;
+        private float _returnElapsed;
+        private Vector2 _returnStart;
+        [SerializeField, Min(0.1f)] private float autoReturnSeconds = 0.8f;
         private float _currentPitch;
         private float _currentYaw;
         
@@ -172,6 +182,7 @@ namespace AircraftControl.Camera
         /// Whether the user is currently looking around
         /// </summary>
         public bool IsLookActive => _isLookActive;
+        public Transform AircraftTransform => aircraftTransform;
         
         #endregion
         
@@ -179,10 +190,9 @@ namespace AircraftControl.Camera
         
         private void Start()
         {
-            if (aircraftTransform == null)
+            if (!ResolveTarget())
             {
-                Debug.LogError("[AircraftCameraController] No aircraft transform assigned!");
-                enabled = false;
+                Debug.LogWarning("[AircraftCameraController] Waiting for an aircraft target; view will bind when it becomes available.");
                 return;
             }
 
@@ -202,16 +212,22 @@ namespace AircraftControl.Camera
         
         private void LateUpdate()
         {
-            if (aircraftTransform == null) return;
+            if (!ResolveTarget()) return;
+#if ENABLE_INPUT_SYSTEM
+            // A real HMD (or explicit XR simulator test) owns its pose. Never
+            // spring a physically tracked head back to the aircraft direction.
+            var trackedPose = GetComponent<TrackedPoseDriver>();
+            if (trackedPose != null && trackedPose.isActiveAndEnabled) return;
+#endif
             
             // Check for mode cycle
-            if (Input.GetKeyDown(cycleModeKey))
+            if (KeyPressed(cycleModeKey))
             {
                 CycleCameraMode();
             }
             
             // Check for reset
-            if (Input.GetKeyDown(resetKey))
+            if (KeyPressed(resetKey))
             {
                 ResetView();
             }
@@ -240,46 +256,77 @@ namespace AircraftControl.Camera
         
         private void HandleLookInput()
         {
-            bool wasLookActive = _isLookActive;
-            _isLookActive = Input.GetMouseButton(lookButton);
-            
+            bool held;
+            Vector2 delta;
+#if ENABLE_INPUT_SYSTEM
+            var mouse = Mouse.current;
+            held = mouse != null && (lookButton == 0 ? mouse.leftButton.isPressed :
+                lookButton == 2 ? mouse.middleButton.isPressed : mouse.rightButton.isPressed);
+            delta = mouse != null ? mouse.delta.ReadValue() * 0.1f : Vector2.zero;
+#else
+            held = Input.GetMouseButton(lookButton);
+            delta = new Vector2(Input.GetAxis("Mouse X"), Input.GetAxis("Mouse Y"));
+#endif
+            ProcessLookInput(held && Application.isFocused, delta,
+                EventSystem.current != null && EventSystem.current.IsPointerOverGameObject(), Time.unscaledDeltaTime);
+        }
+
+        private void ProcessLookInput(bool held, Vector2 delta, bool overUi, float dt)
+        {
+            bool wasActive = _isLookActive;
+            // Only a press that starts outside UI can capture the view. Dragging
+            // a chart or slider must not turn the camera after leaving that UI.
+            if (!held) _isLookActive = false;
+            else if (!_lookWasHeld) _isLookActive = !overUi;
+            _lookWasHeld = held;
             if (_isLookActive)
             {
-                // Get raw mouse input
-                float rawMouseX = Input.GetAxis("Mouse X");
-                float rawMouseY = Input.GetAxis("Mouse Y");
-                
-                // Smooth the input
-                float smoothFactor = mouseSmoothing * 60f * Time.deltaTime;
-                _smoothedMouseX = Mathf.Lerp(_smoothedMouseX, rawMouseX, smoothFactor);
-                _smoothedMouseY = Mathf.Lerp(_smoothedMouseY, rawMouseY, smoothFactor);
-                
-                // Apply to look angles
-                _currentYaw += _smoothedMouseX * mouseSensitivity;
-                _currentPitch -= _smoothedMouseY * mouseSensitivity;
-                
-                // Clamp angles
-                _currentPitch = Mathf.Clamp(_currentPitch, minPitch, maxPitch);
-                _currentYaw = Mathf.Clamp(_currentYaw, -maxYaw, maxYaw);
+                if (!wasActive) _freeRotation = aircraftTransform != null ? aircraftTransform.rotation : transform.rotation;
+                _currentYaw = Mathf.Clamp(_currentYaw + delta.x * mouseSensitivity, -maxYaw, maxYaw);
+                _currentPitch = Mathf.Clamp(_currentPitch - delta.y * mouseSensitivity, minPitch, maxPitch);
+                _returnStart = new Vector2(_currentPitch, _currentYaw);
+                _returnElapsed = 0f;
+                return;
             }
-            else
-            {
-                // Smooth return to center
-                float returnFactor = returnSpeed * Time.deltaTime;
-                
-                _currentPitch = Mathf.Lerp(_currentPitch, _targetPitch, returnFactor);
-                _currentYaw = Mathf.Lerp(_currentYaw, _targetYaw, returnFactor);
-                
-                // Clear smoothed values
-                _smoothedMouseX = Mathf.Lerp(_smoothedMouseX, 0f, returnFactor);
-                _smoothedMouseY = Mathf.Lerp(_smoothedMouseY, 0f, returnFactor);
-            }
-            
-            // Store start rotation when starting to look
-            if (_isLookActive && !wasLookActive)
-            {
-                _freeRotation = transform.rotation;
-            }
+            _returnElapsed += Mathf.Max(0f, dt);
+            Vector2 offset = ReturnLookOffset(_returnStart, _returnElapsed, autoReturnSeconds);
+            _currentPitch = offset.x;
+            _currentYaw = offset.y;
+            _smoothedMouseX = _smoothedMouseY = 0f;
+        }
+
+        public static Vector2 ReturnLookOffset(Vector2 start, float elapsed, float duration)
+        {
+            float t = Mathf.Clamp01(elapsed / Mathf.Max(0.1f, duration));
+            return start * (1f - t * t * (3f - 2f * t));
+        }
+
+        private static bool KeyPressed(KeyCode key)
+        {
+#if ENABLE_INPUT_SYSTEM
+            return Keyboard.current != null && System.Enum.TryParse(key.ToString(), true, out Key inputKey)
+                && inputKey != Key.None && Keyboard.current[inputKey].wasPressedThisFrame;
+#else
+            return Input.GetKeyDown(key);
+#endif
+        }
+
+        private bool ResolveTarget()
+        {
+            if (aircraftTransform != null) return true;
+            if (aircraftController == null && autoFindAircraftController)
+                aircraftController = FindFirstObjectByType<AircraftController>();
+            if (aircraftController == null) return false;
+            SetTarget(aircraftController.transform);
+            return true;
+        }
+
+        private void OnApplicationFocus(bool focused)
+        {
+            if (focused) return;
+            _isLookActive = false;
+            _returnStart = new Vector2(_currentPitch, _currentYaw);
+            _returnElapsed = 0f;
         }
         
         #endregion
@@ -314,15 +361,9 @@ namespace AircraftControl.Camera
             // Combine compensated aircraft rotation with look offset (local rotation)
             Quaternion lookOffset = Quaternion.Euler(_currentPitch, _currentYaw, 0f);
             Quaternion targetRotation = compensatedRotation * lookOffset;
-            float rotationLerp = GetSmoothingFactor(cockpitRotationSmoothing);
-            if (cockpitRotationSmoothing <= 0f)
-            {
-                transform.rotation = targetRotation;
-            }
-            else
-            {
-                transform.rotation = Quaternion.Slerp(transform.rotation, targetRotation, rotationLerp);
-            }
+            // The manual offset already has a timed smooth return. Filtering
+            // aircraft heading here introduces a second, misleading view lag.
+            transform.rotation = targetRotation;
         }
         
         private void UpdateChaseCamera()
@@ -408,6 +449,8 @@ namespace AircraftControl.Camera
         /// </summary>
         public void ResetView()
         {
+            _returnStart = Vector2.zero;
+            _returnElapsed = 0f;
             _currentPitch = 0f;
             _currentYaw = 0f;
             _targetPitch = 0f;
@@ -428,6 +471,8 @@ namespace AircraftControl.Camera
         public void SetTarget(Transform target)
         {
             aircraftTransform = target;
+            if (autoFindAircraftController && target != null)
+                aircraftController = target.GetComponent<AircraftController>() ?? target.GetComponentInParent<AircraftController>();
             if (target != null)
             {
                 _freeRotation = target.rotation;

@@ -96,3 +96,22 @@ __pycache__/
 /Assets/_Project/Verification/
 /Assets/Screenshots/faa-*.png
 /Assets/Screenshots/faa-*.png.meta
+
+# Imported editor samples and local visual-validation captures. The XR setup
+# tool can import/copy the required sample prefab on a development machine.
+/Assets/Samples/
+/Assets/Samples.meta
+/Assets/Temp/
+/Assets/Temp.meta
+/Assets/_Recovery/
+
+# Codex/editor recovery state is machine-local. Source-level release notes and
+# reproducible verification tools belong in docs/ and Tools/ instead.
+/.agent/
+/_codex_backups/
+/EmbeddedProjectRecovery_*/
+/unity_latest.png
+
+# Package-created local settings that are not part of the product profile.
+/ProjectSettings/PhysicsCoreProjectSettings2D.asset
+/ProjectSettings/ProjectAuditorSettings.asset

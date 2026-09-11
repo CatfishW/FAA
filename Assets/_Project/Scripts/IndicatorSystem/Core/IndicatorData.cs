@@ -14,6 +14,8 @@ namespace IndicatorSystem.Core
         Custom
     }
 
+    public enum WeatherCueKind { Return, RainLight, RainModerate, RainHeavy }
+
     /// <summary>
     /// Screen visibility state for an indicator.
     /// </summary>
@@ -74,6 +76,9 @@ namespace IndicatorSystem.Core
         
         /// <summary>Aircraft type for traffic indicators (for prefab selection)</summary>
         public TrafficRadarDataManager.AircraftType AircraftType;
+
+        public WeatherCueKind WeatherKind;
+        public bool IsIllustrativeWeather;
         
         /// <summary>Aircraft heading in degrees (0-360)</summary>
         public float Heading;
