@@ -36,6 +36,13 @@ namespace IndicatorSystem.Integration
         [Header("Settings")]
         [Tooltip("Update position reference from traffic radar controller")]
         [SerializeField] private bool syncPositionFromRadar = true;
+
+        [Header("Screen Projection")]
+        [Tooltip("Headset/camera reference used to convert X-Plane bearing/range into screen indicator positions.")]
+        [SerializeField] private Transform positionReference;
+
+        [Tooltip("Use X-Plane ownship heading plus target bearing/range for screen cues. Keeps edge indicators aligned with the traffic radar.")]
+        [SerializeField] private bool useRadarRelativeScreenProjection = true;
         
         [Header("Debug")]
         [SerializeField] private bool verboseLogging = false;
@@ -46,6 +53,7 @@ namespace IndicatorSystem.Integration
         
         private readonly List<TrafficIndicatorTarget> _convertedTargets = new List<TrafficIndicatorTarget>();
         private bool _isConnected;
+        private float _ownHeadingDegrees;
         
         #endregion
         
@@ -110,6 +118,11 @@ namespace IndicatorSystem.Integration
             {
                 indicatorController = FindObjectOfType<IndicatorSystemController>();
             }
+
+            if (positionReference == null && Camera.main != null)
+            {
+                positionReference = Camera.main.transform;
+            }
             
             Log($"Found TrafficRadarController: {trafficRadarController != null}, IndicatorController: {indicatorController != null}");
         }
@@ -150,6 +163,7 @@ namespace IndicatorSystem.Integration
                     referenceLatitude = ownPos.Latitude;
                     referenceLongitude = ownPos.Longitude;
                     referenceAltitude = ownPos.AltitudeMeters;
+                    _ownHeadingDegrees = ownPos.HeadingDegrees;
                     indicatorController.SetReferencePosition(referenceLatitude, referenceLongitude, referenceAltitude);
                 }
             }
@@ -169,15 +183,29 @@ namespace IndicatorSystem.Integration
         
         private TrafficIndicatorTarget ConvertToIndicatorTarget(RadarTarget radarTarget)
         {
-            // Calculate world position from geographic coordinates
-            Vector3 worldPos = ScreenIndicatorCalculator.GeoToWorldPosition(
-                radarTarget.Latitude,
-                radarTarget.Longitude,
-                radarTarget.AltitudeFeet * 0.3048f, // Convert feet to meters
-                referenceLatitude,
-                referenceLongitude,
-                referenceAltitude
-            );
+            Vector3 worldPos;
+            if (useRadarRelativeScreenProjection)
+            {
+                float relativeBearing = ScreenIndicatorCalculator.CalculateRelativeBearing(
+                    radarTarget.BearingDegrees,
+                    _ownHeadingDegrees);
+                worldPos = ScreenIndicatorCalculator.RadarRelativeToWorldPosition(
+                    radarTarget.DistanceNM,
+                    relativeBearing,
+                    radarTarget.RelativeAltitudeFeet,
+                    GetPositionReference());
+            }
+            else
+            {
+                worldPos = ScreenIndicatorCalculator.GeoToWorldPosition(
+                    radarTarget.Latitude,
+                    radarTarget.Longitude,
+                    radarTarget.AltitudeFeet * 0.3048f,
+                    referenceLatitude,
+                    referenceLongitude,
+                    referenceAltitude
+                );
+            }
             
             // Get color based on threat level
             Color color = GetColorForThreatLevel(radarTarget.ThreatLevel);
@@ -194,8 +222,26 @@ namespace IndicatorSystem.Integration
                 relativeAltitudeFeet = radarTarget.RelativeAltitudeFeet,
                 threatLevel = radarTarget.ThreatLevel,
                 aircraftType = radarTarget.AircraftType,
-                heading = radarTarget.Heading
+                heading = radarTarget.Heading,
+                bearingFromOwn = radarTarget.BearingDegrees
             };
+        }
+
+        private Transform GetPositionReference()
+        {
+            if (positionReference != null)
+            {
+                return positionReference;
+            }
+
+            Camera camera = Camera.main ?? FindAnyObjectByType<Camera>();
+            if (camera != null)
+            {
+                positionReference = camera.transform;
+                return positionReference;
+            }
+
+            return transform;
         }
         
         private Color GetColorForThreatLevel(ThreatLevel level)
@@ -249,6 +295,7 @@ namespace IndicatorSystem.Integration
         public ThreatLevel threatLevel;
         public TrafficRadarDataManager.AircraftType aircraftType;
         public float heading;
+        public float bearingFromOwn;
         
         // IIndicatorTarget implementation
         public string Id => id;

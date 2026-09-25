@@ -54,23 +54,42 @@ namespace HUDControl.Elements
         #endregion
         
         private float displayedAltitude;
+        private float targetAltitude;
         private float lastDisplayedAltitude = -1f;
         private Vector2 tapeBasePos;
+        private bool hasExternalAltitude;
+        private bool externalDataUnavailable;
         
         public override string ElementId => "Altimeter";
         
         protected override void OnInitialize()
         {
             displayedAltitude = 0f;
+            targetAltitude = 0f;
+            hasExternalAltitude = false;
+            externalDataUnavailable = false;
+            lastDisplayedAltitude = -1f;
             
             if (altitudeTape != null)
                 tapeBasePos = altitudeTape.anchoredPosition;
+
+            SetTapeAvailable(true);
         }
         
         protected override void OnUpdateElement(AircraftState state)
         {
-            float targetAltitude = state.AltitudeFeet;
-            displayedAltitude = Core.HUDAnimator.SmoothValue(displayedAltitude, targetAltitude, smoothing);
+            if (state == null || externalDataUnavailable)
+            {
+                return;
+            }
+
+            float target = hasExternalAltitude
+                ? targetAltitude
+                : state.AltitudeFeet;
+            float effectiveSmoothing = smoothing > 0f
+                ? smoothing
+                : Core.HUDAnimator.CalculateSmoothing(animationSpeed);
+            displayedAltitude = Core.HUDAnimator.SmoothValue(displayedAltitude, target, effectiveSmoothing);
             
             // Altitude tape movement
             if (enableTape && altitudeTape != null)
@@ -98,6 +117,95 @@ namespace HUDControl.Elements
             }
         }
         
+        /// <summary>
+        /// Feed an authoritative X-Plane MSL altitude in feet.
+        /// </summary>
+        public void SetAltitudeData(float value, bool valid)
+        {
+            if (!valid || float.IsNaN(value) || float.IsInfinity(value))
+            {
+                ClearExternalData();
+                return;
+            }
+
+            targetAltitude = value;
+            if (!hasExternalAltitude)
+            {
+                displayedAltitude = targetAltitude;
+            }
+
+            hasExternalAltitude = true;
+            externalDataUnavailable = false;
+            SetTapeAvailable(true);
+            UpdateReadout();
+        }
+
+        /// <summary>
+        /// Bind only objects authored in the scene or prefab. No UI is created here.
+        /// </summary>
+        public void ConfigureVisuals(RectTransform tape, TMP_Text readout, RectTransform window)
+        {
+            altitudeTape = tape;
+            altitudeReadout = readout;
+            windowPanel = window;
+            tapeBasePos = altitudeTape != null ? altitudeTape.anchoredPosition : Vector2.zero;
+            SetTapeAvailable(true);
+            UpdateReadout();
+        }
+
+        public void ClearExternalData()
+        {
+            hasExternalAltitude = false;
+            externalDataUnavailable = true;
+            targetAltitude = 0f;
+            displayedAltitude = 0f;
+            SetTapeAvailable(false);
+            SetReadoutUnavailable();
+        }
+
+        public bool HasExternalData => hasExternalAltitude && !externalDataUnavailable;
+        public float GetTargetAltitude() => targetAltitude;
         public float GetDisplayedAltitude() => displayedAltitude;
+
+        private void UpdateReadout()
+        {
+            if (!enableReadout || altitudeReadout == null)
+            {
+                return;
+            }
+
+            int rounded = Mathf.RoundToInt(displayedAltitude);
+            if (rounded != Mathf.RoundToInt(lastDisplayedAltitude) || altitudeReadout.text == "---")
+            {
+                altitudeReadout.text = string.Format(displayFormat, rounded);
+                lastDisplayedAltitude = rounded;
+            }
+
+            altitudeReadout.color = new Color(0.2f, 1f, 0.2f, 1f);
+        }
+
+        private void SetReadoutUnavailable()
+        {
+            if (altitudeReadout == null)
+            {
+                return;
+            }
+
+            altitudeReadout.text = "---";
+            altitudeReadout.color = new Color(0.2f, 1f, 0.2f, 0.46f);
+        }
+
+        private static void SetTapeAvailable(RectTransform tape, bool available)
+        {
+            if (tape != null && tape.gameObject.activeSelf != available)
+            {
+                tape.gameObject.SetActive(available);
+            }
+        }
+
+        private void SetTapeAvailable(bool available)
+        {
+            SetTapeAvailable(altitudeTape, available);
+        }
     }
 }

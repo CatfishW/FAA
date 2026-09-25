@@ -33,7 +33,8 @@ namespace VoiceControl.UI
         [SerializeField] private bool enableSubMenus = true;
         [SerializeField] private bool startCollapsed = true;
         [SerializeField] private float collapsedButtonSize = 58f;
-        [SerializeField] private Vector2 collapsedButtonPosition = new Vector2(34f, 34f);  // Bottom-left offset
+        [SerializeField] private Vector2 collapsedButtonPosition = new Vector2(34f, 34f);
+        [SerializeField] private bool collapsedButtonTopRight = true;
         [SerializeField, Range(4, 8)] private int maxSubSegmentCount = 6;
 
         [Header("Input")]
@@ -84,27 +85,27 @@ namespace VoiceControl.UI
         [SerializeField] private AudioClip selectSound;
         [SerializeField] private AudioClip executeSound;
 
-        private const float MainSegmentWidth = 174f;
-        private const float MainSegmentHeight = 88f;
-        private const float SubSegmentWidth = 144f;
-        private const float SubSegmentHeight = 74f;
-        private const float MainIconContainerSize = 50f;
-        private const float MainIconSize = 40f;
-        private const float SubIconContainerSize = 34f;
-        private const float SubIconSize = 26f;
+        private const float MainSegmentWidth = 168f;
+        private const float MainSegmentHeight = 84f;
+        private const float SubSegmentWidth = 158f;
+        private const float SubSegmentHeight = 68f;
+        private const float MainIconContainerSize = 46f;
+        private const float MainIconSize = 36f;
+        private const float SubIconContainerSize = 30f;
+        private const float SubIconSize = 22f;
 
         [Header("Typography")]
         [SerializeField] private float mainLabelFontSize = 16f;
         [SerializeField] private float subLabelFontSize = 13f;
         [SerializeField] private float centerTitleFontSize = 21f;
         [SerializeField] private float centerSubtitleFontSize = 13f;
-        private static readonly Color PanelBackgroundColor = new Color(0.006f, 0.012f, 0.014f, 0.96f);
-        private static readonly Color SegmentBackgroundColor = new Color(0.015f, 0.045f, 0.045f, 0.97f);
-        private static readonly Color SegmentBorderColor = new Color(0.18f, 1f, 0.72f, 0.48f);
-        private static readonly Color SubBorderBaseColor = new Color(0.28f, 0.9f, 0.75f, 0.38f);
-        private const float SubMenuSpreadDegrees = 64f;
-        private const float SubMenuInnerOffset = 26f;
-        private const float SubMenuOuterInset = 24f;
+        private static readonly Color PanelBackgroundColor = new Color(0.004f, 0.018f, 0.026f, 0.985f);
+        private static readonly Color SegmentBackgroundColor = new Color(0.012f, 0.055f, 0.070f, 0.985f);
+        private static readonly Color SegmentBorderColor = new Color(0.18f, 0.92f, 0.76f, 0.72f);
+        private static readonly Color SubBorderBaseColor = new Color(0.24f, 0.86f, 0.78f, 0.62f);
+        private const float SubMenuSpreadDegrees = 126f;
+        private const float SubMenuInnerOffset = 42f;
+        private const float SubMenuOuterInset = 0f;
         private const float CenterSizePadding = 54f;
 
         // Events
@@ -632,13 +633,16 @@ namespace VoiceControl.UI
         private void CreateCollapsedButton()
         {
             _collapsedButton = new VisualElement();
+            _collapsedButton.name = "CollapsedButton";
             _collapsedButton.AddToClassList("adv-collapsed-button");
             _collapsedButton.pickingMode = PickingMode.Position;
+            _collapsedButton.focusable = true;
+            _collapsedButton.tabIndex = 0;
+            _collapsedButton.tooltip = "Open HUD command menu";
 
             // Style the collapsed button
             _collapsedButton.style.position = Position.Absolute;
-            _collapsedButton.style.left = collapsedButtonPosition.x;
-            _collapsedButton.style.bottom = collapsedButtonPosition.y;
+            ApplyCollapsedButtonAnchor();
             _collapsedButton.style.width = collapsedButtonSize;
             _collapsedButton.style.height = collapsedButtonSize;
             _collapsedButton.style.backgroundColor = PanelBackgroundColor;
@@ -715,6 +719,7 @@ namespace VoiceControl.UI
                     ExpandFromCollapsed();
                 }).StartingIn(100);
             });
+            _collapsedButton.RegisterCallback<KeyDownEvent>(OnCollapsedButtonKeyDown);
 
             _root.Add(_collapsedButton);
         }
@@ -723,10 +728,12 @@ namespace VoiceControl.UI
         {
             // Configure existing collapsed button from UXML template
             _collapsedButton.pickingMode = PickingMode.Position;
+            _collapsedButton.focusable = true;
+            _collapsedButton.tabIndex = 0;
+            _collapsedButton.tooltip = "Open HUD command menu";
 
             // Update position and size from serialized fields
-            _collapsedButton.style.left = collapsedButtonPosition.x;
-            _collapsedButton.style.bottom = collapsedButtonPosition.y;
+            ApplyCollapsedButtonAnchor();
             _collapsedButton.style.width = collapsedButtonSize;
             _collapsedButton.style.height = collapsedButtonSize;
 
@@ -775,6 +782,19 @@ namespace VoiceControl.UI
                     ExpandFromCollapsed();
                 }).StartingIn(100);
             });
+            _collapsedButton.UnregisterCallback<KeyDownEvent>(OnCollapsedButtonKeyDown);
+            _collapsedButton.RegisterCallback<KeyDownEvent>(OnCollapsedButtonKeyDown);
+        }
+
+        private void OnCollapsedButtonKeyDown(KeyDownEvent evt)
+        {
+            if (evt.keyCode != KeyCode.Return && evt.keyCode != KeyCode.KeypadEnter && evt.keyCode != KeyCode.Space)
+            {
+                return;
+            }
+
+            ExpandFromCollapsed();
+            evt.StopPropagation();
         }
 
         private void ExpandFromCollapsed()
@@ -849,7 +869,11 @@ namespace VoiceControl.UI
                 int index = i;
                 segment.Container.RegisterCallback<MouseEnterEvent>(evt => OnMainSegmentHover(index, true));
                 segment.Container.RegisterCallback<MouseLeaveEvent>(evt => OnMainSegmentHover(index, false));
-                segment.Container.RegisterCallback<ClickEvent>(evt => OnMainSegmentClick(index));
+                segment.Container.RegisterCallback<ClickEvent>(evt =>
+                {
+                    OnMainSegmentClick(index);
+                    evt.StopPropagation();
+                });
 
                 _menuRoot.Add(segment.Container);
                 _mainSegments.Add(segment);
@@ -889,7 +913,11 @@ namespace VoiceControl.UI
                 int index = i;
                 segment.Container.RegisterCallback<MouseEnterEvent>(evt => OnSubSegmentHover(index, true));
                 segment.Container.RegisterCallback<MouseLeaveEvent>(evt => OnSubSegmentHover(index, false));
-                segment.Container.RegisterCallback<ClickEvent>(evt => OnSubSegmentClick(index));
+                segment.Container.RegisterCallback<ClickEvent>(evt =>
+                {
+                    OnSubSegmentClick(index);
+                    evt.StopPropagation();
+                });
 
                 segment.Container.style.display = DisplayStyle.None;
                 _menuRoot.Add(segment.Container);
@@ -950,7 +978,7 @@ namespace VoiceControl.UI
             _menuRoot.style.width = 0;
             _menuRoot.style.height = 0;
 
-            float ringSize = middleRadius * 2 + 44;
+            float ringSize = middleRadius * 2 + 70;
             _ringBackground.style.position = Position.Absolute;
             _ringBackground.style.width = ringSize;
             _ringBackground.style.height = ringSize;
@@ -958,8 +986,8 @@ namespace VoiceControl.UI
             _ringBackground.style.top = -ringSize / 2;
             _ringBackground.style.backgroundColor = WithAlpha(PanelBackgroundColor, ringBackgroundTransparency);
             SetRadius(_ringBackground, ringSize / 2);
-            SetBorderWidth(_ringBackground, 1.5f);
-            SetBorderColor(_ringBackground, new Color(0.15f, 1f, 0.76f, 0.44f * menuTransparency));
+            SetBorderWidth(_ringBackground, 2f);
+            SetBorderColor(_ringBackground, new Color(0.12f, 0.92f, 0.78f, 0.62f * menuTransparency));
 
             // Main segments - compact, readable buttons
             float segmentWidth = MainSegmentWidth;
@@ -970,8 +998,8 @@ namespace VoiceControl.UI
                 seg.Container.style.width = segmentWidth;
                 seg.Container.style.height = segmentHeight;
                 seg.Container.style.backgroundColor = WithAlpha(SegmentBackgroundColor, segmentTransparency);
-                SetRadius(seg.Container, 8);
-                SetBorderWidth(seg.Container, 1.5f);
+                SetRadius(seg.Container, 10);
+                SetBorderWidth(seg.Container, 2f);
                 SetBorderColor(seg.Container, SegmentBorderColor);
                 seg.Container.style.alignItems = Align.Center;
                 seg.Container.style.justifyContent = Justify.Center;
@@ -984,8 +1012,8 @@ namespace VoiceControl.UI
                 seg.Background.style.height = new Length(100, LengthUnit.Percent);
                 seg.Background.style.left = 0;
                 seg.Background.style.top = 0;
-                SetRadius(seg.Background, 8);
-                seg.Background.style.backgroundColor = new Color(0.04f, 0.13f, 0.11f, 0.20f);
+                SetRadius(seg.Background, 10);
+                seg.Background.style.backgroundColor = new Color(0.04f, 0.18f, 0.16f, 0.10f);
 
                 // Icon container - holds the image
                 seg.IconContainer.style.position = Position.Relative;
@@ -1020,7 +1048,7 @@ namespace VoiceControl.UI
                 seg.Container.style.width = subWidth;
                 seg.Container.style.height = subHeight;
                 seg.Container.style.backgroundColor = WithAlpha(SegmentBackgroundColor, segmentTransparency);
-                SetRadius(seg.Container, 7);
+                SetRadius(seg.Container, 9);
                 SetBorderWidth(seg.Container, 1.5f);
                 SetBorderColor(seg.Container, SubBorderBaseColor);
                 seg.Container.style.alignItems = Align.Center;
@@ -1043,7 +1071,7 @@ namespace VoiceControl.UI
                 seg.Background.style.height = new Length(100, LengthUnit.Percent);
                 seg.Background.style.left = 0;
                 seg.Background.style.top = 0;
-                SetRadius(seg.Background, 7);
+                SetRadius(seg.Background, 9);
 
                 seg.IconContainer.style.width = SubIconContainerSize;
                 seg.IconContainer.style.height = SubIconContainerSize;
@@ -1822,9 +1850,9 @@ namespace VoiceControl.UI
             if (seg == null || seg.Category == null) return;
 
             Color accent = seg.Category.Color;
-            seg.Background.style.backgroundColor = WithAlpha(accent, active ? 0.38f : 0.22f);
+            seg.Background.style.backgroundColor = WithAlpha(accent, active ? 0.22f : 0.08f);
             seg.Container.style.backgroundColor = active
-                ? new Color(0.035f, 0.085f, 0.075f, segmentTransparency)
+                ? new Color(0.018f, 0.10f, 0.095f, segmentTransparency)
                 : WithAlpha(SegmentBackgroundColor, segmentTransparency);
             SetBorderColor(seg.Container, active ? WithAlpha(accent, 0.82f) : SegmentBorderColor);
             seg.IconContainer.style.opacity = active ? 1f : 0.86f;
@@ -1838,7 +1866,7 @@ namespace VoiceControl.UI
             if (seg == null || seg.Command == null) return;
 
             var baseColor = seg.Command.Color;
-            float bgAlpha = hovered ? 0.42f : 0.24f;
+            float bgAlpha = hovered ? 0.28f : 0.10f;
             var borderColor = Color.Lerp(SubBorderBaseColor, baseColor, hovered ? 0.8f : 0.2f);
 
             float scale = hovered ? 1f + hoverScaleBoost : 1f;
@@ -1886,7 +1914,7 @@ namespace VoiceControl.UI
                     seg.Command = category.Commands[i];
                     TrySetIcon(seg.IconImage, seg.Command.IconPath, Color.white);
                     seg.NameLabel.text = seg.Command.DisplayName;
-                    seg.Background.style.backgroundColor = WithAlpha(category.Color, 0.24f);
+                    seg.Background.style.backgroundColor = WithAlpha(category.Color, 0.10f);
                     seg.IsVisible = true;
                     SetSubSegmentHover(seg, false);
                 }
@@ -2014,17 +2042,39 @@ namespace VoiceControl.UI
             }
         }
 
-        private bool ShouldLetHudCommandOwnVisibility(MenuCommand cmd)
+        private static bool ShouldLetHudCommandOwnVisibility(MenuCommand cmd)
         {
             if (cmd == null ||
-                !string.Equals(cmd.TargetId, "symbology", StringComparison.OrdinalIgnoreCase) ||
+                string.IsNullOrWhiteSpace(cmd.TargetId) ||
                 string.IsNullOrWhiteSpace(cmd.CommandName))
             {
                 return false;
             }
 
-            return string.Equals(cmd.CommandName, "show", StringComparison.OrdinalIgnoreCase) ||
-                   string.Equals(cmd.CommandName, "hide", StringComparison.OrdinalIgnoreCase);
+            string targetId = cmd.TargetId.Trim();
+            string commandName = cmd.CommandName.Trim();
+
+            if (string.Equals(targetId, "symbology", StringComparison.OrdinalIgnoreCase))
+            {
+                return string.Equals(commandName, "show", StringComparison.OrdinalIgnoreCase) ||
+                       string.Equals(commandName, "hide", StringComparison.OrdinalIgnoreCase);
+            }
+
+            if (string.Equals(targetId, "weather_radar", StringComparison.OrdinalIgnoreCase) ||
+                string.Equals(targetId, "traffic_radar", StringComparison.OrdinalIgnoreCase))
+            {
+                return string.Equals(commandName, "show_panel", StringComparison.OrdinalIgnoreCase) ||
+                       string.Equals(commandName, "hide_panel", StringComparison.OrdinalIgnoreCase) ||
+                       string.Equals(commandName, "toggle_panel", StringComparison.OrdinalIgnoreCase);
+            }
+
+            if (string.Equals(targetId, "indicator_system", StringComparison.OrdinalIgnoreCase))
+            {
+                return string.Equals(commandName, "show_all_indicators", StringComparison.OrdinalIgnoreCase) ||
+                       string.Equals(commandName, "hide_all_indicators", StringComparison.OrdinalIgnoreCase);
+            }
+
+            return false;
         }
 
         private void SuppressHudForMenu()
@@ -2325,6 +2375,7 @@ namespace VoiceControl.UI
         public float OuterRadius => outerRadius;
         public float CollapsedButtonSize => collapsedButtonSize;
         public Vector2 CollapsedButtonPosition => collapsedButtonPosition;
+        public bool CollapsedButtonTopRight => collapsedButtonTopRight;
         public float OpenDuration => openDuration;
         public float CloseDuration => closeDuration;
         public float SubMenuExpandDuration => subMenuExpandDuration;
@@ -2361,9 +2412,30 @@ namespace VoiceControl.UI
             {
                 _collapsedButton.style.width = collapsedButtonSize;
                 _collapsedButton.style.height = collapsedButtonSize;
-                _collapsedButton.style.left = position.x;
-                _collapsedButton.style.bottom = position.y;
+                ApplyCollapsedButtonAnchor();
             }
+        }
+
+        private void ApplyCollapsedButtonAnchor()
+        {
+            if (_collapsedButton == null)
+            {
+                return;
+            }
+
+            if (collapsedButtonTopRight)
+            {
+                _collapsedButton.style.left = new StyleLength(StyleKeyword.Auto);
+                _collapsedButton.style.bottom = new StyleLength(StyleKeyword.Auto);
+                _collapsedButton.style.right = collapsedButtonPosition.x;
+                _collapsedButton.style.top = collapsedButtonPosition.y;
+                return;
+            }
+
+            _collapsedButton.style.right = new StyleLength(StyleKeyword.Auto);
+            _collapsedButton.style.top = new StyleLength(StyleKeyword.Auto);
+            _collapsedButton.style.left = collapsedButtonPosition.x;
+            _collapsedButton.style.bottom = collapsedButtonPosition.y;
         }
 
         /// <summary>
@@ -2386,6 +2458,7 @@ namespace VoiceControl.UI
             outerRadius = 390f;
             collapsedButtonSize = 58f;
             collapsedButtonPosition = new Vector2(34f, 34f);
+            collapsedButtonTopRight = true;
             maxSubSegmentCount = 6;
             openDuration = 0.28f;
             closeDuration = 0.18f;
@@ -2393,17 +2466,17 @@ namespace VoiceControl.UI
             mainSegmentStagger = 0.025f;
             subSegmentStagger = 0.02f;
             hoverScaleBoost = 0.06f;
-            menuTransparency = 0.98f;
-            ringBackgroundTransparency = 0.78f;
-            segmentTransparency = 0.98f;
-            centerTransparency = 0.99f;
+            menuTransparency = 1f;
+            ringBackgroundTransparency = 0.94f;
+            segmentTransparency = 0.99f;
+            centerTransparency = 1f;
             useBackdrop = true;
-            backdropOpacity = 0.30f;
+            backdropOpacity = 0.46f;
             closeOnBackdropClick = true;
             hideHudWhileOpen = true;
-            mainLabelFontSize = 16f;
-            subLabelFontSize = 13f;
-            centerTitleFontSize = 21f;
+            mainLabelFontSize = 18f;
+            subLabelFontSize = 14f;
+            centerTitleFontSize = 23f;
             centerSubtitleFontSize = 13f;
             usePulseAnimation = true;
             useRippleEffect = true;

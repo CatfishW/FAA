@@ -21,7 +21,7 @@ namespace FAA.XPlaneIntegration.Runtime
         [SerializeField] private bool setDefaultPositionToAircraft = true;
 
         [Header("Cesium Sync")]
-        [SerializeField] private bool syncCesiumGeoreference = true;
+        [SerializeField] private bool syncCesiumGeoreference = false;
         [SerializeField] private string cesiumGeoreferenceObjectName = "CesiumGeoreference";
         [SerializeField] private bool useAircraftAltitudeForCesium = false;
         [SerializeField] private float cesiumReferenceHeightMeters = 100f;

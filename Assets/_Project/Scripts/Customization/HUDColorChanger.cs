@@ -17,10 +17,11 @@ public class HUDColorChanger : MonoBehaviour
     [SerializeField] private Sprite sunIcon;
     
     [Header("Theme Colors")]
-    [SerializeField] private Color lightThemeColor = Color.black;
-    [SerializeField] private Color darkThemeColor = Color.white;
+    [SerializeField] private Color lightThemeColor = new Color(0.2f, 1f, 0.2f, 1f);
+    [SerializeField] private Color darkThemeColor = new Color(0.2f, 1f, 0.2f, 1f);
     [SerializeField] private Color activeButtonColor = Color.yellow;
     [SerializeField] private Color inactiveButtonColor = Color.gray;
+    [SerializeField] private bool tintOnlySymbologyElements = true;
     
     // Add exception parent list
     [Header("Exceptions")]
@@ -78,6 +79,8 @@ public class HUDColorChanger : MonoBehaviour
                 continue;
             if (IsUnderExceptionParent(img.transform))
                 continue;
+            if (tintOnlySymbologyElements && !FAA.Customization.SymbologyTintUtility.ShouldTintImage(img))
+                continue;
             imageComponents.Add(img);
         }
 
@@ -87,6 +90,8 @@ public class HUDColorChanger : MonoBehaviour
         {
             if (IsUnderExceptionParent(txt.transform))
                 continue;
+            if (tintOnlySymbologyElements && !FAA.Customization.SymbologyTintUtility.ShouldTintText(txt.transform))
+                continue;
             textComponents.Add(txt);
         }
 
@@ -95,6 +100,8 @@ public class HUDColorChanger : MonoBehaviour
         foreach (TMP_Text tmp in tmps)
         {
             if (IsUnderExceptionParent(tmp.transform))
+                continue;
+            if (tintOnlySymbologyElements && !FAA.Customization.SymbologyTintUtility.ShouldTintText(tmp.transform))
                 continue;
             tmpTextComponents.Add(tmp);
         }
@@ -132,19 +139,41 @@ public class HUDColorChanger : MonoBehaviour
         // Update all images
         foreach (Image img in imageComponents)
         {
-            if (img != null) img.color = targetColor;
+            if (img != null)
+            {
+                img.color = targetColor;
+                img.raycastTarget = false;
+            }
         }
         
         // Update all Text components
         foreach (Text txt in textComponents)
         {
-            if (txt != null) txt.color = targetColor;
+            if (txt != null)
+            {
+                txt.color = targetColor;
+                txt.raycastTarget = false;
+                txt.canvasRenderer.SetColor(targetColor);
+            }
         }
 
         // Update all TMP_Text components
         foreach (TMP_Text tmp in tmpTextComponents)
         {
-            if (tmp != null) tmp.color = targetColor;
+            if (tmp == null)
+            {
+                continue;
+            }
+
+            tmp.color = targetColor;
+            tmp.faceColor = targetColor;
+            tmp.enableVertexGradient = false;
+            Color outline = targetColor;
+            outline.a *= 0.62f;
+            tmp.outlineColor = outline;
+            tmp.raycastTarget = false;
+            tmp.canvasRenderer.SetColor(targetColor);
+            tmp.ForceMeshUpdate(true, true);
         }
         
         // Update button appearance

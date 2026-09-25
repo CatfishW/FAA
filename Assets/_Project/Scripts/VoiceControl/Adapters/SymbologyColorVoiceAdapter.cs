@@ -12,6 +12,34 @@ namespace VoiceControl.Adapters
     [AddComponentMenu("Voice Control/Symbology Color Voice Adapter")]
     public class SymbologyColorVoiceAdapter : MonoBehaviour, IVoiceCommandTarget
     {
+        private const string HeadingTapeCanvasName = "FAAHeadingTapeCanvas";
+
+        private static readonly string[] FlightHudCanvasNames =
+        {
+            "FAASymbologyCanvas",
+            "FAASymbologyCanvasWorldSpace",
+            HeadingTapeCanvasName
+        };
+
+        private static readonly string[] ExcludedCanvasNameFragments =
+        {
+            "weather",
+            "traffic",
+            "radar",
+            "indicator",
+            "menu",
+            "radial",
+            "voicecontrol"
+        };
+
+        private sealed class HudVisibilityTarget
+        {
+            public CanvasGroup CanvasGroup;
+            public float VisibleAlpha;
+            public bool VisibleInteractable;
+            public bool VisibleBlocksRaycasts;
+        }
+
         [Header("Target Components")]
         [SerializeField] private SymbologyColorManager colorManager;
         
@@ -23,6 +51,8 @@ namespace VoiceControl.Adapters
         public string DisplayName => "Symbology Color";
         
         private VoiceCommandInfo[] _commands;
+        private readonly List<HudVisibilityTarget> _hudVisibilityTargets = new List<HudVisibilityTarget>();
+        private bool _hudRootsVisible = true;
         
         private void Awake()
         {
@@ -175,11 +205,13 @@ namespace VoiceControl.Adapters
                     
                 case "show":
                     colorManager.Show();
+                    SetHudRootVisibility(true);
                     Log("Showed symbology (opacity 100%)");
                     return true;
                     
                 case "hide":
                     colorManager.Hide();
+                    SetHudRootVisibility(false);
                     Log("Hid symbology (opacity 0%)");
                     return true;
                     
@@ -239,8 +271,207 @@ namespace VoiceControl.Adapters
             
             float opacity = ParseOpacityValue(opacityObj);
             colorManager.SetOpacity(opacity);
+            SetHudRootVisibility(opacity > 0f);
             Log($"Set symbology opacity to {opacity:F2}");
             return true;
+        }
+
+        /// <summary>
+        /// Hides complete flight-HUD roots without deactivating their GameObjects. This covers
+        /// RawImages and custom UI graphics that are intentionally outside the color manager's
+        /// Image/text cache while allowing telemetry and layout scripts to keep updating.
+        /// </summary>
+        private void SetHudRootVisibility(bool visible)
+        {
+            // Refresh against the previous state first. If a hidden HUD root was renamed or
+            // repurposed as an excluded radar/menu canvas, pruning can restore it before the
+            // new visibility state is applied.
+            RefreshHudVisibilityTargets();
+            _hudRootsVisible = visible;
+            ApplyCachedHudVisibility(visible);
+        }
+
+        private void RefreshHudVisibilityTargets()
+        {
+            PruneHudVisibilityTargets();
+            CacheHudVisibilityTargets(FindObjectsByType<Canvas>(FindObjectsInactive.Include, FindObjectsSortMode.None));
+        }
+
+        private void CacheHudVisibilityTargets(IEnumerable<Canvas> canvases)
+        {
+            if (canvases == null)
+            {
+                return;
+            }
+
+            foreach (Canvas canvas in canvases)
+            {
+                if (!IsHudVisibilityRoot(canvas) || ContainsHudVisibilityTarget(canvas.gameObject))
+                {
+                    continue;
+                }
+
+                CanvasGroup group = canvas.GetComponent<CanvasGroup>();
+                if (group == null)
+                {
+                    group = canvas.gameObject.AddComponent<CanvasGroup>();
+                }
+
+                _hudVisibilityTargets.Add(new HudVisibilityTarget
+                {
+                    CanvasGroup = group,
+                    VisibleAlpha = group.alpha > 0.001f ? group.alpha : 1f,
+                    VisibleInteractable = group.interactable,
+                    VisibleBlocksRaycasts = group.blocksRaycasts
+                });
+
+                // A HUD canvas can be created after a hide command (for example by a runtime
+                // setup helper). Bring every newly discovered root into the current state.
+                if (!_hudRootsVisible)
+                {
+                    group.alpha = 0f;
+                    group.interactable = false;
+                    group.blocksRaycasts = false;
+                }
+            }
+        }
+
+        private void ApplyCachedHudVisibility(bool visible)
+        {
+            for (int i = _hudVisibilityTargets.Count - 1; i >= 0; i--)
+            {
+                HudVisibilityTarget target = _hudVisibilityTargets[i];
+                CanvasGroup group = target != null ? target.CanvasGroup : null;
+                if (group == null)
+                {
+                    _hudVisibilityTargets.RemoveAt(i);
+                    continue;
+                }
+
+                if (visible)
+                {
+                    group.alpha = target.VisibleAlpha > 0.001f ? target.VisibleAlpha : 1f;
+                    group.interactable = target.VisibleInteractable;
+                    group.blocksRaycasts = target.VisibleBlocksRaycasts;
+                }
+                else
+                {
+                    if (group.alpha > 0.001f)
+                    {
+                        target.VisibleAlpha = group.alpha;
+                    }
+
+                    group.alpha = 0f;
+                    group.interactable = false;
+                    group.blocksRaycasts = false;
+                }
+            }
+        }
+
+        private void PruneHudVisibilityTargets()
+        {
+            for (int i = _hudVisibilityTargets.Count - 1; i >= 0; i--)
+            {
+                HudVisibilityTarget target = _hudVisibilityTargets[i];
+                CanvasGroup group = target != null ? target.CanvasGroup : null;
+                Canvas canvas = group != null ? group.GetComponent<Canvas>() : null;
+                if (group != null && IsHudVisibilityRoot(canvas))
+                {
+                    continue;
+                }
+
+                // If a cached object is repurposed/renamed as a radar or menu canvas while the
+                // HUD is hidden, immediately release it from HUD visibility ownership.
+                if (group != null && !_hudRootsVisible)
+                {
+                    group.alpha = target.VisibleAlpha > 0.001f ? target.VisibleAlpha : 1f;
+                    group.interactable = target.VisibleInteractable;
+                    group.blocksRaycasts = target.VisibleBlocksRaycasts;
+                }
+
+                _hudVisibilityTargets.RemoveAt(i);
+            }
+        }
+
+        private bool ContainsHudVisibilityTarget(GameObject root)
+        {
+            for (int i = 0; i < _hudVisibilityTargets.Count; i++)
+            {
+                CanvasGroup group = _hudVisibilityTargets[i]?.CanvasGroup;
+                if (group != null && group.gameObject == root)
+                {
+                    return true;
+                }
+            }
+
+            return false;
+        }
+
+        private static bool IsHudVisibilityRoot(Canvas canvas)
+        {
+            if (canvas == null || canvas.gameObject == null || !canvas.gameObject.scene.IsValid())
+            {
+                return false;
+            }
+
+            Transform candidate = canvas.transform;
+            if (HasExcludedCanvasNameInHierarchy(candidate))
+            {
+                return false;
+            }
+
+            string candidateName = canvas.gameObject.name;
+            for (int i = 0; i < FlightHudCanvasNames.Length; i++)
+            {
+                if (string.Equals(candidateName, FlightHudCanvasNames[i], System.StringComparison.OrdinalIgnoreCase))
+                {
+                    return true;
+                }
+            }
+
+            // Support authored/custom names when the canvas clearly owns the main HUD.
+            string lowerCandidateName = candidateName.ToLowerInvariant();
+            return lowerCandidateName.Contains("symbology") ||
+                   lowerCandidateName.Contains("hud") ||
+                   canvas.GetComponent<SymbologyColorManager>() != null ||
+                   canvas.GetComponentInChildren<SymbologyColorManager>(true) != null ||
+                   HasNamedDescendant(candidate, "Second Interation GUI");
+        }
+
+        private static bool HasExcludedCanvasNameInHierarchy(Transform candidate)
+        {
+            for (Transform current = candidate; current != null; current = current.parent)
+            {
+                string lowerName = current.gameObject.name.ToLowerInvariant();
+                for (int i = 0; i < ExcludedCanvasNameFragments.Length; i++)
+                {
+                    if (lowerName.Contains(ExcludedCanvasNameFragments[i]))
+                    {
+                        return true;
+                    }
+                }
+            }
+
+            return false;
+        }
+
+        private static bool HasNamedDescendant(Transform root, string objectName)
+        {
+            if (root == null || string.IsNullOrEmpty(objectName))
+            {
+                return false;
+            }
+
+            foreach (Transform candidate in root.GetComponentsInChildren<Transform>(true))
+            {
+                if (candidate != root &&
+                    string.Equals(candidate.gameObject.name, objectName, System.StringComparison.OrdinalIgnoreCase))
+                {
+                    return true;
+                }
+            }
+
+            return false;
         }
         
         /// <summary>

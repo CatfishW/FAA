@@ -54,23 +54,42 @@ namespace HUDControl.Elements
         #endregion
         
         private float displayedAirspeed;
+        private float targetAirspeed;
         private float lastDisplayedAirspeed = -1f;
         private Vector2 tapeBasePos;
+        private bool hasExternalAirspeed;
+        private bool externalDataUnavailable;
         
         public override string ElementId => "Airspeed";
         
         protected override void OnInitialize()
         {
             displayedAirspeed = 0f;
+            targetAirspeed = 0f;
+            hasExternalAirspeed = false;
+            externalDataUnavailable = false;
+            lastDisplayedAirspeed = -1f;
             
             if (speedTape != null)
                 tapeBasePos = speedTape.anchoredPosition;
+
+            SetTapeAvailable(true);
         }
         
         protected override void OnUpdateElement(AircraftState state)
         {
-            float targetAirspeed = Mathf.Max(0f, state.IndicatedAirspeedKnots);
-            displayedAirspeed = Core.HUDAnimator.SmoothValue(displayedAirspeed, targetAirspeed, smoothing);
+            if (state == null || externalDataUnavailable)
+            {
+                return;
+            }
+
+            float target = hasExternalAirspeed
+                ? targetAirspeed
+                : Mathf.Max(0f, state.IndicatedAirspeedKnots);
+            float effectiveSmoothing = smoothing > 0f
+                ? smoothing
+                : Core.HUDAnimator.CalculateSmoothing(animationSpeed);
+            displayedAirspeed = Core.HUDAnimator.SmoothValue(displayedAirspeed, target, effectiveSmoothing);
             
             // Speed tape movement
             if (enableTape && speedTape != null)
@@ -98,6 +117,96 @@ namespace HUDControl.Elements
             }
         }
         
+        /// <summary>
+        /// Feed an authoritative X-Plane value. The first valid packet establishes
+        /// the display without a jump; subsequent packets remain animation targets.
+        /// </summary>
+        public void SetAirspeedData(float value, bool valid)
+        {
+            if (!valid || float.IsNaN(value) || float.IsInfinity(value))
+            {
+                ClearExternalData();
+                return;
+            }
+
+            targetAirspeed = Mathf.Max(0f, value);
+            if (!hasExternalAirspeed)
+            {
+                displayedAirspeed = targetAirspeed;
+            }
+
+            hasExternalAirspeed = true;
+            externalDataUnavailable = false;
+            SetTapeAvailable(true);
+            UpdateReadout();
+        }
+
+        /// <summary>
+        /// Bind only objects authored in the scene or prefab. No UI is created here.
+        /// </summary>
+        public void ConfigureVisuals(RectTransform tape, TMP_Text readout, RectTransform window)
+        {
+            speedTape = tape;
+            airspeedReadout = readout;
+            windowPanel = window;
+            tapeBasePos = speedTape != null ? speedTape.anchoredPosition : Vector2.zero;
+            SetTapeAvailable(true);
+            UpdateReadout();
+        }
+
+        public void ClearExternalData()
+        {
+            hasExternalAirspeed = false;
+            externalDataUnavailable = true;
+            targetAirspeed = 0f;
+            displayedAirspeed = 0f;
+            SetTapeAvailable(false);
+            SetReadoutUnavailable();
+        }
+
+        public bool HasExternalData => hasExternalAirspeed && !externalDataUnavailable;
+        public float GetTargetAirspeed() => targetAirspeed;
         public float GetDisplayedAirspeed() => displayedAirspeed;
+
+        private void UpdateReadout()
+        {
+            if (!enableReadout || airspeedReadout == null)
+            {
+                return;
+            }
+
+            int rounded = Mathf.RoundToInt(displayedAirspeed);
+            if (rounded != Mathf.RoundToInt(lastDisplayedAirspeed) || airspeedReadout.text == "---")
+            {
+                airspeedReadout.text = string.Format(displayFormat, rounded);
+                lastDisplayedAirspeed = rounded;
+            }
+
+            airspeedReadout.color = new Color(0.2f, 1f, 0.2f, 1f);
+        }
+
+        private void SetReadoutUnavailable()
+        {
+            if (airspeedReadout == null)
+            {
+                return;
+            }
+
+            airspeedReadout.text = "---";
+            airspeedReadout.color = new Color(0.2f, 1f, 0.2f, 0.46f);
+        }
+
+        private static void SetTapeAvailable(RectTransform tape, bool available)
+        {
+            if (tape != null && tape.gameObject.activeSelf != available)
+            {
+                tape.gameObject.SetActive(available);
+            }
+        }
+
+        private void SetTapeAvailable(bool available)
+        {
+            SetTapeAvailable(speedTape, available);
+        }
     }
 }

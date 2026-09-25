@@ -8,6 +8,8 @@ namespace IndicatorSystem.Core
     /// </summary>
     public static class ScreenIndicatorCalculator
     {
+        private const float NauticalMileToMeters = 1852f;
+        private const float FeetToMeters = 0.3048f;
         private const float LowerBandEligibleHeightRatio = 0.58f;
         private const float LowerBandTargetHeightRatio = 0.42f;
 
@@ -202,6 +204,64 @@ namespace IndicatorSystem.Core
                 (float)(upMeters / metersPerUnit),
                 (float)(northMeters / metersPerUnit)
             );
+        }
+
+        /// <summary>
+        /// Convert a heading-up radar bearing/range into a world point relative to the headset/camera.
+        /// This keeps screen-edge cues aligned with X-Plane radar symbology even when the aircraft turns.
+        /// </summary>
+        public static Vector3 RadarRelativeToWorldPosition(
+            float distanceNM,
+            float relativeBearingDegrees,
+            float relativeAltitudeFeet,
+            Transform reference)
+        {
+            return RadarRelativeMetersToWorldPosition(
+                Mathf.Max(0f, distanceNM) * NauticalMileToMeters,
+                relativeBearingDegrees,
+                relativeAltitudeFeet * FeetToMeters,
+                reference);
+        }
+
+        /// <summary>
+        /// Convert a heading-up radar bearing/range into a world point relative to the headset/camera.
+        /// </summary>
+        public static Vector3 RadarRelativeMetersToWorldPosition(
+            float distanceMeters,
+            float relativeBearingDegrees,
+            float verticalOffsetMeters,
+            Transform reference)
+        {
+            Vector3 origin = reference != null ? reference.position : Vector3.zero;
+            Vector3 forward = reference != null ? reference.forward : Vector3.forward;
+            forward.y = 0f;
+            if (forward.sqrMagnitude < 0.0001f)
+            {
+                forward = Vector3.forward;
+            }
+            forward.Normalize();
+
+            Vector3 right = reference != null ? reference.right : Vector3.right;
+            right.y = 0f;
+            if (right.sqrMagnitude < 0.0001f)
+            {
+                right = Vector3.Cross(Vector3.up, forward);
+            }
+            right.Normalize();
+
+            float bearingRad = relativeBearingDegrees * Mathf.Deg2Rad;
+            float sideMeters = distanceMeters * Mathf.Sin(bearingRad);
+            float forwardMeters = distanceMeters * Mathf.Cos(bearingRad);
+
+            return origin + right * sideMeters + forward * forwardMeters + Vector3.up * verticalOffsetMeters;
+        }
+
+        /// <summary>
+        /// Return a signed heading-up bearing where 0 is ahead, +90 is right, and -90 is left.
+        /// </summary>
+        public static float CalculateRelativeBearing(float absoluteBearingDegrees, float ownHeadingDegrees)
+        {
+            return Mathf.DeltaAngle(ownHeadingDegrees, absoluteBearingDegrees);
         }
 
         /// <summary>

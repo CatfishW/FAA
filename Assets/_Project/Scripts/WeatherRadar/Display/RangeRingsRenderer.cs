@@ -30,7 +30,7 @@ namespace WeatherRadar
         private Texture2D ringsTexture;
         private Color32[] pixelBuffer;
         private int textureSize = 512;
-        private float currentRange = 40f;
+        private float currentRange = 160f;
         private bool needsRedraw = true;
 
         // Pre-calculated values

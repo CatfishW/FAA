@@ -24,6 +24,13 @@ namespace CesiumForUnity
 #if UNITY_EDITOR_LINUX
             return;
 #else
+            // FAA project uses X-Plane/FAA_OPL terrain for ExperimentScene. Keep Cesium
+            // ion polling disabled to avoid editor-domain-reload crashes from native downloads.
+            if (EditorPrefs.GetBool("FAA.DisableCesiumIonPolling", true))
+            {
+                return;
+            }
+
             try
             {
                 CesiumIonServerManager.instance.currentSession.Tick();

@@ -39,7 +39,7 @@ namespace HUDControl.CompassBar
         [SerializeField] private float majorTickWidth = 2f;
         
         [Tooltip("Color of major tick marks")]
-        [SerializeField] private Color majorTickColor = Color.white;
+        [SerializeField] private Color majorTickColor = new Color(0.2f, 1f, 0.2f, 1f);
         
         [Header("Minor Ticks (Every 5°)")]
         [Tooltip("Enable minor tick marks between major ticks")]
@@ -52,7 +52,7 @@ namespace HUDControl.CompassBar
         [SerializeField] private float minorTickWidth = 1f;
         
         [Tooltip("Color of minor tick marks")]
-        [SerializeField] private Color minorTickColor = new Color(1f, 1f, 1f, 0.6f);
+        [SerializeField] private Color minorTickColor = new Color(0.2f, 1f, 0.2f, 0.6f);
         
         #endregion
         
@@ -69,13 +69,13 @@ namespace HUDControl.CompassBar
         [SerializeField] private float cardinalFontSize = 20f;
         
         [Tooltip("Color for degree labels")]
-        [SerializeField] private Color labelColor = Color.white;
+        [SerializeField] private Color labelColor = new Color(0.2f, 1f, 0.2f, 1f);
         
         [Tooltip("Color for cardinal direction labels")]
-        [SerializeField] private Color cardinalColor = Color.white;
+        [SerializeField] private Color cardinalColor = new Color(0.2f, 1f, 0.2f, 1f);
         
         [Tooltip("Vertical offset for labels from center")]
-        [SerializeField] private float labelVerticalOffset = -5f;
+        [SerializeField] private float labelVerticalOffset = 18f;
         
         [Header("Label Display")]
         [Tooltip("Show labels every N degrees (typically 30 for aviation style)")]
@@ -93,7 +93,7 @@ namespace HUDControl.CompassBar
         [SerializeField] private Color backgroundColor = new Color(0f, 0f, 0f, 0.5f);
         
         [Tooltip("Show a background image")]
-        [SerializeField] private bool showBackground = true;
+        [SerializeField] private bool showBackground = false;
         
         #endregion
         

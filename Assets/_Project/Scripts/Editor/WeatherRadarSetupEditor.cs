@@ -377,7 +377,7 @@ namespace WeatherRadar.Editor
                 new Vector2(0, halfSize - 25), TextAlignmentOptions.Center);
 
             // Range label (bottom center, below radar)
-            TMP_Text rangeLabel = CreateTMPLabel(parent, "RangeLabel", "40nm",
+            TMP_Text rangeLabel = CreateTMPLabel(parent, "RangeLabel", "160nm",
                 new Vector2(0, -halfSize - 20), TextAlignmentOptions.Center);
 
             // Tilt label (inside radar, bottom-right area)
@@ -437,7 +437,9 @@ namespace WeatherRadar.Editor
             WeatherRadarProviderBase weatherProvider,
             WeatherRadarDataProvider dataProvider)
         {
-            GameObject textureObj = new GameObject("XPlaneOriginalTexture");
+            // Use a neutral object name and leave the texture empty in edit
+            // mode; the FAA bridge supplies its own dataref-derived display.
+            GameObject textureObj = new GameObject("FAA Procedural Weather");
             textureObj.transform.SetParent(panel.transform, false);
 
             int radarSize = displaySize - 20;
@@ -449,7 +451,7 @@ namespace WeatherRadar.Editor
             rect.sizeDelta = new Vector2(radarSize, Mathf.Round(radarSize * 512f / 724f));
 
             RawImage image = textureObj.AddComponent<RawImage>();
-            image.color = new Color(1f, 1f, 1f, 0.96f);
+            image.color = new Color(1f, 1f, 1f, 0.82f);
             image.raycastTarget = false;
 
             AspectRatioFitter aspect = textureObj.AddComponent<AspectRatioFitter>();
@@ -462,6 +464,8 @@ namespace WeatherRadar.Editor
             displaySO.FindProperty("dataProvider").objectReferenceValue = dataProvider;
             displaySO.FindProperty("targetImage").objectReferenceValue = image;
             displaySO.FindProperty("aspectRatioFitter").objectReferenceValue = aspect;
+            displaySO.FindProperty("requestTextureWhenEmpty").boolValue = false;
+            displaySO.FindProperty("showReferenceOverlay").boolValue = false;
             displaySO.ApplyModifiedPropertiesWithoutUndo();
 
             textureObj.transform.SetSiblingIndex(1);
@@ -513,7 +517,7 @@ namespace WeatherRadar.Editor
             CreateSectionHeader(controlsObj.transform, "RANGE");
             GameObject rangeRow = CreateControlRow(controlsObj.transform, "RangeRow", 32);
             Button rangeDownBtn = CreateControlButton(rangeRow.transform, "RangeDown", "−", 30);
-            TMP_Text rangeText = CreateValueDisplay(rangeRow.transform, "RangeValue", "40nm", 50);
+            TMP_Text rangeText = CreateValueDisplay(rangeRow.transform, "RangeValue", "160nm", 50);
             Button rangeUpBtn = CreateControlButton(rangeRow.transform, "RangeUp", "+", 30);
 
             // === TILT SECTION ===

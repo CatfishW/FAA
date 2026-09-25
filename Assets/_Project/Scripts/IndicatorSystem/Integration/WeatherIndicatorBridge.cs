@@ -70,6 +70,9 @@ namespace IndicatorSystem.Integration
 
         [Tooltip("World reference transform. If omitted, the bridge uses the main camera, then its own transform.")]
         [SerializeField] private Transform positionReference;
+
+        [Tooltip("Treat weather texture cell positions as heading-up X-Plane radar bearings relative to ownship.")]
+        [SerializeField] private bool useRadarRelativeScreenProjection = true;
         
         [Header("Debug")]
         [SerializeField] private bool verboseLogging = false;
@@ -247,6 +250,7 @@ namespace IndicatorSystem.Integration
             referenceLatitude = weatherProvider.Latitude;
             referenceLongitude = weatherProvider.Longitude;
             referenceAltitude = weatherProvider.Altitude * 0.3048f; // FT to meters
+            indicatorController.SetReferencePosition(referenceLatitude, referenceLongitude, referenceAltitude);
             
             // Clear previous weather targets
             _weatherTargets.Clear();
@@ -373,14 +377,12 @@ namespace IndicatorSystem.Integration
             float normalizedX = ((cell.gridX + 0.5f) / sampleGridSize) * 2f - 1f; // -1 to 1
             float normalizedY = ((cell.gridY + 0.5f) / sampleGridSize) * 2f - 1f; // -1 to 1
             
-            // Calculate distance and bearing
+            // X-Plane weather radar textures are heading-up: 0 is ahead, positive is right.
             float distance = Mathf.Sqrt(normalizedX * normalizedX + normalizedY * normalizedY) * rangeNM;
-            float bearing = Mathf.Atan2(normalizedX, normalizedY) * Mathf.Rad2Deg;
-            if (bearing < 0) bearing += 360f;
+            float relativeBearing = Mathf.Atan2(normalizedX, normalizedY) * Mathf.Rad2Deg;
             
-            // Convert to world position (simplified - assumes flat earth for short distances)
             float distanceMeters = distance * 1852f; // NM to meters
-            Vector3 worldPos = BuildWorldPosition(bearing, distanceMeters);
+            Vector3 worldPos = BuildWorldPosition(relativeBearing, distanceMeters);
             
             // Get color based on intensity
             Color color = GetColorForIntensity(cell.intensity);
@@ -401,14 +403,13 @@ namespace IndicatorSystem.Integration
         private WeatherIndicatorTarget CreatePoweredRadarFallbackTarget(float rangeNM)
         {
             float distanceNM = Mathf.Clamp(poweredRadarFallbackDistanceNM, 2f, Mathf.Max(2f, rangeNM));
-            float bearing = Mathf.Repeat(GetReferenceHeading() + poweredRadarFallbackRelativeBearing, 360f);
             float distanceMeters = distanceNM * 1852f;
             float intensity = 0.36f;
 
             return new WeatherIndicatorTarget
             {
                 id = "WX_POWERED_RADAR",
-                worldPosition = BuildWorldPosition(bearing, distanceMeters),
+                worldPosition = BuildWorldPosition(poweredRadarFallbackRelativeBearing, distanceMeters),
                 displayColor = GetColorForIntensity(intensity),
                 priority = 1,
                 label = _originalDisplay != null && _originalDisplay.RadarMode >= 0
@@ -420,33 +421,29 @@ namespace IndicatorSystem.Integration
             };
         }
 
-        private Vector3 BuildWorldPosition(float bearingDegrees, float distanceMeters)
+        private Vector3 BuildWorldPosition(float relativeBearingDegrees, float distanceMeters)
         {
+            if (useRadarRelativeScreenProjection)
+            {
+                return ScreenIndicatorCalculator.RadarRelativeMetersToWorldPosition(
+                    distanceMeters,
+                    relativeBearingDegrees,
+                    indicatorVerticalOffsetMeters,
+                    GetPositionReference());
+            }
+
+            float absoluteBearing = Mathf.Repeat(
+                (weatherProvider != null ? weatherProvider.Heading : 0f) + relativeBearingDegrees,
+                360f);
+            float bearingRad = absoluteBearing * Mathf.Deg2Rad;
             Transform reference = GetPositionReference();
-            float bearingRad = bearingDegrees * Mathf.Deg2Rad;
-            Vector3 offset = new Vector3(
+            Vector3 origin = reference != null ? reference.position : Vector3.zero;
+
+            return origin + new Vector3(
                 distanceMeters * Mathf.Sin(bearingRad),
                 indicatorVerticalOffsetMeters,
                 distanceMeters * Mathf.Cos(bearingRad)
             );
-
-            if (reference != null)
-            {
-                return reference.position + offset;
-            }
-
-            return offset;
-        }
-
-        private float GetReferenceHeading()
-        {
-            Transform reference = GetPositionReference();
-            if (reference != null)
-            {
-                return reference.eulerAngles.y;
-            }
-
-            return weatherProvider != null ? weatherProvider.Heading : 0f;
         }
 
         private Transform GetPositionReference()
