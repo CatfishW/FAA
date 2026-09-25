@@ -52,7 +52,10 @@ mv "$STAGE/Packages/com.cesium.unity" "$WORK/original-cesium-source"
 mkdir -p "$STAGE/Packages/com.cesium.unity"
 tar -xzf "$ARCHIVE" -C "$STAGE/Packages/com.cesium.unity" --strip-components 1
 
-"$UNITY" -batchmode -quit -nographics -projectPath "$STAGE" \
+# Terrain height assets need 4097-pixel render targets during serialization.
+# Null graphics caps them at 4096 and Unity can misleadingly report Succeeded
+# while recording texture creation errors. Use the host GPU for the build.
+"$UNITY" -batchmode -quit -projectPath "$STAGE" \
   -buildTarget Win64 \
   -executeMethod FAA.Headset.Editor.XR3ReleaseBuild.BuildWindows64 \
   -xr3Output "$OUTPUT/FAA-XR3.exe" -logFile "$WORK/unity-build.log"

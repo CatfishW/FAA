@@ -75,6 +75,10 @@ bash Tools/XR3/build-release-macos.sh
 ```
 
 Install the exact Unity version and its Windows Build Support (Mono) module.
+The build runs in batch mode with host graphics enabled: ExperimentScene has
+4097-sample terrain assets whose serialization exceeds the null-graphics
+device's 4096-pixel texture limit. Build errors are not ignored even when
+Unity reports an overall Succeeded result.
 The script uses APFS copy-on-write clones of the current Assets, Packages,
 ProjectSettings and optional Library into `_artifacts/xr3/<UTC timestamp>/project`.
 It pins and verifies the Cesium package, builds the release, validates x64 native
