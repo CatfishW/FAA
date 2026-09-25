@@ -40,5 +40,14 @@ namespace FAA.Explanations
             placement = default;
             return false; // Caller collapses to a launcher instead of covering the map.
         }
+        public static bool IsAvailable(Box box, float width, float height, IReadOnlyList<Box> obstacles)
+        {
+            if (float.IsNaN(box.X) || float.IsNaN(box.Y) || float.IsNaN(box.W) || float.IsNaN(box.H) ||
+                float.IsInfinity(box.X) || float.IsInfinity(box.Y) || float.IsInfinity(box.W) || float.IsInfinity(box.H) ||
+                float.IsNaN(width) || float.IsInfinity(width) || float.IsNaN(height) || float.IsInfinity(height) ||
+                box.W <= 0 || box.H <= 0 || box.X < 12 || box.Y < 12 || box.Right > width-12 || box.Top > height-12) return false;
+            foreach (var obstacle in obstacles) if (box.Overlaps(obstacle)) return false;
+            return true;
+        }
     }
 }

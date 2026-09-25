@@ -16,6 +16,10 @@ namespace FAA.XPlaneIntegration.Runtime
         [SerializeField] private GeoPosUnityPosProjectManager geoProjection;
         [SerializeField] private OnlineMapAircraftBridge onlineMapBridge;
 
+        [Header("Installed X-Plane Scenery")]
+        [Tooltip("Generate georeferenced relief from the simulator's installed DSF elevation service. Requires the terrain SSH forward.")]
+        [SerializeField] private bool generateInstalledXPlaneTerrain = true;
+
         [Header("Projection Sync")]
         [SerializeField] private bool syncGeoProjectionOrigin = true;
         [SerializeField] private bool setDefaultPositionToAircraft = true;
@@ -60,6 +64,10 @@ namespace FAA.XPlaneIntegration.Runtime
 
         private void Start()
         {
+            if (generateInstalledXPlaneTerrain && FindFirstObjectByType<XPlaneTerrainStreamer>(FindObjectsInactive.Include) == null)
+            {
+                gameObject.AddComponent<XPlaneTerrainStreamer>();
+            }
             if (anchorOnStart)
             {
                 AnchorTerrainNow();

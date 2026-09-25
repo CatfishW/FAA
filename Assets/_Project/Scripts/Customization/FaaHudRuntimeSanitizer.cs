@@ -919,7 +919,7 @@ namespace FAA.Customization
 
             Canvas weatherCanvas = EnsureOverlayCanvas(weatherRadarCanvasName, screenFlightHudSortingOrder + 25, true);
             GameObject weatherRoot = FindNamedRoot(weatherRadarRootName);
-            if (weatherRoot != null && weatherCanvas != null)
+            if (weatherRoot != null && weatherCanvas != null && !FaaSpatialWorkspace.OwnsCanvas(weatherCanvas))
             {
                 PositionRadarRoot(
                     weatherRoot,
@@ -933,7 +933,7 @@ namespace FAA.Customization
 
             Canvas trafficCanvas = EnsureOverlayCanvas(trafficRadarCanvasName, screenFlightHudSortingOrder + 80, true);
             GameObject trafficRoot = FindPreferredTrafficRadarRoot();
-            if (trafficRoot != null && trafficCanvas != null)
+            if (trafficRoot != null && trafficCanvas != null && !FaaSpatialWorkspace.OwnsCanvas(trafficCanvas))
             {
                 PositionRadarRoot(
                     trafficRoot,
@@ -1206,6 +1206,7 @@ namespace FAA.Customization
                 canvas = canvasObject.GetComponent<Canvas>();
             }
 
+            if (FaaSpatialWorkspace.OwnsCanvas(canvas)) return canvas;
             RehomeDuplicateOverlayCanvases(objectName, canvas);
 
             if (canvas.transform.parent != null)

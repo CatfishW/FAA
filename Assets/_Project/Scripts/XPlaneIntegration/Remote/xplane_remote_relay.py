@@ -313,6 +313,8 @@ class XPlaneConnectSource:
         "sim/flightmodel/position/vh_ind",
         "sim/cockpit/autopilot/autopilot_state",
         "sim/cockpit/switches/gear_handle_status",
+        "sim/flightmodel/position/hpath",
+        "sim/flightmodel/position/y_agl",
     ]
 
     def __init__(
@@ -361,6 +363,10 @@ class XPlaneConnectSource:
         vertical_speed_fpm = own_values[3][0] * 196.8504
         autopilot_mode = int(own_values[4][0])
         gear_down = bool(own_values[5][0] > 0.5)
+        true_track_deg = float(own_values[6][0])
+        altitude_agl_m = float(own_values[7][0])
+        if not math.isfinite(true_track_deg) or not math.isfinite(altitude_agl_m) or altitude_agl_m < 0:
+            raise RuntimeError("X-Plane ground track / AGL is unavailable; refusing a fabricated flight reference")
 
         recovery_active = (
             altitude_m < self._recovery_altitude_m
@@ -418,12 +424,12 @@ class XPlaneConnectSource:
             latitude=float(lat),
             longitude=float(lon),
             altitude_m=float(altitude_m),
-            altitude_agl_m=max(altitude_m - 150.0, 100.0),
+            altitude_agl_m=altitude_agl_m,
             pitch_deg=float(pitch_deg),
             roll_deg=float(roll_deg),
             heading_deg=normalize_heading(float(heading_deg)),
-            track_deg=normalize_heading(float(heading_deg)),
-            flight_path_angle_deg=clamp(vertical_speed_fpm / 600.0, -10.0, 10.0),
+            track_deg=normalize_heading(true_track_deg),
+            flight_path_angle_deg=math.degrees(math.atan2(vertical_speed_fpm * 0.00508, ground_speed_kt * 0.514444444)),
             slip_skid=0.0,
             indicated_airspeed_kt=float(indicated_airspeed),
             true_airspeed_kt=float(true_airspeed),

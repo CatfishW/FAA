@@ -54,6 +54,8 @@ namespace FAA.Headset
         [Tooltip("Drive the FAA camera from Varjo/XR Interaction Simulator HMD pose input.")]
         [SerializeField] private bool driveCameraFromXrHmd = true;
         [SerializeField] private bool routeOverlayCanvasesToXrCamera = true;
+        [Tooltip("Depth of non-conformal camera-space instruments in metres. Does not change optical calibration, FOV or conformal angular geometry.")]
+        [SerializeField, Range(.55f, 3f)] private float overlayDistanceMeters = 1.2f;
         [Tooltip("Keep FAA HUD and radar canvases in screen-space overlay mode while using the desktop XR simulator. Native Varjo mode uses camera-space canvases for stereo output.")]
         [SerializeField] private bool useScreenSpaceOverlayForSimulator = true;
         [Tooltip("Keep the desktop pointer available for FAA's screen-space controls while the Unity XR simulator is running in the Editor. Disable this only when testing controller point-and-click input with a camera-space XR UI.")]
@@ -101,6 +103,9 @@ namespace FAA.Headset
         private bool _simulatorInputSelectionLayoutConfigured;
         private int _nativeDetectionFrames;
         private bool _reportedUnavailable;
+
+        public bool IsCompatibilityActive => _active;
+        public bool IsNativeVarjoMode => _active && _activeMode == ActivationMode.VarjoXR3;
 
         private struct CanvasState
         {
@@ -513,7 +518,7 @@ namespace FAA.Headset
                 {
                     canvas.renderMode = RenderMode.ScreenSpaceCamera;
                     canvas.worldCamera = xrCamera;
-                    canvas.planeDistance = Mathf.Max(xrCamera.nearClipPlane + 0.05f, 0.4f);
+                    canvas.planeDistance = Mathf.Max(xrCamera.nearClipPlane + 0.05f, overlayDistanceMeters);
                     canvas.targetDisplay = 0;
                     NormalizeCameraCanvasLayout(canvas);
                 }
@@ -581,6 +586,8 @@ namespace FAA.Headset
 
         private bool ShouldRouteCanvas(Canvas canvas)
         {
+            // Spatial radar canvases belong to the pilot's cockpit layout, not head-fixed routing.
+            if (FAA.Customization.FaaSpatialWorkspace.OwnsCanvas(canvas)) return false;
             string path = GetHierarchyPath(canvas.transform);
             if (overlayCanvasNames == null)
             {
@@ -603,7 +610,7 @@ namespace FAA.Headset
         {
             foreach (CanvasState state in _canvasStates.Values)
             {
-                if (state.canvas == null)
+                if (state.canvas == null || FAA.Customization.FaaSpatialWorkspace.OwnsCanvas(state.canvas))
                 {
                     continue;
                 }

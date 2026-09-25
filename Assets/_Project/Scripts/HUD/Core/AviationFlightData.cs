@@ -23,6 +23,13 @@ namespace AviationUI
         [Range(0f, 360f)]
         public float heading;
 
+        [Tooltip("True only when pitch, roll and true heading were present and finite in the current source sample.")]
+        public bool attitudeValid;
+        [Tooltip("True only when ground speed, vertical speed and (when moving) true ground track are available.")]
+        public bool groundVelocityValid;
+        [Tooltip("True only when a finite, non-negative height-above-ground sample is available.")]
+        public bool altitudeAGLValid;
+
         [Header("Speed")]
         [Tooltip("Indicated airspeed in knots")]
         public float indicatedAirspeed;
@@ -159,7 +166,12 @@ namespace AviationUI
                 verticalSpeed = Mathf.Lerp(a.verticalSpeed, b.verticalSpeed, t),
                 barometricSetting = Mathf.Lerp(a.barometricSetting, b.barometricSetting, t),
                 magneticVariation = Mathf.Lerp(a.magneticVariation, b.magneticVariation, t),
-                track = Mathf.LerpAngle(a.track, b.track, t),
+                // A missing track must not poison subsequent valid samples through NaN interpolation.
+                track = float.IsNaN(a.track) || float.IsInfinity(a.track) || float.IsNaN(b.track) || float.IsInfinity(b.track)
+                    ? b.track : Mathf.LerpAngle(a.track, b.track, t),
+                attitudeValid = b.attitudeValid,
+                groundVelocityValid = b.groundVelocityValid,
+                altitudeAGLValid = b.altitudeAGLValid,
                 courseDeviation = Mathf.Lerp(a.courseDeviation, b.courseDeviation, t),
                 glideslopeDeviation = Mathf.Lerp(a.glideslopeDeviation, b.glideslopeDeviation, t),
                 engine1Torque = Mathf.Lerp(a.engine1Torque, b.engine1Torque, t),
@@ -192,6 +204,9 @@ namespace AviationUI
         /// </summary>
         public void Reset()
         {
+            attitudeValid = false;
+            groundVelocityValid = false;
+            altitudeAGLValid = false;
             pitch = 0f;
             roll = 0f;
             heading = 0f;

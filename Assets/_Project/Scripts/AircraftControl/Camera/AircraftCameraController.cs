@@ -139,12 +139,18 @@ namespace AircraftControl.Camera
         #region Private Fields
         
         private bool _isLookActive;
+        private bool _panelPointerCapture;
+        public bool PanelPointerCaptured => _panelPointerCapture;
+        public void SetPanelPointerCapture(bool captured) { _panelPointerCapture = captured; }
         private bool _lookWasHeld;
         private float _returnElapsed;
         private Vector2 _returnStart;
         [SerializeField, Min(0.1f)] private float autoReturnSeconds = 0.8f;
         private float _currentPitch;
         private float _currentYaw;
+        private bool _panelInspection;
+        private Vector2 _panelInspectionAngles;
+        public bool IsPanelInspectionActive => _panelInspection;
         
         // Smoothed mouse input
         private float _smoothedMouseX;
@@ -227,7 +233,13 @@ namespace AircraftControl.Camera
             // A real HMD (or explicit XR simulator test) owns its pose. Never
             // spring a physically tracked head back to the aircraft direction.
             var trackedPose = GetComponent<TrackedPoseDriver>();
-            if (trackedPose != null && trackedPose.isActiveAndEnabled) return;
+            if (trackedPose != null && trackedPose.isActiveAndEnabled)
+            {
+                // Keep the conformal reference current without taking ownership
+                // of the tracked head pose or applying desktop look compensation.
+                _aircraftReferenceRotation = aircraftTransform.rotation;
+                return;
+            }
 #endif
             
             // Check for mode cycle
@@ -283,6 +295,25 @@ namespace AircraftControl.Camera
 
         private void ProcessLookInput(bool held, Vector2 delta, bool overUi, float dt)
         {
+            if (_panelPointerCapture)
+            {
+                _isLookActive = false; _lookWasHeld = held;
+                return; // Right-button panel ownership wins until release, even after leaving its bounds.
+            }
+            if (_panelInspection)
+            {
+                bool deliberateLookPress = held && !_lookWasHeld && !overUi;
+                _lookWasHeld = held;
+                if (!deliberateLookPress)
+                {
+                    _isLookActive = false;
+                    _currentPitch = Mathf.MoveTowardsAngle(_currentPitch,_panelInspectionAngles.x,180f * Mathf.Max(0f,dt));
+                    _currentYaw = Mathf.MoveTowardsAngle(_currentYaw,_panelInspectionAngles.y,180f * Mathf.Max(0f,dt));
+                    return;
+                }
+                _panelInspection = false;
+                _lookWasHeld = false; // Pass the genuine outside-UI press to the normal capture path.
+            }
             bool wasActive = _isLookActive;
             // Only a press that starts outside UI can capture the view. Dragging
             // a chart or slider must not turn the camera after leaving that UI.
@@ -334,6 +365,7 @@ namespace AircraftControl.Camera
         private void OnApplicationFocus(bool focused)
         {
             if (focused) return;
+            _panelInspection = false;
             _isLookActive = false;
             _returnStart = new Vector2(_currentPitch, _currentYaw);
             _returnElapsed = 0f;
@@ -462,6 +494,7 @@ namespace AircraftControl.Camera
         /// </summary>
         public void ResetView()
         {
+            _panelInspection = false;
             _returnStart = Vector2.zero;
             _returnElapsed = 0f;
             _currentPitch = 0f;
@@ -499,6 +532,20 @@ namespace AircraftControl.Camera
         public void SetSensitivity(float sensitivity)
         {
             mouseSensitivity = Mathf.Clamp(sensitivity, 0.5f, 10f);
+        }
+
+        /// <summary>Explicit desktop-only side inspection. Never moves UI into the forward view or drives a tracked HMD.</summary>
+        public bool BeginPanelInspection(float yaw,float elevation)
+        {
+            if (!isActiveAndEnabled || cameraMode != CameraMode.Cockpit || UnityEngine.XR.XRSettings.isDeviceActive ||
+                float.IsNaN(yaw) || float.IsInfinity(yaw) || float.IsNaN(elevation) || float.IsInfinity(elevation)) return false;
+#if ENABLE_INPUT_SYSTEM
+            var tracking = GetComponent<UnityEngine.InputSystem.XR.TrackedPoseDriver>();
+            if (tracking != null && tracking.isActiveAndEnabled) return false;
+#endif
+            _panelInspectionAngles = new Vector2(Mathf.Clamp(-elevation,minPitch,maxPitch),Mathf.Clamp(yaw,-maxYaw,maxYaw));
+            _panelInspection = true; _isLookActive = _lookWasHeld = false;
+            return true;
         }
         
         #endregion

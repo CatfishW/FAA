@@ -1,0 +1,18 @@
+[Unit]
+Description=Read-only X-Plane DSF elevation streaming for Unity
+After=network.target
+
+[Service]
+Type=simple
+WorkingDirectory=%h/.local/share/faa-xplane-terrain
+ExecStart=/usr/bin/python3 -u %h/.local/share/faa-xplane-terrain/terrain_server.py --xplane-root "%h/.steam/debian-installation/steamapps/common/X-Plane 12" --port 8767
+Restart=on-failure
+RestartSec=5
+NoNewPrivileges=true
+PrivateTmp=true
+ProtectSystem=strict
+ProtectHome=read-only
+MemoryMax=512M
+
+[Install]
+WantedBy=default.target

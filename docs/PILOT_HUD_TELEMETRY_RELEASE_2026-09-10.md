@@ -281,6 +281,7 @@ full PlayMode regression, and a production build remain separate release gates.
 | 2026-09-09 | Map, cue, and briefing refinement | Improved chart zoom/pan behavior, control-panel placement, screen-cue decluttering, compact briefing layout, and fixed-height brief pagination. |
 | 2026-09-10 | Geometry and simulator completion pass | Added view auto-return, exact radar/cue target geometry, native ICAO category mapping, mixed AI traffic, all-layer turbulence telemetry, truthful TURB status, tests, and release documentation. |
 | 2026-09-11 | Conformal HUD presentation | Added aircraft-referenced HUD projection, independent of manual camera look, with a head-fixed compatibility mode and viewport calibration notes. |
+| 2026-09-12 | Installed terrain and view stability | Streamed installed X-Plane elevation, extended coverage with distant LOD and 150 km clipping, and removed finite-anchor/camera-phase HUD jitter. |
 
 ## Repository hygiene included in this branch
 
@@ -300,6 +301,86 @@ private-key block in added/modified files. Because an earlier Git revision may
 still contain a previously serialized credential, any credential ever stored in
 that scene should be rotated; deleting it from the latest tree does not erase
 Git history.
+
+## Follow-up implementation notes
+
+### 2026-09-12 — installed X-Plane terrain generation
+
+Added a read-only DSF elevation service and bounded Unity terrain streaming.
+The service reads the installed scenery-pack order on `4090`, validates DSF
+rasters and source checksums, and serves geographic height tiles through a
+separate loopback SSH forward. Unity uses the same geo projection and MSL
+reference as ownship, with shared tile edges, longitude wrapping, origin
+rebasing, source status, retry/backoff, and no invented flat fallback.
+
+The old relocated terrain/underlay is suppressed in this mode; the artificial
+120 m aircraft visual-clearance floor is bypassed. X-Plane's running flight,
+weather and plugin configuration are untouched. Terrain colors are synthetic;
+this is source elevation relief, **not** a copy of the final collision mesh,
+airport flattening, water geometry, buildings or scenery textures.
+
+Validation: 14 Python checks, 9 Unity terrain direct assertions and 96 existing
+view/cue/type/weather assertions passed. Live rendering loaded 25/25 tiles;
+outage retention, reconnection and reversible disable/re-enable were exercised.
+Spot comparisons differed from simulator ground height by approximately 1.7–2.1
+metres; those observations are not an accuracy guarantee or clearance approval.
+
+See [terrain setup and limitations](../Tools/XPlaneTerrain/README.md) for the
+service, tunnel, runtime settings, test commands and reversible disable steps.
+
+### 2026-09-12 — HUD shaking and distant-terrain cutoff
+
+The reported shaking had a reproducible rendering component, not just network
+latency. The conformal HUD ran at execution order 10020, before the final camera
+pose at 11100. It also projected a point 175.6 m in front of the **aircraft** while
+camera translation was independently smoothed. That relative displacement
+introduced artificial parallax into an angular HUD reference.
+
+The screen path now projects rotation-only directions through the non-jittered
+camera matrix, after camera updates (12050), and refreshes before rendering.
+It adds no smoothing buffer, remains aircraft-relative during side-window
+looks, and takes an invalid/behind-view reference off screen instead of freezing
+it. Native tracked-head pose is not overwritten; its aircraft reference is kept
+current. Per-eye/optical XR latency remains separately unvalidated.
+
+Read-only 180-frame measurements at a 3840-pixel render width:
+
+| Registration error | Before | After, terrain loaded |
+| --- | ---: | ---: |
+| Mean | 4.337 px | <0.001 px |
+| 95th percentile | 9.387 px | <0.001 px |
+| Maximum | 12.214 px | <0.001 px |
+
+These were separate live windows, not an identical recorded-flight replay. The
+new rotation/translation and final-pose regression tests also verify the
+geometric invariants directly. Network packet age still averaged about 46 ms
+in the final window; this change does not claim to eliminate transport latency
+or genuine aircraft/turbulence motion. Loaded-state frame time averaged 10.8 ms
+(95th percentile 15.9 ms); an isolated 90.6 ms Editor frame remained. Cold terrain
+loading is heavier, so these figures are not a hardware performance guarantee.
+
+The visible terrain boundary was the old 0.5° tile window, even though the camera
+could see 60 km. The replacement world-aligned quadtree spans 4° by default,
+preserves near-source detail, uses coarse distant tiles and seam skirts, and
+holds parents until child replacements are ready. Far clipping is now 150 km;
+the cockpit near clip remains 0.3 m. Origin reprojection is spread across frames
+to avoid rebuilding the entire landscape at once.
+
+Validation: **137 focused assertions passed** (16 Python, 16 terrain, 9 new HUD,
+96 existing view/cue/type/weather). Live Unity loaded **91/91** tiles / **802,227**
+vertices with no terrain error; 15 terrain bounds beyond the old 60 km distance
+intersected the camera frustum. A fresh source-height comparison differed from
+X-Plane MSL-minus-AGL by −0.767 m at one point; this is not a clearance guarantee.
+
+The read-only terrain service on `4090` was updated to support bounded tile
+spans. Its preceding script is retained as
+`terrain_server.pre-distance-20260912.py` on that host. No aircraft controls,
+weather settings or simulator plugins were changed for this fix. Source and
+documentation changes remain local until explicitly committed/pushed.
+
+Reproduce the HUD trace in Play mode with
+`Tools/ExplanationVerification/CaptureHudTiming.cs`; it writes an ignored
+`Temp/faa-hud-timing.json`. Run the view/terrain assertion scripts outside Play.
 
 ## Rollback and recovery
 

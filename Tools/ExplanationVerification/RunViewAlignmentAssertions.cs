@@ -2,7 +2,7 @@
 // This is a focused direct-assertion run, not a Unity Test Runner report.
 if (UnityEditor.EditorApplication.isPlaying) return "Stop Play mode before running edit-time fixtures.";
 var reports = new System.Collections.Generic.List<object>();
-foreach (string suite in new[] { "FaaViewAlignmentTests", "FaaScreenCueTests", "FaaCueStabilityTests", "FaaTrafficTypeMetadataTests", "FaaTurbulenceModeTests" })
+foreach (string suite in new[] { "FaaHudStabilityTests", "FaaViewAlignmentTests", "FaaScreenCueTests", "FaaCueStabilityTests", "FaaTrafficTypeMetadataTests", "FaaTurbulenceModeTests" })
 {
     var type = System.Type.GetType("FAA.Customization.Tests." + suite + ", FAA.Customization.EditorTests", true);
     int passed = 0;

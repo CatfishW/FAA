@@ -37,6 +37,7 @@ public class ScaleManager : MonoBehaviour
     {
         if (parent == null) return;
 
+        if (FAA.Customization.FaaSpatialWorkspace.TrySetModuleScale(parent.transform, scaleMultiplier)) return;
         parent.transform.localScale = baseScale * scaleMultiplier;
     }
 }

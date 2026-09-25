@@ -507,6 +507,13 @@ namespace FAA.HUDToolkit
 
         private void UpdateFlightPathVector(float centerX, float centerY, float scale, AviationFlightData data)
         {
+            bool valid = data.groundVelocityValid && data.groundSpeed >= 5f &&
+                !float.IsNaN(data.track) && !float.IsInfinity(data.track) &&
+                !float.IsNaN(data.flightPathAngle) && !float.IsInfinity(data.flightPathAngle);
+            var display = valid ? UnityEngine.UIElements.DisplayStyle.Flex : UnityEngine.UIElements.DisplayStyle.None;
+            _fpvRing.style.display = display; _fpvLeft.style.display = display;
+            _fpvRight.style.display = display; _fpvTop.style.display = display;
+            if (!valid) return;
             float relativeTrack = Mathf.DeltaAngle(data.heading, data.track);
             float x = centerX + Mathf.Clamp(relativeTrack, -10f, 10f) * 10f * scale;
             float y = centerY - Mathf.Clamp(data.flightPathAngle, -15f, 15f) * pitchPixelsPerDegree * scale;

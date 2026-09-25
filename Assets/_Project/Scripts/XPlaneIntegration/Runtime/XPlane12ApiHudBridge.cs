@@ -1585,8 +1585,15 @@ namespace FAA.XPlaneIntegration.Runtime
             data.pitch = Mathf.Clamp(Get(aircraft, "sim/flightmodel/position/theta"), -90f, 90f);
             data.roll = XPlaneDataRefMapper.NormalizeAngle(Get(aircraft, "sim/flightmodel/position/phi"));
             data.heading = XPlaneDataRefMapper.NormalizeHeading(Get(aircraft, "sim/flightmodel/position/psi"));
-            data.track = XPlaneDataRefMapper.NormalizeHeading(Get(aircraft, "sim/flightmodel/position/mag_psi", data.heading));
-            data.magneticVariation = XPlaneDataRefMapper.NormalizeAngle(data.heading - data.track);
+            // mag_psi is magnetic heading, not ground track. Never turn a missing
+            // drift measurement into a plausible forward-flight/hover indication.
+            bool hasTrack = TryGetFinite(aircraft, "sim/flightmodel/position/hpath", out float trueTrack);
+            data.track = hasTrack ? XPlaneDataRefMapper.NormalizeHeading(trueTrack) : float.NaN;
+            data.magneticVariation = TryGetFinite(aircraft, "sim/flightmodel/position/mag_psi", out float magneticHeading)
+                ? XPlaneDataRefMapper.NormalizeAngle(data.heading - magneticHeading) : 0f;
+            data.attitudeValid = TryGetFinite(aircraft, "sim/flightmodel/position/theta", out float rawPitch) &&
+                Mathf.Abs(rawPitch) <= 90f && TryGetFinite(aircraft, "sim/flightmodel/position/phi", out _) &&
+                TryGetFinite(aircraft, "sim/flightmodel/position/psi", out _);
 
             data.indicatedAirspeed = Mathf.Max(0f, Get(aircraft, "sim/flightmodel/position/indicated_airspeed"));
             data.trueAirspeed = Mathf.Max(0f, Get(aircraft, "sim/flightmodel/position/true_airspeed") * MetersPerSecondToKnots);
@@ -1597,6 +1604,11 @@ namespace FAA.XPlaneIntegration.Runtime
             data.altitudeMSL = altitudeMeters * MetersToFeet;
             data.altitudeAGL = altitudeAglMeters * MetersToFeet;
             data.verticalSpeed = Get(aircraft, "sim/flightmodel/position/vh_ind") * MetersPerSecondToFeetPerMinute;
+
+            data.groundVelocityValid = TryGetFinite(aircraft, "sim/flightmodel/position/groundspeed", out float rawGroundSpeed) &&
+                rawGroundSpeed >= 0f && TryGetFinite(aircraft, "sim/flightmodel/position/vh_ind", out _) &&
+                (hasTrack || data.groundSpeed <= 0.01f);
+            data.altitudeAGLValid = TryGetFinite(aircraft, "sim/flightmodel/position/y_agl", out float rawAgl) && rawAgl >= 0f;
 
             data.windSpeed = Mathf.Max(0f, GetWindSpeed(weather));
             data.windDirection = XPlaneDataRefMapper.NormalizeHeading(GetAny(weather, 0f,
@@ -1885,9 +1897,11 @@ namespace FAA.XPlaneIntegration.Runtime
             GeoPosUnityPosProjectManager geoProjection = GeoPosUnityPosProjectManager.Instance;
             if (geoProjection != null)
             {
-                float projectedAltitudeMeters = Mathf.Max(
-                    altitudeMeters,
-                    GeoAltitudeFromAgl(data) + Mathf.Max(0f, minimumUnityTerrainClearanceMeters));
+                // Generated DSF terrain and ownship share the same MSL reference.
+                // Never lift the aircraft by the legacy fake-terrain clearance.
+                bool simulatorTerrain = XPlaneTerrainStreamer.Active != null && XPlaneTerrainStreamer.Active.UsesSimulatorAltitude;
+                float projectedAltitudeMeters = simulatorTerrain ? altitudeMeters : Mathf.Max(
+                    altitudeMeters, GeoAltitudeFromAgl(data) + Mathf.Max(0f, minimumUnityTerrainClearanceMeters));
                 aircraftController.transform.position = geoProjection.GeoToUnityPosition(latitude, longitude, projectedAltitudeMeters);
             }
 
@@ -2957,7 +2971,11 @@ namespace FAA.XPlaneIntegration.Runtime
                 hud.UpdateRoll(data.roll);
             });
             ForEach(_attitudeHudNews, hud => hud.UpdatePitch(data.pitch));
-            ForEach(_flightPathVectors, hud => hud.UpdateFPV(relativeFlightPathPitch, relativeTrack, data.indicatedAirspeed));
+            bool validLegacyFpv = data.groundVelocityValid && data.groundSpeed >= 5f &&
+                IsFinite(relativeFlightPathPitch) && IsFinite(relativeTrack);
+            ForEach(_flightPathVectors, hud => hud.UpdateFPV(
+                validLegacyFpv ? relativeFlightPathPitch : 0f,
+                validLegacyFpv ? relativeTrack : 0f, validLegacyFpv ? data.groundSpeed : 0f));
             ForEach(_slipSkidHuds, hud => hud.UpdateSlip(data.slipSkid));
             ForEach(_altitudeAglDisplays, hud => hud.UpdateText(altitudeMeters, aglMeters));
             ForEach(_courseDeviationHuds, hud => hud.UpdateDeviation(0, data.courseDeviation, data.courseDeviation, data.courseDeviation));
@@ -3324,7 +3342,7 @@ namespace FAA.XPlaneIntegration.Runtime
                 AddSnapshotValue(_snapshot.Aircraft, "sim/flightmodel/position/theta", ownship["pitch_deg"]);
                 AddSnapshotValue(_snapshot.Aircraft, "sim/flightmodel/position/phi", ownship["roll_deg"]);
                 AddSnapshotValue(_snapshot.Aircraft, "sim/flightmodel/position/psi", ownship["heading_deg"]);
-                AddSnapshotValue(_snapshot.Aircraft, "sim/flightmodel/position/mag_psi", ownship["track_deg"]);
+                AddSnapshotValue(_snapshot.Aircraft, "sim/flightmodel/position/hpath", ownship["track_deg"]);
                 AddSnapshotValue(_snapshot.Aircraft, "sim/flightmodel/position/indicated_airspeed", ownship["indicated_airspeed_kt"]);
                 AddScaledSnapshotValue(_snapshot.Aircraft, "sim/flightmodel/position/true_airspeed", ownship["true_airspeed_kt"], 1f / MetersPerSecondToKnots);
                 AddScaledSnapshotValue(_snapshot.Aircraft, "sim/flightmodel/position/groundspeed", ownship["ground_speed_kt"], 1f / MetersPerSecondToKnots);

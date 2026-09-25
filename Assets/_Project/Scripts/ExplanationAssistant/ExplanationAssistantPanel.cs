@@ -17,7 +17,7 @@ using BriefCanvasScaler = UnityEngine.UI.CanvasScaler;
 namespace FAA.Explanations
 {
     /// <summary>Click-only, lower-center brief dock. No keyboard entry or modal flight-HUD takeover.</summary>
-    [DisallowMultipleComponent, RequireComponent(typeof(ExplanationAssistantController))]
+    [DefaultExecutionOrder(12800), DisallowMultipleComponent, RequireComponent(typeof(ExplanationAssistantController))]
     public sealed class ExplanationAssistantPanel : MonoBehaviour
     {
         public const float DockWidth = 520, DockHeight = 82, ResultHeight = 196, DockBottom = 18, CardGap = 8;
@@ -45,6 +45,9 @@ namespace FAA.Explanations
         private readonly List<BriefPlacement.Box> obstacles = new List<BriefPlacement.Box>();
         private float nextLayoutScan;
         private bool layoutBlocked;
+        private BriefPlacement.Box retainedPlacement, candidatePlacement;
+        private bool hasPlacement, waitingPlacement;
+        private float candidateSince;
         private Image[] actionPlates;
         private Button refreshButton;
         private bool open = true, resultVisible, dirty = true;
@@ -63,6 +66,7 @@ namespace FAA.Explanations
         public ExplanationAssistantController Controller => controller;
         public RectTransform DockRect => dock;
         public RectTransform ResultRect => result;
+        public RectTransform LauncherRect => launcher;
 
         [RuntimeInitializeOnLoadMethod(RuntimeInitializeLoadType.AfterSceneLoad)]
         private static void Install()
@@ -111,6 +115,7 @@ namespace FAA.Explanations
             controller = GetComponent<ExplanationAssistantController>();
             if (canvas != null) { canvas.gameObject.SetActive(false); DestroyOwned(canvas.gameObject); }
             Build();
+            hasPlacement = waitingPlacement = false;
             builtVersion = ViewVersion;
             open = true; resultVisible = false; reveal = 0;
             lastRenderKey = null;
@@ -230,7 +235,7 @@ namespace FAA.Explanations
                 AddObstacle(trafficDisplay.DisplayRectTransform);
             foreach (var rect in protectedRects) AddObstacle(rect);
             var size = ((RectTransform)canvas.transform).rect.size;
-            if (trafficDisplay == null || !trafficDisplay.IsFullscreen)
+            if (trafficDisplay == null || !trafficDisplay.IsFullscreen || FaaSpatialWorkspace.Current?.SpatialPanelsEnabled == true)
                 obstacles.Add(new BriefPlacement.Box(size.x * .25f, size.y * .3f, size.x * .5f, size.y * .7f));
         }
         private void AddObstacle(RectTransform rect)
@@ -240,8 +245,31 @@ namespace FAA.Explanations
                 if (group.alpha < .02f) return;
             Canvas sourceCanvas = rect.GetComponentInParent<Canvas>();
             if (sourceCanvas != null && !sourceCanvas.enabled) return;
+            if (sourceCanvas != null) sourceCanvas = sourceCanvas.rootCanvas;
             Camera camera = sourceCanvas != null && sourceCanvas.renderMode != RenderMode.ScreenSpaceOverlay ? sourceCanvas.worldCamera : null;
             var target = (RectTransform)canvas.transform;
+            if (sourceCanvas != null && sourceCanvas.renderMode != RenderMode.WorldSpace)
+            {
+                // Fixed flight UI maps directly between canvas reference rectangles. Projecting it
+                // through the moving camera before its final pose caused false moving obstacles.
+                var sourceRoot = (RectTransform)sourceCanvas.transform;
+                if (FaaCanvasLocalGeometry.TryMatrix(rect, sourceRoot, out var matrix))
+                {
+                    Rect localRect = rect.rect;
+                    if (IsFlightInstrument(rect))
+                    {
+                        Bounds contentBounds = RectTransformUtility.CalculateRelativeRectTransformBounds(rect, rect);
+                        localRect = new Rect(contentBounds.min.x, contentBounds.min.y, contentBounds.size.x, contentBounds.size.y);
+                    }
+                    Rect box = FaaCanvasLocalGeometry.TransformRect(localRect,matrix);
+                    Rect from = sourceRoot.rect;
+                    if (from.width > 1 && from.height > 1)
+                        obstacles.Add(new BriefPlacement.Box((box.xMin-from.xMin)*target.rect.width/from.width,
+                            (box.yMin-from.yMin)*target.rect.height/from.height,
+                            box.width*target.rect.width/from.width,box.height*target.rect.height/from.height));
+                }
+                return;
+            }
             rect.GetWorldCorners(corners);
             if (IsFlightInstrument(rect))
             {
@@ -254,13 +282,23 @@ namespace FAA.Explanations
                 corners[3] = rect.TransformPoint(new Vector3(bounds.max.x, bounds.min.y, bounds.center.z));
             }
             Vector2 min = new Vector2(float.PositiveInfinity, float.PositiveInfinity), max = new Vector2(float.NegativeInfinity, float.NegativeInfinity);
+            if (camera != null)
+            {
+                int inFront=0;
+                foreach (Vector3 point in corners) if(camera.WorldToViewportPoint(point).z > camera.nearClipPlane) inFront++;
+                if(inFront==0)return; // Behind-camera radar panels are not forward-HUD obstacles.
+                if(inFront<4)
+                { obstacles.Add(new BriefPlacement.Box(0,0,target.rect.width,target.rect.height));return; }
+            }
             foreach (Vector3 point in corners)
             {
                 Vector2 screen = RectTransformUtility.WorldToScreenPoint(camera, point);
-                RectTransformUtility.ScreenPointToLocalPointInRectangle(target, screen, null, out Vector2 local);
+                Camera targetCamera=canvas.renderMode==RenderMode.ScreenSpaceOverlay?null:canvas.worldCamera;
+                RectTransformUtility.ScreenPointToLocalPointInRectangle(target, screen, targetCamera, out Vector2 local);
                 local -= target.rect.min;
                 min = Vector2.Min(min, local); max = Vector2.Max(max, local);
             }
+            min=Vector2.Max(min,Vector2.zero);max=Vector2.Min(max,target.rect.size);
             if (max.x - min.x >= 1 && max.y - min.y >= 1)
                 obstacles.Add(new BriefPlacement.Box(min.x, min.y, max.x - min.x, max.y - min.y));
         }
@@ -274,18 +312,30 @@ namespace FAA.Explanations
             CollectObstacles();
             var size = ((RectTransform)canvas.transform).rect.size;
             float width = CompactSize(size).x;
-            bool mapOpen = trafficDisplay != null && trafficDisplay.IsFullscreen;
+            bool mapOpen = trafficDisplay != null && trafficDisplay.IsFullscreen && FaaSpatialWorkspace.Current?.SpatialPanelsEnabled != true;
             // Reserve the complete stack even while collapsed, preventing a jump on each action.
             float stack = DockHeight + CardGap + ResultHeight;
-            bool fits = BriefPlacement.TryPlace(size.x, size.y, width, stack, mapOpen, obstacles, out var placement);
-            if (!fits && width > 440)
-            { width = 440; fits = BriefPlacement.TryPlace(size.x, size.y, width, stack, mapOpen, obstacles, out placement); }
+            var placement = retainedPlacement;
+            bool fits = hasPlacement && BriefPlacement.IsAvailable(retainedPlacement,size.x,size.y,obstacles);
+            if(fits)width=retainedPlacement.W;
+            else
+            {
+                bool available=BriefPlacement.TryPlace(size.x,size.y,width,stack,mapOpen,obstacles,out var next);
+                if(!available&&width>440){width=440;available=BriefPlacement.TryPlace(size.x,size.y,width,stack,mapOpen,obstacles,out next);}
+                if(available)
+                {
+                    if(!waitingPlacement||Mathf.Abs(next.X-candidatePlacement.X)>1||Mathf.Abs(next.Y-candidatePlacement.Y)>1||next.W!=candidatePlacement.W)
+                    {candidatePlacement=next;candidateSince=Time.unscaledTime;waitingPlacement=true;}
+                    // Collapse immediately if obstructed, but require a stable free location before
+                    // expanding/repositioning. Never oscillate between free slots each frame.
+                    if(!hasPlacement||Time.unscaledTime-candidateSince>=.3f)
+                    {retainedPlacement=placement=next;hasPlacement=fits=true;waitingPlacement=false;}
+                }
+                else waitingPlacement=false;
+            }
             bool wasBlocked = layoutBlocked;
             layoutBlocked = !fits;
             if (wasBlocked != layoutBlocked) dirty = true;
-            bool launcherFits = fits;
-            var launchPlacement = placement;
-            if (!fits) launcherFits = BriefPlacement.TryPlace(size.x, size.y, 145, 34, mapOpen, obstacles, out launchPlacement);
             Vector2 origin = new Vector2(placement.X + width * .5f - size.x * .5f, placement.Y);
             dock.sizeDelta = new Vector2(width, DockHeight);
             dock.anchoredPosition = origin;
@@ -295,15 +345,17 @@ namespace FAA.Explanations
             // Fade in place: never slide a card across protected map/instrument pixels.
             resultGroup.alpha = ease;
             resultGroup.interactable = resultGroup.blocksRaycasts = IsResultVisible;
-            launcher.anchoredPosition = fits ? origin : new Vector2(launchPlacement.X + 72.5f - size.x * .5f, launchPlacement.Y);
+            // The collapsed control owns one bottom-centre slot, independent of the expanded
+            // obstacle-avoidance layout. It must not chase moving radar drawers or head look.
+            launcher.anchoredPosition = new Vector2(0,DockBottom);
             dock.gameObject.SetActive(open && fits);
-            launcher.gameObject.SetActive((!open || !fits) && launcherFits);
+            launcher.gameObject.SetActive(!open || !fits);
             result.gameObject.SetActive(IsResultVisible);
         }
 
         private void Build()
         {
-            var root = new GameObject("Pilot Brief Canvas", typeof(RectTransform), typeof(Canvas), typeof(BriefCanvasScaler), typeof(GraphicRaycaster));
+            var root = new GameObject("Pilot Brief Canvas", typeof(RectTransform), typeof(Canvas), typeof(BriefCanvasScaler), typeof(FaaCanvasPixelRaycaster));
             root.transform.SetParent(transform, false);
             canvas = root.GetComponent<Canvas>(); canvas.renderMode = RenderMode.ScreenSpaceOverlay; canvas.sortingOrder = CanvasOrder;
             var scaler = root.GetComponent<BriefCanvasScaler>(); scaler.uiScaleMode = BriefCanvasScaler.ScaleMode.ScaleWithScreenSize;

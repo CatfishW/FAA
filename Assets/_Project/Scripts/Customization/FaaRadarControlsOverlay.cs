@@ -646,6 +646,8 @@ namespace FAA.Customization
                 return;
             }
 
+            // Physical size is pilot-owned in a spatial cockpit; preserve fullscreen map zoom above.
+            if (FaaSpatialWorkspace.TryResizeRadar(radarKind, direction)) return;
             Transform root = radarKind == FaaRadarKind.Weather ? _weatherRoot : _trafficRoot;
             RectTransform rootRect = root as RectTransform ?? root?.GetComponent<RectTransform>();
             if (rootRect == null || Mathf.Approximately(direction, 0f))
@@ -850,6 +852,9 @@ namespace FAA.Customization
         /// </summary>
         private void ApplyTrafficFocusPresentation(bool focused)
         {
+            // Enlarging a side-mounted map must not hide the flight HUD or other cockpit panels.
+            if (FaaSpatialWorkspace.Current != null && FaaSpatialWorkspace.Current.SpatialPanelsEnabled)
+            { RestoreTrafficFocusPresentationImmediate(); return; }
             if (!hideOtherHudInTrafficFullscreen)
             {
                 if (!focused)

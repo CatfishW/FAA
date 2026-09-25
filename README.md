@@ -4,7 +4,7 @@ The FAA Symbology Unity Project is a Unity 6.5 cockpit-display demonstrator for
 FAA-style flight symbology, real-time traffic and weather awareness, sectional
 chart context, and headset output. It is the integration workspace for the
 OPL/FAA display work: the same flight state can drive the desktop HUD, the
-traffic and weather radars, a Cesium-backed environment, and either a Varjo
+traffic and weather radars, X-Plane-derived terrain (with optional Cesium hooks), and either a Varjo
 XR-3 workflow or the SA-147 multi-display output path.
 
 > **Project status:** active integration/prototyping software. This repository is
@@ -60,7 +60,7 @@ on the same branch name, `codex/pilot-hud-telemetry-release`, in the
 | Weather radar | Shared provider abstraction with X-Plane, NOAA, IEM, MQTT, and simulated providers. Range, tilt, gain, mode, power, and presentation controls are available. The current X-Plane bridge can synthesize a radar texture from live weather DataRefs. |
 | X-Plane data | HTTP snapshot polling, WebSocket stream, TCP newline-delimited JSON, optional MQTT snapshots, and direct X-Plane UDP/RREF integration. Aircraft, weather, systems, multiplayer traffic, and render assets can be routed into the existing FAA systems. |
 | XR output | Varjo XR-3 loader configuration and the XR Interaction Toolkit desktop simulator are provided for development. A separate SA-147/S compatibility adapter supports multi-display routing, Archer tracking, and headset prewarp where the vendor hardware is installed. |
-| Environment | Cesium georeferencing/terrain hooks, optional terrain synchronization, aircraft position anchoring, and legacy/vendor environment content. |
+| Environment | Installed X-Plane DSF elevation streaming into georeferenced Unity terrain, shared ownship/MSL anchoring, optional Cesium hooks, and legacy/vendor environment content. |
 | Automation and diagnostics | Editor setup wizards, hierarchy organization, missing-script diagnostics, radar evidence capture, remote-relay smoke tests, and test assemblies are included. |
 
 ## Architecture
@@ -352,9 +352,16 @@ the same outside-world relationship. The separate heading-tape overlay is
 projected from the same reference, so it does not remain stranded at the old
 screen center.
 
+Projection is now rotation-only (collimated): camera position smoothing,
+packet-stepped aircraft translation and geo-origin rebasing cannot displace the
+HUD anchor. It runs after the final desktop camera pose, refreshes before canvas
+rendering for late pose changes, and uses the non-jittered projection matrix.
+There is no additional HUD smoothing buffer. Looking behind moves the reference
+out of view rather than leaving a frozen forward reference on-screen.
+
 The implementation is a calibrated research presentation, not an FAA-certified
-or optically calibrated combiner. The calibration distance and screen-space
-reference resolution are explicit inspector settings, and native XR tracked
+or optically calibrated combiner. The screen-space reference resolution and
+optional world-space canvas distance are explicit inspector settings, and native XR tracked
 pose remains the authority for headset pose. The dormant authored
 `FAASymbologyCanvasWorldSpace` is retained for scenes that have a fully
 calibrated world-space layout; legacy scenes use the safer screen-projection
@@ -1180,6 +1187,7 @@ README, commit, or build artifact.
 
 Additional implementation notes are available in:
 
+- [X-Plane terrain generation, setup, source limits and tests](Tools/XPlaneTerrain/README.md)
 - [project structure](Assets/_Project/Docs/PROJECT_STRUCTURE.md)
 - [XP12 integration](Assets/_Project/Scripts/XPlaneIntegration/README_XP12_INTEGRATION.md)
 - [remote relay](Assets/_Project/Scripts/XPlaneIntegration/README_XP11_REMOTE_RELAY.md)

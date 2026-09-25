@@ -10,13 +10,14 @@ namespace FAA.Customization
     /// <summary>
     /// Chooses how the primary flight symbology is presented.
     ///
-    /// Conformal mode projects the aircraft reference (not the camera's
-    /// look-offset) into the screen-space HUD. The presentation therefore
-    /// follows aircraft attitude and moves off-boresight as the pilot looks
-    /// through a side window. HeadFixed preserves the traditional overlay for
-    /// desktop familiarisation.
+    /// Conformal mode defaults to a separate native world-space rotorcraft cue
+    /// layer while instruments stay fixed. The earlier aircraft-reference group
+    /// projection remains an explicit compatibility option. HeadFixed preserves
+    /// the traditional overlay for desktop familiarisation.
     /// </summary>
-    [DefaultExecutionOrder(10020)]
+    // AircraftCameraController commits its final pose at 11100. Projecting
+    // before it creates a one-frame registration error even with fresh data.
+    [DefaultExecutionOrder(12050)]
     [AddComponentMenu("FAA/Customization/Conformal HUD Controller")]
     public sealed class FaaConformalHudController : MonoBehaviour
     {
@@ -31,6 +32,10 @@ namespace FAA.Customization
         [Header("Presentation")]
         [SerializeField] private HudPresentationMode presentationMode = HudPresentationMode.Conformal;
         [SerializeField] private bool fallbackToHeadFixed = true;
+
+        [Tooltip("Render earth/scene-referenced rotorcraft cues separately from the fixed instruments. Legacy projection remains available when disabled.")]
+        [SerializeField] private bool useRotorcraftSceneLayer = true;
+        private FaaRotorcraftConformalLayer _rotorcraftLayer;
 
         [Header("Scene bindings")]
         [SerializeField] private string screenCanvasName = "FAASymbologyCanvas";
@@ -75,7 +80,10 @@ namespace FAA.Customization
         public HudPresentationMode PresentationMode => presentationMode;
         public bool IsConformal => presentationMode == HudPresentationMode.Conformal &&
                                     (_screenCanvas != null || _conformalCanvas != null);
-        public bool UsesScreenProjection => presentationMode == HudPresentationMode.Conformal && !useWorldSpaceConformalCanvas;
+        public bool UsesRotorcraftSceneLayer => Application.isPlaying && useRotorcraftSceneLayer &&
+            _rotorcraftLayer != null && _rotorcraftLayer.enabled;
+        public bool UsesScreenProjection => presentationMode == HudPresentationMode.Conformal &&
+            !useWorldSpaceConformalCanvas && !UsesRotorcraftSceneLayer;
         public Canvas ScreenCanvas => _screenCanvas;
         public Canvas ConformalCanvas => _conformalCanvas;
 
@@ -120,6 +128,29 @@ namespace FAA.Customization
             }
         }
 
+        private void OnEnable()
+        {
+            Canvas.preWillRenderCanvases += RefreshRenderProjection;
+            Application.onBeforeRender += RefreshRenderProjection;
+        }
+
+        private void OnDisable()
+        {
+            Canvas.preWillRenderCanvases -= RefreshRenderProjection;
+            Application.onBeforeRender -= RefreshRenderProjection;
+            if (_rotorcraftLayer != null) _rotorcraftLayer.enabled = false;
+            RestoreHeadFixedRoot();
+        }
+
+        // Reproject only; never integrate input or telemetry smoothing here.
+        // The canvas callback also covers a pose changed during XR before-render.
+        [BeforeRenderOrder(200)]
+        private void RefreshRenderProjection()
+        {
+            if (isActiveAndEnabled && UsesScreenProjection && _screenHudRoot != null)
+                UpdateScreenConformalProjection();
+        }
+
         private void OnDestroy()
         {
             if (_runtimeInstance == this)
@@ -132,6 +163,7 @@ namespace FAA.Customization
         {
             if (!ResolveTargets())
             {
+                if (_rotorcraftLayer != null) _rotorcraftLayer.enabled = false;
                 return;
             }
 
@@ -256,6 +288,21 @@ namespace FAA.Customization
 
         private void EnforceCanvasState()
         {
+            if (Application.isPlaying && useRotorcraftSceneLayer &&
+                presentationMode == HudPresentationMode.Conformal && _screenCanvas != null)
+            {
+                // Do not rotate/translate IAS, ALT, RA, torque, NR or the heading
+                // tape with the pilot's gaze. Only the separate scene layer is projected.
+                SetCanvasVisible(_screenCanvas, true);
+                SetCanvasVisible(_conformalCanvas, false);
+                RestoreHeadFixedRoot();
+                if (_rotorcraftLayer == null)
+                    _rotorcraftLayer = GetComponent<FaaRotorcraftConformalLayer>() ?? gameObject.AddComponent<FaaRotorcraftConformalLayer>();
+                _rotorcraftLayer.Bind(projectionCamera, aircraftTransform, _screenCanvas);
+                _rotorcraftLayer.enabled = true;
+                return;
+            }
+            if (_rotorcraftLayer != null) _rotorcraftLayer.enabled = false;
             bool useWorldSpace = presentationMode == HudPresentationMode.Conformal &&
                                  useWorldSpaceConformalCanvas && _conformalCanvas != null;
 
@@ -299,29 +346,13 @@ namespace FAA.Customization
             }
 
             AircraftCameraController cameraController = projectionCamera.GetComponent<AircraftCameraController>();
-            Quaternion reference = cameraController != null
+            Quaternion reference = alignToAircraftReference && cameraController != null
                 ? cameraController.AircraftReferenceRotation
                 : aircraftTransform.rotation;
             if (reference == default)
             {
                 reference = aircraftTransform.rotation;
             }
-
-            Vector3 referencePoint = aircraftTransform.position + reference * (Vector3.forward * Mathf.Max(1f, conformalDistance));
-            Vector3 upPoint = referencePoint + reference * (Vector3.up * Mathf.Max(1f, conformalDistance * 0.08f));
-            Vector3 screenPoint = projectionCamera.WorldToScreenPoint(referencePoint);
-            Vector3 screenUpPoint = projectionCamera.WorldToScreenPoint(upPoint);
-            if (screenPoint.z <= 0f || screenUpPoint.z <= 0f)
-            {
-                // Preserve the last valid anchor while the aircraft reference
-                // is behind the view frustum (for example during a chase-view
-                // transition). The HUD never snaps to the head-look angle.
-                return;
-            }
-
-            Vector2 screenUp = new Vector2(screenUpPoint.x - screenPoint.x, screenUpPoint.y - screenPoint.y);
-            ProjectRoot(_screenCanvas, _screenHudRoot, _headFixedAnchoredPosition, _headFixedLocalRotation,
-                screenPoint, screenUp);
 
             if (projectHeadingTape && _headingCanvas != null)
             {
@@ -336,13 +367,61 @@ namespace FAA.Customization
                     }
                 }
 
+            }
+
+            // A collimated HUD is angular, not a sign 175m in front of the
+            // aircraft. Camera translation lag, head translation, and floating
+            // origin changes must not move the flight reference across the glass.
+            if (!TryProjectReference(projectionCamera, reference, out Vector2 screenPoint, out Vector2 screenUp))
+            {
+                // Never freeze a visible reference in the last forward position
+                // while looking behind. Leave independently controlled UI alone.
+                MoveOutsideView(_screenCanvas, _screenHudRoot, _headFixedAnchoredPosition);
+                if (projectHeadingTape)
+                    MoveOutsideView(_headingCanvas, _headingHudRoot, _headingHeadFixedAnchoredPosition);
+                return;
+            }
+            ProjectRoot(_screenCanvas, _screenHudRoot, _headFixedAnchoredPosition, _headFixedLocalRotation,
+                screenPoint, screenUp);
+            if (projectHeadingTape)
                 ProjectRoot(_headingCanvas, _headingHudRoot, _headingHeadFixedAnchoredPosition,
                     _headingHeadFixedLocalRotation, screenPoint, screenUp);
-            }
+        }
+
+        public static bool TryProjectReference(UnityEngine.Camera camera, Quaternion reference,
+            out Vector2 screenPoint, out Vector2 screenUp)
+        {
+            screenPoint = screenUp = Vector2.zero;
+            if (camera == null) return false;
+            Quaternion relative = Quaternion.Inverse(camera.transform.rotation) * reference;
+            Vector3 forward = relative * Vector3.forward;
+            Vector3 up = relative * (Vector3.forward + Vector3.up * .08f);
+            if (forward.z <= .01f || up.z <= .01f) return false;
+
+            // Work in rotation-only camera space. No subtraction of large world
+            // positions, no finite-distance parallax, and no TAA sample jitter.
+            Matrix4x4 matrix = camera.nonJitteredProjectionMatrix;
+            Vector4 center = matrix * new Vector4(forward.x, forward.y, -forward.z, camera.orthographic ? 1 : 0);
+            Vector4 top = matrix * new Vector4(up.x, up.y, -up.z, camera.orthographic ? 1 : 0);
+            if (Mathf.Abs(center.w) < .0001f || Mathf.Abs(top.w) < .0001f) return false;
+            Rect pixels = camera.pixelRect;
+            screenPoint = new Vector2(pixels.x + (center.x / center.w + 1f) * .5f * pixels.width,
+                pixels.y + (center.y / center.w + 1f) * .5f * pixels.height);
+            screenUp = new Vector2((top.x / top.w - center.x / center.w) * .5f * pixels.width,
+                (top.y / top.w - center.y / center.w) * .5f * pixels.height);
+            return IsFinite(screenPoint.x) && IsFinite(screenPoint.y) && IsFinite(screenUp.x) && IsFinite(screenUp.y);
+        }
+
+        private static bool IsFinite(float value) => !float.IsNaN(value) && !float.IsInfinity(value);
+
+        private static void MoveOutsideView(Canvas canvas, RectTransform root, Vector2 basePosition)
+        {
+            if (canvas != null && root != null)
+                root.anchoredPosition = basePosition + new Vector2(GetReferenceResolution(canvas).x * 4f, 0f);
         }
 
         private void ProjectRoot(Canvas canvas, RectTransform root, Vector2 basePosition,
-            Quaternion baseRotation, Vector3 screenPoint, Vector2 screenUp)
+            Quaternion baseRotation, Vector2 screenPoint, Vector2 screenUp)
         {
             if (canvas == null || root == null)
             {
@@ -367,13 +446,11 @@ namespace FAA.Customization
 
         private void RestoreHeadFixedRoot()
         {
-            if (!_headFixedRootCaptured || _screenHudRoot == null)
+            if (_headFixedRootCaptured && _screenHudRoot != null)
             {
-                return;
+                _screenHudRoot.anchoredPosition = _headFixedAnchoredPosition;
+                _screenHudRoot.localRotation = _headFixedLocalRotation;
             }
-
-            _screenHudRoot.anchoredPosition = _headFixedAnchoredPosition;
-            _screenHudRoot.localRotation = _headFixedLocalRotation;
             if (_headingHeadFixedRootCaptured && _headingHudRoot != null)
             {
                 _headingHudRoot.anchoredPosition = _headingHeadFixedAnchoredPosition;

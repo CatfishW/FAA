@@ -307,7 +307,7 @@ namespace FAA.Geo
     // Equirectangular projection (simple)
     private Vector3 GeoToUnityEquirectangular(double latitude, double longitude, float altitude)
     {
-        float x = (float)((longitude - originLongitude) * Math.Cos(originLatitude * DEG_TO_RAD) * scaleFactor * unitsPerMeter);
+        float x = (float)(NormalizeLongitude(longitude - originLongitude) * Math.Cos(originLatitude * DEG_TO_RAD) * scaleFactor * unitsPerMeter);
         float z = (float)((latitude - originLatitude) * scaleFactor * unitsPerMeter);
         float y = ProcessAltitude(altitude) * unitsPerMeter;
         
@@ -315,7 +315,7 @@ namespace FAA.Geo
     }
     private Vector3 GeoToUnityIdentity(double latitude, double longitude, float altitude)
     {
-        float x = (float)((longitude - originLongitude) * Math.Cos(originLatitude * DEG_TO_RAD) * scaleFactor * unitsPerMeter);
+        float x = (float)(NormalizeLongitude(longitude - originLongitude) * Math.Cos(originLatitude * DEG_TO_RAD) * scaleFactor * unitsPerMeter);
         float z = (float)((latitude - originLatitude) * scaleFactor * unitsPerMeter);
         float y = altitude;
 
@@ -325,7 +325,7 @@ namespace FAA.Geo
     private (double latitude, double longitude, float altitude) UnityToGeoEquirectangular(Vector3 position)
     {
         double latitude = originLatitude + (position.z / (scaleFactor * unitsPerMeter));
-        double longitude = originLongitude + (position.x / (scaleFactor * unitsPerMeter * Math.Cos(originLatitude * DEG_TO_RAD)));
+        double longitude = NormalizeLongitude(originLongitude + (position.x / (scaleFactor * unitsPerMeter * Math.Cos(originLatitude * DEG_TO_RAD))));
         float altitude = ReverseAltitudeProcess(position.y / unitsPerMeter);
         
         return (latitude, longitude, altitude);
@@ -337,7 +337,7 @@ namespace FAA.Geo
         // Limit latitude range for Mercator projection
         latitude = Math.Max(Math.Min(latitude, 85.0), -85.0);
         
-        float x = (float)((longitude - originLongitude) * scaleFactor * unitsPerMeter);
+        float x = (float)(NormalizeLongitude(longitude - originLongitude) * scaleFactor * unitsPerMeter);
         
         // Mercator formula: y = ln(tan(π/4 + φ/2))
         double latRad = latitude * DEG_TO_RAD;
@@ -353,7 +353,7 @@ namespace FAA.Geo
     
     private (double latitude, double longitude, float altitude) UnityToGeoMercator(Vector3 position)
     {
-        double longitude = originLongitude + (position.x / (scaleFactor * unitsPerMeter));
+        double longitude = NormalizeLongitude(originLongitude + (position.x / (scaleFactor * unitsPerMeter)));
         
         // Inverse Mercator formula: φ = 2 * atan(e^y) - π/2
         double originLatRad = originLatitude * DEG_TO_RAD;
@@ -377,7 +377,7 @@ namespace FAA.Geo
         
         // Calculate distance from origin
         double dLat = lat - lat0;
-        double dLon = lon - lon0;
+        double dLon = NormalizeLongitude(longitude - originLongitude) * DEG_TO_RAD;
         
         // Calculate East-North coordinates
         double east = EARTH_RADIUS * dLon * Math.Cos(lat0);
@@ -411,9 +411,15 @@ namespace FAA.Geo
         
         // Convert back to degrees
         double latitude = lat * RAD_TO_DEG;
-        double longitude = lon * RAD_TO_DEG;
+        double longitude = NormalizeLongitude(lon * RAD_TO_DEG);
         
         return (latitude, longitude, altitude);
+    }
+
+    // A local terrain/ownship frame must not jump around the world at +/-180.
+    public static double NormalizeLongitude(double longitude)
+    {
+        return ((longitude + 180.0) % 360.0 + 360.0) % 360.0 - 180.0;
     }
     #endregion
 }

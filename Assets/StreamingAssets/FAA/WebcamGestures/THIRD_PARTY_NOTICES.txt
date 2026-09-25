@@ -1,0 +1,13 @@
+Local webcam hand recognition
+
+MediaPipe 0.10.21 — Copyright The MediaPipe Authors; Apache License 2.0.
+Source: https://github.com/google-ai-edge/mediapipe/tree/v0.10.21
+License: https://github.com/google-ai-edge/mediapipe/blob/v0.10.21/LICENSE
+Model: MediaPipe Hand Landmarker float16, version 1, distributed by Google AI Edge.
+Model URL: https://storage.googleapis.com/mediapipe-models/hand_landmarker/hand_landmarker/float16/1/hand_landmarker.task
+SHA256: fbc2a30080c3c557093b5ddfc334698132eb341044ccee322ccf8bcf3607cde1
+
+The Python environment/frozen helper also contains independently licensed dependencies.
+The packaging setup collects installed wheel license metadata and text into the helper's
+licenses/ directory; retain this directory when distributing the helper. The public hand photograph used by tests
+is not part of the shipped feature, and user camera images are never recorded.
