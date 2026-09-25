@@ -1,0 +1,3 @@
+# Small curated README screenshots are regular Git blobs, not LFS pointers.
+# This lets documentation-only branches render the exact reviewed screenshots.
+*.png -filter -diff -merge -text
