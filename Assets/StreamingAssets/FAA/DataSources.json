@@ -1,0 +1,27 @@
+{
+  "version": 1,
+  "enabled": true,
+  "allowFallback": true,
+  "discoverLocalUdp": true,
+  "discoverLocalWeb": true,
+  "observeLocalBeacons": true,
+  "fallbackUrl": "http://127.0.0.1:12678",
+  "localTerrainUrl": "http://127.0.0.1:8767",
+  "udpEndpoints": [],
+  "udpListenPorts": [],
+  "webEndpoints": [],
+  "mqttBrokers": [
+    {
+      "host": "127.0.0.1",
+      "port": 1883,
+      "tls": false,
+      "topicFilter": "#",
+      "usernameEnvironment": "",
+      "passwordEnvironment": ""
+    }
+  ],
+  "installPaths": [],
+  "preferredSource": "",
+  "startupGraceSeconds": 6,
+  "sourceLossSeconds": 3
+}

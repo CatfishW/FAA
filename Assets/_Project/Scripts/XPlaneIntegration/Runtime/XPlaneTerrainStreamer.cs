@@ -67,6 +67,7 @@ namespace FAA.XPlaneIntegration.Runtime
         private string _lastError = "Waiting for live position";
         private string _endpoint;
         private bool _endpointValid;
+        private string _discoveredEndpoint;
         public string ServiceEndpoint => _endpoint ?? string.Empty;
 
         public static XPlaneTerrainStreamer Active { get; private set; }
@@ -85,6 +86,7 @@ namespace FAA.XPlaneIntegration.Runtime
             if (Active != null && Active != this) { enabled = false; return; }
             Active = this;
             _endpointValid = XPlaneTerrainConnection.Load(serviceUrl, out _endpoint, out string connectionError);
+            if (!string.IsNullOrEmpty(_discoveredEndpoint)) _endpointValid = XPlaneTerrainConnection.TryNormalize(_discoveredEndpoint, out _endpoint);
             if (!_endpointValid) _lastError = connectionError;
             _stream = StartCoroutine(Stream());
         }
@@ -350,11 +352,22 @@ namespace FAA.XPlaneIntegration.Runtime
         public void RefreshTerrain()
         {
             _endpointValid = XPlaneTerrainConnection.Load(serviceUrl, out _endpoint, out string connectionError);
+            if (!string.IsNullOrEmpty(_discoveredEndpoint)) _endpointValid = XPlaneTerrainConnection.TryNormalize(_discoveredEndpoint, out _endpoint);
             if (!_endpointValid) _lastError = connectionError;
             foreach (var tile in _tiles.Values) tile.fetched = double.NegativeInfinity;
             _retryAt.Clear();
             _networkRetryAt = 0;
             _failures = 0;
+        }
+
+        public void UseDiscoveredSource(string endpoint)
+        {
+            if (!string.IsNullOrEmpty(endpoint) && !XPlaneTerrainConnection.TryNormalize(endpoint, out _)) return;
+            if (_discoveredEndpoint == endpoint) return;
+            bool wasEnabled = enabled;
+            if (wasEnabled) enabled = false;
+            _discoveredEndpoint = endpoint;
+            if (wasEnabled) enabled = true;
         }
 
         private void OnDisable()

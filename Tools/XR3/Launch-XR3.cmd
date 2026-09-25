@@ -7,6 +7,9 @@ if not exist "FAA-XR3.exe" (
   exit /b 1
 )
 echo Start Varjo Base 4.14 and verify that your XR-3 is ready before launching.
+echo Local X-Plane 12 UDP/Web API and MQTT source discovery starts automatically.
+echo DATA SOURCE in Settings shows the selected feed; a fallback is always labelled.
+echo The optional fallback uses your configured endpoint or authorized SSH tunnel.
 if exist "%~dp0Check-Terrain.cmd" call "%~dp0Check-Terrain.cmd"
 if errorlevel 1 echo Terrain is not connected yet. The flight-data connection alone does not supply terrain.
 echo Log: %LOCALAPPDATA%\FAA-XR3\Player-XR3.log

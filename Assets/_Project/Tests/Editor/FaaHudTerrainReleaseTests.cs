@@ -9,7 +9,7 @@ namespace FAA.Customization.Tests
     public class FaaHudTerrainReleaseTests
     {
         [TestCase(.4f)] [TestCase(.72f)] [TestCase(1f)] [TestCase(1.6f)]
-        public void VsiNumbersClearRightRailAndPointerAtEverySize(float scale)
+        public void VsiReferenceNumbersStayInsideAndClearRailTicksAndPointer(float scale)
         {
             Type type=Type.GetType("FAA.Customization.FaaClassicDeviationGraphic, Assembly-CSharp",true);
             var go=new GameObject("VSI label verification",typeof(RectTransform));
@@ -25,9 +25,11 @@ namespace FAA.Customization.Tests
                     if(!text.name.StartsWith("VSI ",StringComparison.Ordinal))continue;
                     labels++;text.ForceMeshUpdate(true,true);
                     float left=text.rectTransform.anchoredPosition.x+text.rectTransform.rect.xMin;
-                    Assert.That((left-15.8f)*scale,Is.GreaterThan(8f),"Numeric column must not straddle rail.");
-                    Assert.That((left-29.7f)*scale,Is.GreaterThan(3f),"Live pointer and outline must not touch digits.");
-                    Assert.That(text.alignment,Is.EqualTo(TextAlignmentOptions.MidlineLeft));
+                    float right=left+text.rectTransform.rect.width;
+                    Assert.That((left-(-1.4f))*scale,Is.GreaterThan(.8f),"Interior digits must clear the tick ends.");
+                    Assert.That((14.2f-right)*scale,Is.GreaterThan(1f),"Interior digits must clear the right rail.");
+                    Assert.That((17f-right)*scale,Is.GreaterThan(2f),"Outside pointer cannot touch the interior digits.");
+                    Assert.That(text.alignment,Is.EqualTo(TextAlignmentOptions.Center));
                 }
                 Assert.That(labels,Is.EqualTo(4));
             }

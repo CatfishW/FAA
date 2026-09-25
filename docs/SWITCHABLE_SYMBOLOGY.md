@@ -31,6 +31,8 @@ AP-mode references: https://developer.x-plane.com/article/accessing-the-x-plane-
 
 ## Attitude vs conformal scene geometry
 
+The subsequent [reference VSI revision](REFERENCE_VSI.md) places `1`/`2` numerals inside the scale, adds rounded shoulders to the zero notch, and moves a detached rounded pointer outside the numeric column. The live range, signed readout, invalid-state behavior and existing animation remain unchanged. Recent source discovery and release status are described in the current README; the measured results below describe the original analog implementation pass.
+
 The Classic center offers **ATTITUDE INSTRUMENT** or **CONFORMAL SCENE CUES**. The former is a head-fixed instrument with a moving local pitch/roll ladder, explicitly **non-conformal**; its pixels-per-degree spacing is not optical calibration. In this mode the duplicate scene horizon/boresight drawing is suppressed, but the existing calibrated FPV, selected FPA and georeferenced scene references remain independent and functional. Selecting the scene-cue center hides the local attitude inset and restores the original scene-aligned attitude rendering.
 
 No version switch changes camera FOV, IPD, native lens distortion, flight telemetry or radar positions. Existing whole-HUD and individual instrument visibility controls are respected. The previous removed green control strip stays removed. Settings/Hand Studio remain in protected side positions, with right-button and XR grip dragging unchanged.

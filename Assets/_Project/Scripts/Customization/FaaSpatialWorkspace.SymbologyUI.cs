@@ -29,6 +29,7 @@ namespace FAA.Customization
         }
         public void OpenSymbologySettings()
         {
+            if(dataSourcePage!=null)dataSourcePage.gameObject.SetActive(false);
             OpenMenu();hudPage.gameObject.SetActive(false);panelsPage.gameObject.SetActive(false);
             if(symbologyPage!=null)symbologyPage.gameObject.SetActive(true);RefreshSymbologyControls();
         }

@@ -9,9 +9,9 @@ namespace FAA.Customization
     {
         public enum Scale { Localizer,Glideslope,VerticalSpeed }
         private Scale kind;private float value;private bool valid;
-        public const float VsiRightRailX = 15f;
-        public const float VsiLabelLeftX = 39f;
-        public const float VsiLabelWidth = 24f;
+        public const float VsiRightRailX = FaaClassicVsiGeometry.RightRailX;
+        public const float VsiLabelLeftX = FaaClassicVsiGeometry.LabelLeftX;
+        public const float VsiLabelWidth = FaaClassicVsiGeometry.LabelWidth;
         private TMP_Text label,detail;private TMP_Text[] scaleLabels;
         public void Configure(Scale which,Color tint)
         {
@@ -25,9 +25,10 @@ namespace FAA.Customization
                 scaleLabels=new TMP_Text[4];int n=0;
                 foreach(int i in new[]{-2,-1,1,2})
                 {
-                    // Keep a dedicated label column beyond both the rail and live pointer.
+                    // Reference design: labels live between tick ends and the right rail.
+                    // The pointer follows the outside contour rather than passing over digits.
                     var t=Text("VSI "+i,new Vector2(VsiLabelLeftX+VsiLabelWidth*.5f,i*60),VsiLabelWidth,16,tint);
-                    t.alignment=TextAlignmentOptions.MidlineLeft;t.text=Mathf.Abs(i).ToString();scaleLabels[n++]=t;
+                    t.alignment=TextAlignmentOptions.Center;t.text=Mathf.Abs(i).ToString();scaleLabels[n++]=t;
                 }
             }
         }
@@ -52,14 +53,8 @@ namespace FAA.Customization
             vh.Clear();Color tint=color;
             if(kind==Scale.VerticalSpeed)
             {
-                Line(vh,new Vector2(-13,-136),new Vector2(-13,136),1.6f,tint);
-                Line(vh,new Vector2(15,-136),new Vector2(15,-18),1.6f,tint);
-                Line(vh,new Vector2(15,-18),new Vector2(-13,0),1.6f,tint);
-                Line(vh,new Vector2(-13,0),new Vector2(15,18),1.6f,tint);
-                Line(vh,new Vector2(15,18),new Vector2(15,136),1.6f,tint);
-                Line(vh,new Vector2(-13,136),new Vector2(15,136),1.6f,tint);Line(vh,new Vector2(-13,-136),new Vector2(15,-136),1.6f,tint);
-                for(int i=-4;i<=4;i++)Line(vh,new Vector2(-13,i*30),new Vector2(-2,i*30),1.1f,tint);
-                if(valid)Line(vh,new Vector2(3,Mathf.Clamp(value,-2000,2000)*.06f),new Vector2(29,Mathf.Clamp(value,-2000,2000)*.06f),9,tint);
+                FaaClassicVsiGeometry.DrawScale(vh,tint);
+                if(valid)FaaClassicVsiGeometry.DrawPointer(vh,value,tint);
                 return;
             }
             Vector2 axis=kind==Scale.Localizer?Vector2.right:Vector2.up;

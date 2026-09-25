@@ -30,7 +30,7 @@ using AircraftRuntimeState = AircraftControl.Core.AircraftState;
 namespace FAA.XPlaneIntegration.Runtime
 {
     [AddComponentMenu("X-Plane Integration/Runtime/X-Plane 12 API HUD Bridge")]
-    public class XPlane12ApiHudBridge : MonoBehaviour
+    public partial class XPlane12ApiHudBridge : MonoBehaviour
     {
         private const float MetersToFeet = 3.28084f;
         private const float MetersPerSecondToKnots = 1.94384f;
@@ -228,7 +228,7 @@ namespace FAA.XPlaneIntegration.Runtime
         private TorquePanelElement[] _torquePanelElements = Array.Empty<TorquePanelElement>();
         private NRIndicatorElement[] _nrIndicatorElements = Array.Empty<NRIndicatorElement>();
 
-        public bool IsRunning => _pollRoutine != null || _mqttTransportRunning || _webSocketTransportRunning || _tcpStreamTransportRunning;
+        public bool IsRunning => discoveryDriven || _pollRoutine != null || _mqttTransportRunning || _webSocketTransportRunning || _tcpStreamTransportRunning;
         public bool IsFeedHealthy { get; private set; }
         public string LastError { get; private set; } = string.Empty;
         public float LastPacketAgeSeconds { get; private set; } = float.PositiveInfinity;
@@ -255,8 +255,7 @@ namespace FAA.XPlaneIntegration.Runtime
             // This FAA scene is intentionally X-Plane-only. Port 12678 is locally
             // forwarded over SSH to tang-server, avoiding Unity/libcurl HTTP/2 issues
             // while still consuming the remote live X-Plane API.
-            baseUrl = TangTunnelLiveApiBaseUrl;
-            transportMode = TransportMode.HttpApi;
+            if (string.IsNullOrWhiteSpace(baseUrl)) baseUrl = TangTunnelLiveApiBaseUrl;
             allowExternalTrafficFallback = false;
             // Weather presentation is synthesized from the live datarefs in
             // each coherent 4090 snapshot. This deliberately avoids pulling
@@ -274,7 +273,7 @@ namespace FAA.XPlaneIntegration.Runtime
         {
             if (Application.isPlaying && autoStartOnPlay)
             {
-                StartBridge();
+                StartConfiguredSource();
             }
         }
 
@@ -286,13 +285,14 @@ namespace FAA.XPlaneIntegration.Runtime
             }
 
             MaintainTrafficApiFallback();
+            UpdateDiscoveredHealth();
 
-            if (transportMode == TransportMode.MqttSnapshot || _usingMqttFallback)
+            if (!discoveryDriven && (transportMode == TransportMode.MqttSnapshot || _usingMqttFallback))
             {
                 ProcessPendingMqttSnapshot();
             }
 
-            if (transportMode == TransportMode.WebSocketStream || transportMode == TransportMode.TcpNdjsonStream)
+            if (!discoveryDriven && (transportMode == TransportMode.WebSocketStream || transportMode == TransportMode.TcpNdjsonStream))
             {
                 ProcessPendingWebSocketSnapshot();
                 UpdateWebSocketFallbackState();
@@ -363,6 +363,7 @@ namespace FAA.XPlaneIntegration.Runtime
         [ContextMenu("Stop X-Plane 12 API Bridge")]
         public void StopBridge()
         {
+            discoveryDriven = false;
             if (_pollRoutine != null)
             {
                 StopCoroutine(_pollRoutine);
@@ -2148,6 +2149,7 @@ namespace FAA.XPlaneIntegration.Runtime
 
         private void ApplyStreamWeatherTexture(AviationFlightData data, float latitude, float longitude)
         {
+            if (discoveryDriven && _snapshot.Weather.Count < 3) return;
             if (!publishWeatherDatarefTextureFromStream || weatherRadarProvider == null || data == null)
             {
                 return;

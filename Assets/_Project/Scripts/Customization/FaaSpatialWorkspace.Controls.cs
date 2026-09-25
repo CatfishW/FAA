@@ -41,10 +41,11 @@ namespace FAA.Customization
             Button("Stow Settings",menuRoot,"STOW RIGHT",548,64,148,36,()=>StowUtility("settings"));
             Button("Settings Panel Smaller",menuRoot,"PANEL -",464,104,100,28,()=>ResizeUtility("settings",-.1f));
             Button("Settings Panel Larger",menuRoot,"PANEL +",570,104,100,28,()=>ResizeUtility("settings",.1f));
-            Button("HUD Tab",menuRoot,"INSTRUMENTS",96,151,146,40,()=>SetSettingsPage(false));
-            Button("Panels Tab",menuRoot,"SPATIAL PANELS",249,151,146,40,()=>SetSettingsPage(true));
-            Button("Symbology Tab",menuRoot,"SYMBOLOGY",402,151,146,40,OpenSymbologySettings);
-            Button("Laptop Camera",menuRoot,"HAND STUDIO",553,151,142,40,()=>LaptopCamera?.TogglePanel());
+            Button("HUD Tab",menuRoot,"INSTRUMENTS",80,151,114,40,()=>SetSettingsPage(false));
+            Button("Panels Tab",menuRoot,"PANELS",200,151,114,40,()=>SetSettingsPage(true));
+            Button("Symbology Tab",menuRoot,"SYMBOLOGY",320,151,114,40,OpenSymbologySettings);
+            Button("Laptop Camera",menuRoot,"HAND STUDIO",440,151,114,40,()=>LaptopCamera?.TogglePanel());
+            Button("Data Sources Tab",menuRoot,"DATA SOURCE",560,151,114,40,OpenDataSourceSettings);
             hudPage=Rect("Instrument Settings Page",menuRoot,320,352,640,354);
             selectedCaption=Text("Selected Module",hudPage,"AIRSPEED",320,38,440,40,24);
             Button("Previous Module",hudPage,"<",48,38,52,42,()=>CycleSelection(-1));
@@ -79,6 +80,7 @@ namespace FAA.Customization
             inputCaption=Text("Input Source",menuRoot,"",320,595,600,24,12);inputCaption.color=Muted;
             RegisterUtility("settings",SettingsCanvas,menuRoot,90,.58f);
             BuildSymbologyPage();
+            BuildDataSourcePage();
             selectionIds.Clear();foreach(var m in modules)if(m.TryScreenBounds(View,out _))selectionIds.Add(m.Id);
             SetSettingsPage(false);
             selectionFrame=Rect("Selected HUD Bounds",controlsCanvas.transform,0,0,0,0);selectionFrame.anchorMin=selectionFrame.anchorMax=new Vector2(.5f,.5f);
@@ -87,7 +89,7 @@ namespace FAA.Customization
             resizeGrip=Rect("Resize Selected HUD",selectionFrame,0,0,28,28);resizeGrip.anchorMin=resizeGrip.anchorMax=new Vector2(1,0);
             resizeGrip.gameObject.AddComponent<Image>().color=Accent;resizeGrip.gameObject.AddComponent<FaaWorkspaceDragHandle>();
         }
-        public void SetSettingsPage(bool spatial){hudPage.gameObject.SetActive(!spatial);panelsPage.gameObject.SetActive(spatial);if(symbologyPage!=null)symbologyPage.gameObject.SetActive(false);}
+        public void SetSettingsPage(bool spatial){hudPage.gameObject.SetActive(!spatial);panelsPage.gameObject.SetActive(spatial);if(symbologyPage!=null)symbologyPage.gameObject.SetActive(false);if(dataSourcePage!=null)dataSourcePage.gameObject.SetActive(false);}
         private void CycleSelection(int delta){if(selectionIds.Count>0)Select(selectionIds[(selectionIds.IndexOf(SelectedId)+delta+selectionIds.Count)%selectionIds.Count]);}
         private void UpdateControlCanvasPose()
         {
@@ -99,9 +101,10 @@ namespace FAA.Customization
         }
         private void RefreshControls()
         {
+            RefreshDataSourceControls();
             RefreshSymbologyControls();
             if(menuRoot==null)return;
-            if(detailCaption!=null)detailCaption.gameObject.SetActive(symbologyPage==null||!symbologyPage.gameObject.activeSelf);
+            if(detailCaption!=null)detailCaption.gameObject.SetActive((symbologyPage==null||!symbologyPage.gameObject.activeSelf)&&(dataSourcePage==null||!dataSourcePage.gameObject.activeSelf));
             menuRoot.gameObject.SetActive(MenuOpen);refreshingUi=true;
             modeCaption.text=EditMode?"GESTURES + DRAGGING ENABLED":"GESTURES LOCKED  /  BUTTONS ACTIVE";
             modeCaption.color=EditMode?Accent:Muted;

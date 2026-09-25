@@ -19,7 +19,9 @@ def main():
         evaluate('var w=FAA.Customization.FaaSpatialWorkspace.Current;if(w==null||!w.Initialized)throw new Exception("Not ready");'
                  'if(AppDomain.CurrentDomain.GetData("'+KEY+'")!=null)throw new Exception("Existing test context");'
                  'var f=typeof(FAA.Customization.FaaSpatialWorkspace).GetField("dirty",System.Reflection.BindingFlags.NonPublic|System.Reflection.BindingFlags.Instance);'
-                 'AppDomain.CurrentDomain.SetData("'+KEY+'",new object[]{w.PersistChanges,w.EditMode,w.MenuOpen,w.SelectedId,w.CurrentSymbology,f.GetValue(w),UnityEngine.InputSystem.Mouse.current,null});'
+                 'AppDomain.CurrentDomain.SetData("'+KEY+'",new object[]{w.PersistChanges,w.EditMode,w.MenuOpen,w.SelectedId,w.CurrentSymbology,f.GetValue(w),UnityEngine.InputSystem.Mouse.current,null,UnityEngine.InputSystem.InputSystem.settings.editorInputBehaviorInPlayMode,UnityEngine.InputSystem.InputSystem.settings.backgroundBehavior});'
+                 'UnityEngine.InputSystem.InputSystem.settings.editorInputBehaviorInPlayMode=UnityEngine.InputSystem.InputSettings.EditorInputBehaviorInPlayMode.AllDeviceInputAlwaysGoesToGameView;'
+                 'UnityEngine.InputSystem.InputSystem.settings.backgroundBehavior=UnityEngine.InputSystem.InputSettings.BackgroundBehavior.IgnoreFocus;'
                  'w.PersistChanges=false;w.SetEditMode(false);w.SetSymbologyVersion(FAA.Customization.FaaSymbologyVersion.Digital);'
                  'w.InspectUtility("settings");w.OpenSymbologySettings();return "Saved test context";')
         started=True
@@ -45,5 +47,7 @@ def main():
                      'var w=FAA.Customization.FaaSpatialWorkspace.Current;w.SetSymbologyVersion((FAA.Customization.FaaSymbologyVersion)c[4]);w.SetEditMode((bool)c[1]);w.Select((string)c[3]);'
                      'w.SetSettingsPage(false);if(w.MenuOpen!=(bool)c[2])w.ToggleMenu();w.ReturnToForwardView();'
                      'typeof(FAA.Customization.FaaSpatialWorkspace).GetField("dirty",System.Reflection.BindingFlags.NonPublic|System.Reflection.BindingFlags.Instance).SetValue(w,c[5]);w.PersistChanges=(bool)c[0];'
-                     'AppDomain.CurrentDomain.SetData("'+KEY+'",null);return "Input and selection restored";')
+                     'UnityEngine.InputSystem.InputSystem.settings.editorInputBehaviorInPlayMode=(UnityEngine.InputSystem.InputSettings.EditorInputBehaviorInPlayMode)c[8];'
+                     'UnityEngine.InputSystem.InputSystem.settings.backgroundBehavior=(UnityEngine.InputSystem.InputSettings.BackgroundBehavior)c[9];'
+                     'AppDomain.CurrentDomain.SetData("'+KEY+'",null);return "Input, focus policy and selection restored";')
 if __name__=='__main__':main()
